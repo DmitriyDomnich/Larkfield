@@ -21,3 +21,7 @@ def test_missing_database_url_fails_fast(monkeypatch: pytest.MonkeyPatch) -> Non
 
     with pytest.raises(ValidationError, match="database_url"):
         Settings(_env_file=None)
+
+
+def test_ruleset_blocks_merge() -> None:
+    assert False
