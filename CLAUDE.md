@@ -51,8 +51,8 @@ CI (lint, typecheck, test) must be green to merge.
 **Never `git add`, commit, push or create branches — the developer does all git operations.**
 
 ## Hooks
-`.claude/hooks/py-check.sh` runs after every Edit/Write of a `.py` file: ruff fix + format on the file,
-then unit tests. If it reports a failure, fix it before doing anything else.
+`.claude/hooks/py-check.sh` runs after every Edit/Write of a `.py` file: ruff fix + format on the file.
+If it reports a failure, fix it before doing anything else. Run `make test-unit` before finishing a change.
 
 ## Rules the agent keeps breaking
 <!-- Add a rule here when the same mistake happens twice. -->

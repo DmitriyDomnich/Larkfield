@@ -17,13 +17,11 @@ from app.core.config import Settings
 def build_engine(settings: Settings) -> AsyncEngine:
     # SQLAlchemy needs the psycopg 3 driver named explicitly in the URL.
     url = str(settings.database_url).replace("postgresql://", "postgresql+psycopg://", 1)
-    timeout_ms = settings.db_connect_timeout * 1000
     return create_async_engine(
         url,
         pool_pre_ping=True,
         connect_args={
             "connect_timeout": settings.db_connect_timeout,
-            "options": f"-c statement_timeout={timeout_ms}",
         },
     )
 
