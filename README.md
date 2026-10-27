@@ -19,6 +19,7 @@ Development:
 ```bash
 uv sync
 docker compose up -d db
+make migrate                  # alembic upgrade head
 uv run uvicorn app.main:app --reload
 make check                    # lint, type check, tests (same as CI)
 ```
