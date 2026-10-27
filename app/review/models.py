@@ -48,9 +48,7 @@ class Proposal(CreatedAtMixin, Base):
     # Bedrock model name
     ai_model: Mapped[str] = mapped_column(String(255))
 
-    claim: Mapped[Claim] = relationship(
-        back_populates="proposals", foreign_keys=[claim_id], lazy="raise"
-    )
+    claim: Mapped[Claim] = relationship(foreign_keys=[claim_id], lazy="raise")
     reviewer_decision: Mapped["ReviewerDecision | None"] = relationship(
         back_populates="proposal", lazy="raise"
     )

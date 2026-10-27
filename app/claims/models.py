@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from sqlalchemy import (
     BigInteger,
@@ -17,9 +17,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.claims.status import INITIAL_STATUS, ClaimStatus
 from app.core.models import Base, CreatedAtMixin, TimestampMixin, str_enum
-
-if TYPE_CHECKING:
-    from app.review.models import Proposal
 
 
 class ClaimStatusRow(Base):
@@ -75,12 +72,6 @@ class Claim(TimestampMixin, Base):
     )
 
     document: Mapped["Document | None"] = relationship(back_populates="claim", lazy="raise")
-    proposals: Mapped[list["Proposal"]] = relationship(
-        back_populates="claim",
-        foreign_keys="Proposal.claim_id",
-        order_by="Proposal.created_at",
-        lazy="raise",
-    )
 
 
 class Document(CreatedAtMixin, Base):

@@ -7,37 +7,24 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from alembic.script import ScriptDirectory
-from sqlalchemy import make_url
 
 from app.core.config import Settings
+from tests.db import create_database, derived_database_url, drop_database
 
 pytestmark = pytest.mark.integration
 
 
-def _plain_url(url: str) -> str:
-    """SQLAlchemy URL -> libpq URL that psycopg.connect accepts."""
-    return url.replace("postgresql+psycopg://", "postgresql://", 1)
-
-
 @pytest.fixture
 def scratch_config(settings: Settings) -> Iterator[Config]:
-    """Alembic config pointed at a throwaway database, so downgrading never touches the one
-    the other tests (or the developer) use."""
-    base_url = make_url(str(settings.database_url))
-    name = f"{base_url.database}_migrations"
-    scratch_url = base_url.set(database=name).render_as_string(hide_password=False)
-
-    with psycopg.connect(_plain_url(str(settings.database_url)), autocommit=True) as admin:
-        admin.execute(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)')
-        admin.execute(f'CREATE DATABASE "{name}"')
-
+    """Alembic config pointed at its own throwaway database, so downgrading never touches the
+    test database the other tests use."""
+    url = derived_database_url("migrations")
+    create_database(url)
     config = Config("alembic.ini")
     config.attributes["configure_logger"] = False
-    config.attributes["settings"] = settings.model_copy(update={"database_url": scratch_url})
+    config.attributes["settings"] = settings.model_copy(update={"database_url": url})
     yield config
-
-    with psycopg.connect(_plain_url(str(settings.database_url)), autocommit=True) as admin:
-        admin.execute(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)')
+    drop_database(url)
 
 
 def test_every_migration_upgrades_and_downgrades_cleanly(scratch_config: Config) -> None:
@@ -53,8 +40,7 @@ def test_every_migration_upgrades_and_downgrades_cleanly(scratch_config: Config)
     command.downgrade(scratch_config, "base")
 
     # Nothing may be left behind but Alembic's own version table.
-    url = _plain_url(str(scratch_config.attributes["settings"].database_url))
-    with psycopg.connect(url) as conn:
+    with psycopg.connect(str(scratch_config.attributes["settings"].database_url)) as conn:
         tables = conn.execute(
             "SELECT tablename FROM pg_tables WHERE schemaname = 'public'"
         ).fetchall()

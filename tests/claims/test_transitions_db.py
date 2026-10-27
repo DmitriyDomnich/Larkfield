@@ -7,7 +7,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.claims.models import Claim
+from app.claims.models import Claim, ClaimStatusTransition
 from app.claims.service import InvalidTransitionError, transition
 from app.claims.status import ClaimStatus as S
 
@@ -74,6 +74,14 @@ async def test_database_refuses_transition_that_skips_the_service(
         await db_session.execute(
             text("UPDATE claims SET status = 'approved' WHERE id = :id"), {"id": claim_id}
         )
+
+
+async def test_transitions_table_matches_contracts(db_session: AsyncSession) -> None:
+    rows = await db_session.execute(
+        select(ClaimStatusTransition.from_status, ClaimStatusTransition.to_status)
+    )
+
+    assert {tuple(row) for row in rows} == set(ALLOWED)
 
 
 @pytest.mark.parametrize("run", [1, 2])

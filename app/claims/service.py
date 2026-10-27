@@ -5,7 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.claims.models import Claim
-from app.claims.status import ClaimStatus, can_transition
+from app.claims.status import ClaimStatus
 
 
 class ClaimNotFoundError(Exception):
@@ -31,8 +31,8 @@ async def transition(
     failure_reason: str | None = None,
 ) -> None:
     """
-    Move a claim to `target` if's allowed from its current status.
-    The database trigger enforces the same rule for anything that skips this function.
+    Move a claim to `target`. Whether the move is allowed is decided by the database (the
+    `claim_status_transitions` table and the trigger on `claims`).
     """
     if (target is ClaimStatus.FAILED) != (failure_reason is not None):
         raise ValueError("failure_reason is required for the failed status")
@@ -40,16 +40,16 @@ async def transition(
     current = await session.scalar(select(Claim.status).where(Claim.id == claim_id))
     if current is None:
         raise ClaimNotFoundError(claim_id)
-    if not can_transition(current, target):
-        raise InvalidTransitionError(current, target)
 
     try:
-        updated = await session.scalar(
-            update(Claim)
-            .where(Claim.id == claim_id, Claim.status == current)
-            .values(status=target, failure_reason=failure_reason)
-            .returning(Claim.id)
-        )
+        # savepoint: a refused move rolls back only this update, not the caller's transaction.
+        async with session.begin_nested():
+            updated = await session.scalar(
+                update(Claim)
+                .where(Claim.id == claim_id, Claim.status == current)
+                .values(status=target, failure_reason=failure_reason)
+                .returning(Claim.id)
+            )
     except IntegrityError as exc:
         raise InvalidTransitionError(current, target) from exc
     if updated is None:

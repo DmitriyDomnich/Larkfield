@@ -3,6 +3,7 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from sqlalchemy.orm import configure_mappers
 
 from app.core.config import get_settings
 from app.core.db import build_engine, build_session_factory
@@ -11,6 +12,7 @@ from app.health.router import router as health_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
+    configure_mappers()
     engine = build_engine(get_settings())
     app.state.engine = engine
     app.state.session_factory = build_session_factory(engine)

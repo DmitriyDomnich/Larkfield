@@ -8,8 +8,8 @@
 |---|---|---|
 | Tables for documents, extractions, proposals, reviewer decisions | SQLAlchemy models in `app/<feature>/models.py`, plus `claims` (holds the status) and `extraction_line_items` | `tests/core/test_migrations_db.py` |
 | Every migration upgrades and downgrades clean | Migrations from `make revision` (autogenerate); functions/triggers via alembic-utils | Stairway: each revision up → down → up on a scratch DB, then `base` leaves only `alembic_version` |
-| Only the transitions from the transition rules can happen | `claim_status_transitions` table + trigger on `claims`; `transition()` service checks first | `tests/claims/test_transitions_db.py`: all 10 allowed pairs; refused via service and via raw SQL |
-| Tests are isolated | Each test runs in a transaction that is rolled back | Isolation test run twice; each run must see only its own claim |
+| Only the transitions from the transition rules can happen | `claim_status_transitions` table + trigger on `claims` | `tests/claims/test_transitions_db.py`: all 10 allowed pairs; refused via service and via raw SQL |
+| Tests are isolated | Each run gets its own `<name>_test` database (created, migrated, dropped); each test runs in a transaction that is rolled back | Isolation test run twice; each run must see only its own claim |
 
 ## Design decisions
 
@@ -49,12 +49,13 @@ can add foreign keys later without rewriting them.
 - **In the database.** A `BEFORE INSERT OR UPDATE OF status` trigger on `claims` refuses any change not
   listed in `claim_status_transitions` (SQLSTATE 23514), and new claims must start in `pending_upload`.
   The API, the extraction worker, a Lambda or raw SQL all go through it.
-- `app/claims/service.py:transition()` checks the same rule first (clear error, no round trip) and
-  updates with compare-and-set (`WHERE status = :current`), so two workers can't both move a claim. In the case of two workers updating the same claim, worker 1 would succeed and worker 2 would get a `ConcurrentTransitionError`.
+- `app/claims/service.py:transition()` doesn't repeat the rule: it turns the trigger's refusal into
+  `InvalidTransitionError` and updates with compare-and-set (`WHERE status = :current`), so two workers can't both move a claim. In the case of two workers updating the same claim, worker 1 would succeed and worker 2 would get a `ConcurrentTransitionError`.
 
 ## Test plan
 
-- Integration (real Postgres, rolled back per test): every allowed transition; one refused through the
-  service and one through raw SQL; isolation; migration stairway on a scratch database.
+- Integration (own test database per run, rolled back per test): every allowed transition; one refused
+  through the service and one through raw SQL; isolation;
+  migration stairway on a scratch database.
 - Unit tests stay database-free (`make test-unit`).
 - Coverage ≥ 80% enforced in CI.
