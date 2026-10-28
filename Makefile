@@ -1,4 +1,4 @@
-.PHONY: up down logs lint fmt typecheck test test-unit check
+.PHONY: up down logs migrate revision lint fmt typecheck test test-unit check
 
 up:          ## start backend + db
 	docker compose up --build -d
@@ -8,6 +8,12 @@ down:
 
 logs:
 	docker compose logs -f api
+
+migrate:
+	uv run alembic upgrade head
+
+revision:    ## e.g. make revision m="add users"
+	uv run alembic revision --autogenerate -m "$(m)"
 
 lint:
 	uv run ruff check .

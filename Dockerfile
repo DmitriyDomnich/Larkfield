@@ -5,7 +5,7 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --no-install-project
-COPY app ./app
+COPY . .
 
 FROM python:3.13-slim
 RUN useradd --create-home --uid 1000 larkfield
