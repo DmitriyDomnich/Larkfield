@@ -5,13 +5,16 @@ from pathlib import Path
 import pytest
 from alembic import command
 from alembic.config import Config
+from dotenv import load_dotenv
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 if "DATABASE_URL" not in os.environ and not Path(".env").exists():
     os.environ["DATABASE_URL"] = "postgresql://test:test@localhost:5432/larkfield_test"
 
-from tests.db import create_database, derived_database_url, drop_database
+load_dotenv(".env.test", override=True)
+
+from tests.db import create_database, derived_database_url, drop_database  # noqa: E402
 
 TEST_DATABASE_URL = derived_database_url("test")
 os.environ["DATABASE_URL"] = TEST_DATABASE_URL
