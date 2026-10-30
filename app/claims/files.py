@@ -6,7 +6,7 @@ from urllib.parse import quote
 
 ContentType = Literal["image/jpeg", "image/png", "application/pdf"]
 
-MAX_FILE_BYTES = 10 * 1024 * 1024 # 10 MB
+MAX_FILE_BYTES = 10 * 1024 * 1024  # 10 MB
 
 # Every file of a type starts with the same bytes, e.g. every PDF with `%PDF-`. The declared type
 # and the filename come from the client; these are checked against the stored file.
