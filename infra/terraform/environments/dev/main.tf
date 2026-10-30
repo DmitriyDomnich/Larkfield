@@ -50,3 +50,9 @@ module "cognito" {
   deletion_protection          = false
   post_confirmation_lambda_arn = module.lambda.post_confirmation_arn
 }
+
+module "documents" {
+  source           = "../../modules/documents"
+  project_name     = var.project_name
+  frontend_origins = var.frontend_origins
+}
