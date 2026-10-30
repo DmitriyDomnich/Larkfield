@@ -2,6 +2,9 @@ data "archive_file" "post_confirmation" {
   type        = "zip"
   source_dir  = "${path.module}/../../../../lambdas/post_confirmation"
   output_path = "${path.root}/build/post_confirmation.zip"
+  # `make test-unit` writes bytecode when the unit tests import the handler;
+  # it would change the hash on every run and lambda would resource would always be recreated
+  excludes = ["__pycache__", "__pycache__/**"]
 }
 
 resource "aws_lambda_function" "post_confirmation" {

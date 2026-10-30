@@ -20,6 +20,12 @@ class Settings(BaseSettings):
     cognito_user_pool_id: str
     cognito_app_client_id: str
 
+    aws_region: str
+    documents_bucket: str
+
+    upload_url_ttl_seconds: int = 600
+    file_url_ttl_seconds: int = 300
+
     @property
     def cognito_issuer(self) -> str:
         return (
