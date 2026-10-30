@@ -35,6 +35,21 @@ jobs:
       - run: uv sync --frozen
       - run: uv run mypy
 
+  terraform:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        environment: [dev]
+    defaults:
+      run:
+        working-directory: infra/terraform/environments/${{ matrix.environment }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: hashicorp/setup-terraform@v3
+      - run: terraform fmt -check -recursive ../..
+      - run: terraform init -backend=false # syntax + provider schema
+      - run: terraform validate
+
   test:
     runs-on: ubuntu-latest
     services:

@@ -21,6 +21,10 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       APP_ENV: local
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      COGNITO_REGION: ${COGNITO_REGION:?set COGNITO_REGION in .env}
+      COGNITO_USER_POOL_ID: ${COGNITO_USER_POOL_ID:?set COGNITO_USER_POOL_ID in .env}
+      COGNITO_APP_CLIENT_ID: ${COGNITO_APP_CLIENT_ID:?set COGNITO_APP_CLIENT_ID in .env}
+      AWS_PROFILE: ${AWS_PROFILE:?set AWS_PROFILE in .env}  # needed locally only for user role changes endpoint call
     ports:
       - "8000:8000"
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
@@ -28,6 +32,7 @@ services:
       - ./app:/app/app:ro
       - ./migrations:/app/migrations:ro
       - ./alembic.ini:/app/alembic.ini:ro
+      - ~/.aws:/home/larkfield/.aws:ro
     depends_on:
       db:
         condition: service_healthy

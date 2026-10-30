@@ -11,9 +11,17 @@ htmlcov/
 .env
 .env.*
 !.env.example
+!.env.test
 
 .DS_Store
 .idea/
 .vscode/
 
 .claude/settings.local.json
+
+.terraform/
+*.tfstate
+*.tfstate.*
+infra/terraform/environments/*/backend.hcl
+infra/terraform/environments/*/terraform.tfvars
+infra/terraform/environments/*/build/

@@ -1,0 +1,2 @@
+# read automatically by `terraform plan/apply`
+aws_region = "<region>"
