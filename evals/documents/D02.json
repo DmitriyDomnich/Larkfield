@@ -1,0 +1,46 @@
+{
+  "document_type": "receipt",
+  "vendor_name": "Fischhaus Elbblick",
+  "vendor_tax_id": "DE234567891",
+  "document_number": "4471-0903",
+  "document_date": "2026-09-03",
+  "document_time": "20:15",
+  "currency": "EUR",
+  "line_items": [
+    {
+      "description": "Krabbensuppe",
+      "quantity": "1",
+      "unit_price": "11.50",
+      "amount": "11.50"
+    },
+    {
+      "description": "Scholle Finkenwerder Art",
+      "quantity": "1",
+      "unit_price": "31.90",
+      "amount": "31.90"
+    },
+    {
+      "description": "Rote Grütze mit Vanillesoße",
+      "quantity": "1",
+      "unit_price": "8.20",
+      "amount": "8.20"
+    },
+    {
+      "description": "Mineralwasser 0,75 l",
+      "quantity": "1",
+      "unit_price": "7.40",
+      "amount": "7.40"
+    },
+    {
+      "description": "Espresso",
+      "quantity": "1",
+      "unit_price": "3.00",
+      "amount": "3.00"
+    }
+  ],
+  "subtotal": "52.10",
+  "tax_amount": "9.90",
+  "tip_amount": null,
+  "total": "62.00",
+  "category": "meal"
+}

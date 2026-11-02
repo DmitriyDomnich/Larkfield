@@ -1,0 +1,28 @@
+{
+  "document_type": "invoice",
+  "vendor_name": "SkyBridge Airways",
+  "vendor_tax_id": null,
+  "document_number": "SBA-INV-2026-061044",
+  "document_date": "2026-06-10",
+  "document_time": null,
+  "currency": "EUR",
+  "line_items": [
+    {
+      "description": "Flight SB 412 Frankfurt (FRA) - Lisbon (LIS), 02.07.2026, Economy class (Y)",
+      "quantity": "1",
+      "unit_price": "158.00",
+      "amount": "158.00"
+    },
+    {
+      "description": "Taxes, fees and charges",
+      "quantity": "1",
+      "unit_price": "52.00",
+      "amount": "52.00"
+    }
+  ],
+  "subtotal": null,
+  "tax_amount": null,
+  "tip_amount": null,
+  "total": "210.00",
+  "category": "air_travel"
+}

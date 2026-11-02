@@ -1,0 +1,28 @@
+{
+  "document_type": "receipt",
+  "vendor_name": "Kabelwerk Elektronik",
+  "vendor_tax_id": "DE990011225",
+  "document_number": "KW-55102",
+  "document_date": "2026-09-09",
+  "document_time": "15:31",
+  "currency": "EUR",
+  "line_items": [
+    {
+      "description": "USB-C Ladekabel 2 m",
+      "quantity": "1",
+      "unit_price": "14.99",
+      "amount": "14.99"
+    },
+    {
+      "description": "HDMI-Adapter USB-C",
+      "quantity": "1",
+      "unit_price": "19.99",
+      "amount": "19.99"
+    }
+  ],
+  "subtotal": null,
+  "tax_amount": "5.59",
+  "tip_amount": null,
+  "total": "34.98",
+  "category": "accessories"
+}

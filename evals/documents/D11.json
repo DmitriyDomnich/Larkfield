@@ -1,0 +1,22 @@
+{
+  "document_type": "receipt",
+  "vendor_name": "Elektrohaus Nordlicht",
+  "vendor_tax_id": "DE789123456",
+  "document_number": "K3-019284",
+  "document_date": "2026-06-22",
+  "document_time": "16:48",
+  "currency": "EUR",
+  "line_items": [
+    {
+      "description": "Monitor 27\" IPS QHD 2560x1440, Modell NL-27Q",
+      "quantity": "1",
+      "unit_price": "249.00",
+      "amount": "249.00"
+    }
+  ],
+  "subtotal": "209.24",
+  "tax_amount": "39.76",
+  "tip_amount": null,
+  "total": "249.00",
+  "category": "equipment"
+}

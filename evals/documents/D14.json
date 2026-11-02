@@ -1,0 +1,22 @@
+{
+  "document_type": "invoice",
+  "vendor_name": "Pixelform Studio GmbH",
+  "vendor_tax_id": "DE891234567",
+  "document_number": "PF-2026-0801-3391",
+  "document_date": "2026-08-01",
+  "document_time": null,
+  "currency": "EUR",
+  "line_items": [
+    {
+      "description": "Pixelform Pro, monthly plan, 01.08.2026-31.08.2026",
+      "quantity": "1",
+      "unit_price": "24.37",
+      "amount": "24.37"
+    }
+  ],
+  "subtotal": "24.37",
+  "tax_amount": "4.63",
+  "tip_amount": null,
+  "total": "29.00",
+  "category": "software"
+}

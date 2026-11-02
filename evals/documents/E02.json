@@ -1,0 +1,172 @@
+{
+  "document_type": "invoice",
+  "vendor_name": "Rechenwerk IT-Handel AG",
+  "vendor_tax_id": "DE556677881",
+  "document_number": "RW-2026-17730",
+  "document_date": "2026-06-17",
+  "document_time": null,
+  "currency": "EUR",
+  "line_items": [
+    {
+      "description": "Monitor 24\" FHD, höhenverstellbar, Seriennr. HK24-77120 bis HK24-77125",
+      "quantity": "6",
+      "unit_price": "139.00",
+      "amount": "834.00"
+    },
+    {
+      "description": "Monitor 27\" QHD USB-C, Seriennr. QD27-51004 bis QD27-51007",
+      "quantity": "4",
+      "unit_price": "279.00",
+      "amount": "1116.00"
+    },
+    {
+      "description": "USB-C Dockingstation, 2x HDMI, 100 W PD",
+      "quantity": "8",
+      "unit_price": "119.00",
+      "amount": "952.00"
+    },
+    {
+      "description": "Tastatur kabellos, deutsches Layout",
+      "quantity": "10",
+      "unit_price": "39.90",
+      "amount": "399.00"
+    },
+    {
+      "description": "Maus kabellos, ergonomisch",
+      "quantity": "10",
+      "unit_price": "29.90",
+      "amount": "299.00"
+    },
+    {
+      "description": "Headset USB, Geräuschunterdrückung",
+      "quantity": "8",
+      "unit_price": "74.50",
+      "amount": "596.00"
+    },
+    {
+      "description": "Webcam 1080p mit Abdeckung",
+      "quantity": "6",
+      "unit_price": "49.00",
+      "amount": "294.00"
+    },
+    {
+      "description": "Monitorarm, doppelt, Tischklemme",
+      "quantity": "4",
+      "unit_price": "89.00",
+      "amount": "356.00"
+    },
+    {
+      "description": "HDMI-Kabel 2 m",
+      "quantity": "12",
+      "unit_price": "6.90",
+      "amount": "82.80"
+    },
+    {
+      "description": "DisplayPort-Kabel 2 m",
+      "quantity": "8",
+      "unit_price": "8.40",
+      "amount": "67.20"
+    },
+    {
+      "description": "USB-C-Kabel 1 m, 100 W",
+      "quantity": "15",
+      "unit_price": "9.80",
+      "amount": "147.00"
+    },
+    {
+      "description": "Netzwerkkabel Cat6, 3 m",
+      "quantity": "20",
+      "unit_price": "3.20",
+      "amount": "64.00"
+    },
+    {
+      "description": "Mehrfachsteckdose 6-fach mit Schalter",
+      "quantity": "6",
+      "unit_price": "18.50",
+      "amount": "111.00"
+    },
+    {
+      "description": "Laptopständer Aluminium",
+      "quantity": "5",
+      "unit_price": "32.00",
+      "amount": "160.00"
+    },
+    {
+      "description": "Kabelkanal 1,5 m, weiß",
+      "quantity": "6",
+      "unit_price": "11.70",
+      "amount": "70.20"
+    },
+    {
+      "description": "Präsentations-Presenter mit Laserpointer",
+      "quantity": "2",
+      "unit_price": "34.90",
+      "amount": "69.80"
+    },
+    {
+      "description": "Externe SSD 1 TB USB-C",
+      "quantity": "3",
+      "unit_price": "84.00",
+      "amount": "252.00"
+    },
+    {
+      "description": "USB-Stick 64 GB",
+      "quantity": "10",
+      "unit_price": "8.90",
+      "amount": "89.00"
+    },
+    {
+      "description": "Ladegerät USB-C 65 W",
+      "quantity": "6",
+      "unit_price": "36.00",
+      "amount": "216.00"
+    },
+    {
+      "description": "Adapter USB-C auf Ethernet",
+      "quantity": "6",
+      "unit_price": "19.90",
+      "amount": "119.40"
+    },
+    {
+      "description": "Bildschirmreiniger-Set",
+      "quantity": "5",
+      "unit_price": "7.50",
+      "amount": "37.50"
+    },
+    {
+      "description": "Ergonomische Handgelenkauflage",
+      "quantity": "8",
+      "unit_price": "12.90",
+      "amount": "103.20"
+    },
+    {
+      "description": "Konferenzlautsprecher USB/Bluetooth",
+      "quantity": "2",
+      "unit_price": "149.00",
+      "amount": "298.00"
+    },
+    {
+      "description": "Kabelbinder wiederverwendbar, 50 Stück",
+      "quantity": "4",
+      "unit_price": "6.40",
+      "amount": "25.60"
+    },
+    {
+      "description": "Installation und Einrichtung der Arbeitsplätze, Pauschale je Platz",
+      "quantity": "10",
+      "unit_price": "45.00",
+      "amount": "450.00"
+    },
+    {
+      "description": "Lieferung und Altgeräteentsorgung",
+      "quantity": "1",
+      "unit_price": "65.00",
+      "amount": "65.00"
+    }
+  ],
+  "subtotal": "7273.70",
+  "tax_amount": "1382.00",
+  "tip_amount": null,
+  "total": "8655.70",
+  "category": "equipment"
+}

@@ -1,0 +1,34 @@
+{
+  "document_type": "invoice",
+  "vendor_name": "Hotel Mainblick Frankfurt",
+  "vendor_tax_id": "DE283746591",
+  "document_number": "MB-26-08-0932",
+  "document_date": "2026-08-12",
+  "document_time": null,
+  "currency": "EUR",
+  "line_items": [
+    {
+      "description": "Übernachtung Einzelzimmer, 10.08.2026",
+      "quantity": "1",
+      "unit_price": "140.00",
+      "amount": "140.00"
+    },
+    {
+      "description": "Übernachtung Einzelzimmer, 11.08.2026",
+      "quantity": "1",
+      "unit_price": "140.00",
+      "amount": "140.00"
+    },
+    {
+      "description": "Minibar",
+      "quantity": "1",
+      "unit_price": "12.00",
+      "amount": "12.00"
+    }
+  ],
+  "subtotal": "271.76",
+  "tax_amount": "20.24",
+  "tip_amount": null,
+  "total": "292.00",
+  "category": "hotel"
+}

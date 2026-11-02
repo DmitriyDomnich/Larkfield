@@ -1,0 +1,22 @@
+{
+  "document_type": "receipt",
+  "vendor_name": "Elektrohaus Nordlicht",
+  "vendor_tax_id": "DE789123456",
+  "document_number": "K2-024418",
+  "document_date": "2026-08-10",
+  "document_time": "17:22",
+  "currency": "EUR",
+  "line_items": [
+    {
+      "description": "Notebook 14\" Ryzen 7, 32 GB RAM, 1 TB SSD, Modell NL-B14",
+      "quantity": "1",
+      "unit_price": "1450.00",
+      "amount": "1450.00"
+    }
+  ],
+  "subtotal": "1218.49",
+  "tax_amount": "231.51",
+  "tip_amount": null,
+  "total": "1450.00",
+  "category": "equipment"
+}

@@ -1,0 +1,34 @@
+{
+  "document_type": "receipt",
+  "vendor_name": "Gasthaus Rheinterrasse",
+  "vendor_tax_id": "DE778899003",
+  "document_number": "GR-4410",
+  "document_date": "2026-08-05",
+  "document_time": "13:12",
+  "currency": "EUR",
+  "line_items": [
+    {
+      "description": "Rheinischer Sauerbraten",
+      "quantity": "1",
+      "unit_price": "18.90",
+      "amount": "18.90"
+    },
+    {
+      "description": "Apfelschorle 0,4 l",
+      "quantity": "1",
+      "unit_price": "4.20",
+      "amount": "4.20"
+    },
+    {
+      "description": "Kaffee",
+      "quantity": "1",
+      "unit_price": "2.90",
+      "amount": "2.90"
+    }
+  ],
+  "subtotal": "21.85",
+  "tax_amount": "4.15",
+  "tip_amount": null,
+  "total": "26.00",
+  "category": "meal"
+}

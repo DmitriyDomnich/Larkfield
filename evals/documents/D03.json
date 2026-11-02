@@ -1,0 +1,58 @@
+{
+  "document_type": "receipt",
+  "vendor_name": "Trattoria Lungolago",
+  "vendor_tax_id": "DE345678912",
+  "document_number": "TL-88213",
+  "document_date": "2026-08-20",
+  "document_time": "21:34",
+  "currency": "EUR",
+  "line_items": [
+    {
+      "description": "Vitello tonnato",
+      "quantity": "3",
+      "unit_price": "14.50",
+      "amount": "43.50"
+    },
+    {
+      "description": "Branzino al forno",
+      "quantity": "1",
+      "unit_price": "32.00",
+      "amount": "32.00"
+    },
+    {
+      "description": "Ossobuco alla milanese",
+      "quantity": "1",
+      "unit_price": "34.50",
+      "amount": "34.50"
+    },
+    {
+      "description": "Risotto ai funghi porcini",
+      "quantity": "1",
+      "unit_price": "26.00",
+      "amount": "26.00"
+    },
+    {
+      "description": "Barolo DOCG 2019, 0,75 l",
+      "quantity": "2",
+      "unit_price": "42.00",
+      "amount": "84.00"
+    },
+    {
+      "description": "Acqua minerale 0,75 l",
+      "quantity": "2",
+      "unit_price": "6.50",
+      "amount": "13.00"
+    },
+    {
+      "description": "Espresso",
+      "quantity": "2",
+      "unit_price": "3.50",
+      "amount": "7.00"
+    }
+  ],
+  "subtotal": "201.68",
+  "tax_amount": "38.32",
+  "tip_amount": null,
+  "total": "240.00",
+  "category": "client_entertainment"
+}

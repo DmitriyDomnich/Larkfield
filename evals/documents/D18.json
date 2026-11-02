@@ -1,0 +1,22 @@
+{
+  "document_type": "receipt",
+  "vendor_name": "Spree Funk Taxi eG",
+  "vendor_tax_id": "DE192837465",
+  "document_number": "SFT-77810",
+  "document_date": "2026-07-06",
+  "document_time": "23:10",
+  "currency": "EUR",
+  "line_items": [
+    {
+      "description": "Fahrt Friedrichstraße 43 - Invalidenstraße 31 (Hotel), 4,2 km",
+      "quantity": "1",
+      "unit_price": "20.00",
+      "amount": "20.00"
+    }
+  ],
+  "subtotal": "18.69",
+  "tax_amount": "1.31",
+  "tip_amount": null,
+  "total": "20.00",
+  "category": "taxi"
+}

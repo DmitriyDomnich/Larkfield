@@ -1,0 +1,22 @@
+{
+  "document_type": "receipt",
+  "vendor_name": "Taxi Neckar-Funk",
+  "vendor_tax_id": "DE889900114",
+  "document_number": "TN 260819-07",
+  "document_date": "2026-08-19",
+  "document_time": "06:40",
+  "currency": "EUR",
+  "line_items": [
+    {
+      "description": "Fahrt Königstraße 20 - Flughafen Stuttgart (Terminal 1), 14,8 km",
+      "quantity": "1",
+      "unit_price": "42.30",
+      "amount": "42.30"
+    }
+  ],
+  "subtotal": "39.53",
+  "tax_amount": "2.77",
+  "tip_amount": null,
+  "total": "42.30",
+  "category": "taxi"
+}
