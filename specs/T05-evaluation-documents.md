@@ -73,6 +73,20 @@ tip is drawn letter by letter, so no font file is needed.
 
 **E10 has no label.** Its content lives in `render.py`; the photo cuts off before the total.
 
+## Claude Code setup
+
+- **`.mcp.json`** (committed), two servers:
+  - `postgres`: Postgres MCP Pro, read-only (`--access-mode=restricted`), for inspecting the local
+    dev database (schema, rows after tests). Runs as the Docker image
+    `crystaldba/postgres-mcp:0.3.0`. The database URL is read from `.env`, so no credentials are committed.
+    Needs Docker and the db running.
+  - `aws-docs`: AWS Labs documentation server (`uvx`, pinned 1.2.4), for current Bedrock / S3 Vectors
+    docs. Public docs only, no AWS credentials.
+- **`.claude/settings.json`** `allow` list: `make test-unit|lint|typecheck|check|fmt`,
+  `uv run pytest|ruff|mypy`, read-only `git`, `docker compose ps|logs`, both MCP servers. Commands
+  that change the DB, containers, dependencies or AWS (`make migrate|up|down`, `make eval-docs`,
+  `uv add`, `aws`, `terraform`) still prompt; the git-write `deny` list is unchanged.
+
 ## Testing
 
 Unit tests only (no DB, no AWS), part of `make test-unit`:
