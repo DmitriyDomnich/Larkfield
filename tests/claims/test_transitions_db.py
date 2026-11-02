@@ -15,6 +15,7 @@ pytestmark = pytest.mark.integration
 
 ALLOWED = [
     (S.PENDING_UPLOAD, S.UPLOADED),
+    (S.PENDING_UPLOAD, S.FAILED),
     (S.UPLOADED, S.EXTRACTING),
     (S.EXTRACTING, S.EXTRACTED),
     (S.EXTRACTING, S.FAILED),
