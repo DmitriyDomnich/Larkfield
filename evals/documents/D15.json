@@ -1,0 +1,22 @@
+{
+  "document_type": "invoice",
+  "vendor_name": "Stadt Köln - Verkehrsüberwachung",
+  "vendor_tax_id": null,
+  "document_number": "VW 503.26.118274",
+  "document_date": "2026-07-29",
+  "document_time": "10:42",
+  "currency": "EUR",
+  "line_items": [
+    {
+      "description": "Verwarnungsgeld: Parken ohne gültigen Parkschein, Tatbestandsnummer 141312",
+      "quantity": "1",
+      "unit_price": "35.00",
+      "amount": "35.00"
+    }
+  ],
+  "subtotal": null,
+  "tax_amount": null,
+  "tip_amount": null,
+  "total": "35.00",
+  "category": "fine"
+}

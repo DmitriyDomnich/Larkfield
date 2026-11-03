@@ -1,4 +1,4 @@
-.PHONY: up down logs migrate revision lint fmt typecheck test test-unit check
+.PHONY: up down logs migrate revision lint fmt typecheck test test-unit check eval-docs
 
 up:          ## start backend + db
 	docker compose up --build -d
@@ -33,3 +33,6 @@ test:        ## all tests + coverage
 	uv run pytest --cov --cov-report=term-missing
 
 check: lint typecheck test
+
+eval-docs:   ## (re)generate evals/documents from their labels, e.g. make eval-docs ids="D01 E06"
+	uv run python -m evals.generator $(ids)

@@ -1,0 +1,28 @@
+{
+  "document_type": "invoice",
+  "vendor_name": "Hotel Spreebogen Mitte",
+  "vendor_tax_id": "DE567891234",
+  "document_number": "RG-2026-07-4471",
+  "document_date": "2026-07-16",
+  "document_time": null,
+  "currency": "EUR",
+  "line_items": [
+    {
+      "description": "Übernachtung Doppelzimmer zur Einzelnutzung, 14.07.2026",
+      "quantity": "1",
+      "unit_price": "145.00",
+      "amount": "145.00"
+    },
+    {
+      "description": "Übernachtung Doppelzimmer zur Einzelnutzung, 15.07.2026",
+      "quantity": "1",
+      "unit_price": "145.00",
+      "amount": "145.00"
+    }
+  ],
+  "subtotal": "271.03",
+  "tax_amount": "18.97",
+  "tip_amount": null,
+  "total": "290.00",
+  "category": "hotel"
+}

@@ -1,0 +1,28 @@
+{
+  "document_type": "invoice",
+  "vendor_name": "SkyBridge Airways",
+  "vendor_tax_id": null,
+  "document_number": "SBA-INV-2026-061522",
+  "document_date": "2026-06-15",
+  "document_time": null,
+  "currency": "EUR",
+  "line_items": [
+    {
+      "description": "Flight SB 1270 Frankfurt (FRA) - Vienna (VIE), 06.07.2026, 07:10-08:30 (1h 20m), Business class (J)",
+      "quantity": "1",
+      "unit_price": "812.00",
+      "amount": "812.00"
+    },
+    {
+      "description": "Taxes, fees and charges",
+      "quantity": "1",
+      "unit_price": "78.00",
+      "amount": "78.00"
+    }
+  ],
+  "subtotal": null,
+  "tax_amount": null,
+  "tip_amount": null,
+  "total": "890.00",
+  "category": "air_travel"
+}

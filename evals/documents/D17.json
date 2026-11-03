@@ -1,0 +1,34 @@
+{
+  "document_type": "receipt",
+  "vendor_name": "Brauhaus am Markt",
+  "vendor_tax_id": "DE123456789",
+  "document_number": "R-20481",
+  "document_date": "2026-09-03",
+  "document_time": "12:41",
+  "currency": "EUR",
+  "line_items": [
+    {
+      "description": "Tagessuppe",
+      "quantity": "1",
+      "unit_price": "6.50",
+      "amount": "6.50"
+    },
+    {
+      "description": "Apfelschorle",
+      "quantity": "1",
+      "unit_price": "3.80",
+      "amount": "3.80"
+    },
+    {
+      "description": "Käsespätzle",
+      "quantity": "1",
+      "unit_price": "8.20",
+      "amount": "8.20"
+    }
+  ],
+  "subtotal": "15.55",
+  "tax_amount": "2.95",
+  "tip_amount": null,
+  "total": "18.50",
+  "category": "meal"
+}

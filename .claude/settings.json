@@ -1,5 +1,23 @@
 {
   "permissions": {
+    "allow": [
+      "Bash(make test-unit)",
+      "Bash(make lint)",
+      "Bash(make typecheck)",
+      "Bash(make check)",
+      "Bash(make fmt)",
+      "Bash(uv run pytest:*)",
+      "Bash(uv run ruff:*)",
+      "Bash(uv run mypy:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(docker compose ps:*)",
+      "Bash(docker compose logs:*)",
+      "mcp__aws-docs",
+      "mcp__postgres"
+    ],
     "deny": [
       "Bash(git add:*)",
       "Bash(git commit:*)",

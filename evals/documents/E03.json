@@ -1,0 +1,232 @@
+{
+  "document_type": "invoice",
+  "vendor_name": "Elbufer Catering & Seminare GmbH",
+  "vendor_tax_id": "DE667788992",
+  "document_number": "EC-26-0701-118",
+  "document_date": "2026-07-01",
+  "document_time": null,
+  "currency": "EUR",
+  "line_items": [
+    {
+      "description": "Begrüßungskaffee mit Gebäck, pro Person",
+      "quantity": "24",
+      "unit_price": "6.80",
+      "amount": "163.20"
+    },
+    {
+      "description": "Mineralwasser 0,75 l",
+      "quantity": "36",
+      "unit_price": "3.40",
+      "amount": "122.40"
+    },
+    {
+      "description": "Apfelsaftschorle 0,5 l",
+      "quantity": "24",
+      "unit_price": "2.90",
+      "amount": "69.60"
+    },
+    {
+      "description": "Kaffee und Tee, Thermoskanne 1 l",
+      "quantity": "16",
+      "unit_price": "11.00",
+      "amount": "176.00"
+    },
+    {
+      "description": "Obstplatte, saisonal",
+      "quantity": "4",
+      "unit_price": "28.00",
+      "amount": "112.00"
+    },
+    {
+      "description": "Müsliriegel, sortiert",
+      "quantity": "48",
+      "unit_price": "1.30",
+      "amount": "62.40"
+    },
+    {
+      "description": "Mittagsbuffet: Tomatensuppe mit Basilikum",
+      "quantity": "24",
+      "unit_price": "4.50",
+      "amount": "108.00"
+    },
+    {
+      "description": "Mittagsbuffet: Hähnchenbrust mit Kräuterkruste",
+      "quantity": "14",
+      "unit_price": "11.90",
+      "amount": "166.60"
+    },
+    {
+      "description": "Mittagsbuffet: Gemüsecurry mit Basmatireis",
+      "quantity": "10",
+      "unit_price": "10.40",
+      "amount": "104.00"
+    },
+    {
+      "description": "Mittagsbuffet: Salatbar",
+      "quantity": "24",
+      "unit_price": "5.20",
+      "amount": "124.80"
+    },
+    {
+      "description": "Mittagsbuffet: Dessert Panna Cotta",
+      "quantity": "24",
+      "unit_price": "3.90",
+      "amount": "93.60"
+    },
+    {
+      "description": "Nachmittagskaffee mit Kuchen, pro Person",
+      "quantity": "24",
+      "unit_price": "6.20",
+      "amount": "148.80"
+    },
+    {
+      "description": "Laugenbrezeln",
+      "quantity": "30",
+      "unit_price": "1.40",
+      "amount": "42.00"
+    },
+    {
+      "description": "Smoothie 0,25 l",
+      "quantity": "24",
+      "unit_price": "3.60",
+      "amount": "86.40"
+    },
+    {
+      "description": "Abendessen: Vorspeisenplatte, pro Tisch",
+      "quantity": "4",
+      "unit_price": "36.00",
+      "amount": "144.00"
+    },
+    {
+      "description": "Abendessen: Rinderschmorbraten",
+      "quantity": "12",
+      "unit_price": "21.50",
+      "amount": "258.00"
+    },
+    {
+      "description": "Abendessen: Lachsfilet mit Kartoffelgratin",
+      "quantity": "8",
+      "unit_price": "22.80",
+      "amount": "182.40"
+    },
+    {
+      "description": "Abendessen: Pilzrisotto",
+      "quantity": "4",
+      "unit_price": "17.90",
+      "amount": "71.60"
+    },
+    {
+      "description": "Abendessen: Schokoladenmousse",
+      "quantity": "24",
+      "unit_price": "5.40",
+      "amount": "129.60"
+    },
+    {
+      "description": "Softgetränke 0,33 l, sortiert",
+      "quantity": "40",
+      "unit_price": "2.80",
+      "amount": "112.00"
+    },
+    {
+      "description": "Espresso",
+      "quantity": "30",
+      "unit_price": "2.40",
+      "amount": "72.00"
+    },
+    {
+      "description": "Cappuccino",
+      "quantity": "26",
+      "unit_price": "3.10",
+      "amount": "80.60"
+    },
+    {
+      "description": "Raummiete Seminarraum Elbe, ganztags",
+      "quantity": "1",
+      "unit_price": "480.00",
+      "amount": "480.00"
+    },
+    {
+      "description": "Beamer und Leinwand",
+      "quantity": "1",
+      "unit_price": "75.00",
+      "amount": "75.00"
+    },
+    {
+      "description": "Moderationskoffer",
+      "quantity": "1",
+      "unit_price": "25.00",
+      "amount": "25.00"
+    },
+    {
+      "description": "Flipchart mit Papier",
+      "quantity": "2",
+      "unit_price": "18.00",
+      "amount": "36.00"
+    },
+    {
+      "description": "Servicepersonal, pro Stunde",
+      "quantity": "12",
+      "unit_price": "32.00",
+      "amount": "384.00"
+    },
+    {
+      "description": "Endreinigung Seminarraum",
+      "quantity": "1",
+      "unit_price": "60.00",
+      "amount": "60.00"
+    },
+    {
+      "description": "Garderobe, pauschal",
+      "quantity": "1",
+      "unit_price": "35.00",
+      "amount": "35.00"
+    },
+    {
+      "description": "Lunchpakete für die Rückfahrt",
+      "quantity": "10",
+      "unit_price": "8.90",
+      "amount": "89.00"
+    },
+    {
+      "description": "Namensschilder mit Druck",
+      "quantity": "24",
+      "unit_price": "1.20",
+      "amount": "28.80"
+    },
+    {
+      "description": "Tischdekoration, saisonal",
+      "quantity": "4",
+      "unit_price": "14.00",
+      "amount": "56.00"
+    },
+    {
+      "description": "Kühlung Getränke, pauschal",
+      "quantity": "1",
+      "unit_price": "20.00",
+      "amount": "20.00"
+    },
+    {
+      "description": "Leergut-Rücknahme, pauschal",
+      "quantity": "1",
+      "unit_price": "10.00",
+      "amount": "10.00"
+    },
+    {
+      "description": "Parkplätze Tagesticket",
+      "quantity": "8",
+      "unit_price": "9.00",
+      "amount": "72.00"
+    },
+    {
+      "description": "Fotoservice Gruppenbild",
+      "quantity": "1",
+      "unit_price": "90.00",
+      "amount": "90.00"
+    }
+  ],
+  "subtotal": "4090.80",
+  "tax_amount": "777.25",
+  "tip_amount": null,
+  "total": "4868.05",
+  "category": "team_meal"
+}

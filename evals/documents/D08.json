@@ -1,0 +1,22 @@
+{
+  "document_type": "receipt",
+  "vendor_name": "IsarCab Funktaxi GmbH",
+  "vendor_tax_id": "DE678912345",
+  "document_number": "IC-552190",
+  "document_date": "2026-07-21",
+  "document_time": "14:00",
+  "currency": "EUR",
+  "line_items": [
+    {
+      "description": "Fahrt Leopoldstraße 112 - Marienplatz 8 (Innenstadt), 6,1 km",
+      "quantity": "1",
+      "unit_price": "75.00",
+      "amount": "75.00"
+    }
+  ],
+  "subtotal": "70.09",
+  "tax_amount": "4.91",
+  "tip_amount": null,
+  "total": "75.00",
+  "category": "taxi"
+}

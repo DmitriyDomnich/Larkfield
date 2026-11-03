@@ -1,0 +1,15 @@
+{
+  "document_type": "card_slip",
+  "vendor_name": "Restaurant Hafenkante",
+  "vendor_tax_id": null,
+  "document_number": "0412",
+  "document_date": "2026-09-04",
+  "document_time": "19:40",
+  "currency": "EUR",
+  "line_items": [],
+  "subtotal": null,
+  "tax_amount": null,
+  "tip_amount": null,
+  "total": "40.00",
+  "category": "meal"
+}

@@ -1,0 +1,52 @@
+{
+  "document_type": "receipt",
+  "vendor_name": "Steakhaus Mainufer",
+  "vendor_tax_id": "DE456789123",
+  "document_number": "SM 2026/11734",
+  "document_date": "2026-08-25",
+  "document_time": "21:02",
+  "currency": "EUR",
+  "line_items": [
+    {
+      "description": "Brotkorb mit Kräuterbutter",
+      "quantity": "1",
+      "unit_price": "4.90",
+      "amount": "4.90"
+    },
+    {
+      "description": "Rinderfilet 250 g",
+      "quantity": "3",
+      "unit_price": "38.50",
+      "amount": "115.50"
+    },
+    {
+      "description": "Beilagensalat",
+      "quantity": "3",
+      "unit_price": "6.50",
+      "amount": "19.50"
+    },
+    {
+      "description": "Mineralwasser 0,75 l",
+      "quantity": "2",
+      "unit_price": "7.50",
+      "amount": "15.00"
+    },
+    {
+      "description": "Crème brûlée",
+      "quantity": "3",
+      "unit_price": "8.50",
+      "amount": "25.50"
+    },
+    {
+      "description": "Espresso",
+      "quantity": "3",
+      "unit_price": "3.20",
+      "amount": "9.60"
+    }
+  ],
+  "subtotal": "159.66",
+  "tax_amount": "30.34",
+  "tip_amount": null,
+  "total": "190.00",
+  "category": "client_entertainment"
+}

@@ -1,0 +1,22 @@
+{
+  "document_type": "receipt",
+  "vendor_name": "Buchhandlung Seitenwind",
+  "vendor_tax_id": "DE374659182",
+  "document_number": "BS 0818-044",
+  "document_date": "2026-08-18",
+  "document_time": "13:27",
+  "currency": "EUR",
+  "line_items": [
+    {
+      "description": "Data Systems at Scale: Design Patterns for Reliable Platforms (Paperback)",
+      "quantity": "1",
+      "unit_price": "45.00",
+      "amount": "45.00"
+    }
+  ],
+  "subtotal": "42.06",
+  "tax_amount": "2.94",
+  "tip_amount": null,
+  "total": "45.00",
+  "category": "training"
+}

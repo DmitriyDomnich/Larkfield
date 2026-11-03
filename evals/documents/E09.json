@@ -1,0 +1,46 @@
+{
+  "document_type": "receipt",
+  "vendor_name": "Ristorante Da Paolo",
+  "vendor_tax_id": "DE101122336",
+  "document_number": "DP 2026-3920",
+  "document_date": "2026-09-16",
+  "document_time": "20:10",
+  "currency": "EUR",
+  "line_items": [
+    {
+      "description": "Pizza Diavola",
+      "quantity": "1",
+      "unit_price": "13.50",
+      "amount": "13.50"
+    },
+    {
+      "description": "Saltimbocca alla romana",
+      "quantity": "1",
+      "unit_price": "22.90",
+      "amount": "22.90"
+    },
+    {
+      "description": "Insalata mista",
+      "quantity": "1",
+      "unit_price": "7.90",
+      "amount": "7.90"
+    },
+    {
+      "description": "Acqua frizzante 0,75 l",
+      "quantity": "1",
+      "unit_price": "6.90",
+      "amount": "6.90"
+    },
+    {
+      "description": "Espresso",
+      "quantity": "1",
+      "unit_price": "2.80",
+      "amount": "2.80"
+    }
+  ],
+  "subtotal": "45.38",
+  "tax_amount": "8.62",
+  "tip_amount": "5.00",
+  "total": "59.00",
+  "category": "meal"
+}

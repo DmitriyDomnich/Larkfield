@@ -1,0 +1,22 @@
+{
+  "document_type": "receipt",
+  "vendor_name": "Taxi Donaustadt Funk GmbH",
+  "vendor_tax_id": "ATU12345678",
+  "document_number": "0087-3312",
+  "document_date": "2026-07-08",
+  "document_time": "23:30",
+  "currency": "EUR",
+  "line_items": [
+    {
+      "description": "Fahrt Praterstraße 14 - Wiedner Hauptstraße 71 (Hotel), 9,4 km",
+      "quantity": "1",
+      "unit_price": "38.00",
+      "amount": "38.00"
+    }
+  ],
+  "subtotal": "34.55",
+  "tax_amount": "3.45",
+  "tip_amount": null,
+  "total": "38.00",
+  "category": "taxi"
+}
