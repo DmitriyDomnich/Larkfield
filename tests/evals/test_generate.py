@@ -1,15 +1,13 @@
+from collections import Counter
 from decimal import Decimal
-from io import BytesIO
 
 import pypdfium2 as pdfium
 import pytest
-from PIL import Image, ImageChops, ImageStat
 
 from evals.generator.build import content, render, render_pdf
+from evals.generator.photo import read_source_fingerprint, source_fingerprint
 from evals.generator.render import RENDER
 from tests.evals.docs import PDF_IDS, PHOTO_IDS, document_path
-
-MAX_MEAN_PIXEL_DIFFERENCE = 2.0
 
 
 def pdf_text(pdf: bytes) -> str:
@@ -34,12 +32,33 @@ def test_committed_pdf_is_what_its_label_generates(doc_id: str) -> None:
 
 @pytest.mark.parametrize("doc_id", sorted(PHOTO_IDS))
 def test_committed_photo_is_what_its_label_generates(doc_id: str) -> None:
-    fresh = Image.open(BytesIO(render(doc_id))).convert("RGB")
-    committed = Image.open(document_path(doc_id)).convert("RGB")
+    """Compares the photo's source: the source PDF renders the same everywhere"""
+    photo = RENDER[doc_id].photo
+    assert photo is not None
 
-    assert fresh.size == committed.size
-    difference = ImageStat.Stat(ImageChops.difference(fresh, committed)).mean
-    assert max(difference) < MAX_MEAN_PIXEL_DIFFERENCE
+    expected = source_fingerprint(render_pdf(doc_id), photo)
+
+    assert read_source_fingerprint(document_path(doc_id).read_bytes()) == expected
+
+
+def test_a_label_change_makes_the_photo_stale() -> None:
+    photo = RENDER["E06"].photo
+    assert photo is not None
+    label = content("E06")
+    item = label.line_items[0]
+    changed = label.model_copy(
+        update={
+            "line_items": [
+                item.model_copy(update={"amount": item.amount + 1}),
+                *label.line_items[1:],
+            ],
+            "total": label.total + 1,
+        }
+    )
+
+    committed = read_source_fingerprint(document_path("E06").read_bytes())
+
+    assert source_fingerprint(render_pdf("E06", changed), photo) != committed
 
 
 @pytest.mark.parametrize("doc_id", PDF_IDS)
@@ -88,10 +107,28 @@ def test_layouts_vary() -> None:
     keys = [spec.layout_key for spec in RENDER.values()]
 
     assert len(set(keys)) == len(keys)
-    assert len({spec.family for spec in RENDER.values()}) >= 5
+    assert len({spec.family for spec in RENDER.values()}) == 6
     assert {spec.font for spec in RENDER.values()} == {"Helvetica", "Times-Roman", "Courier"}
-    assert {spec.columns for spec in RENDER.values() if spec.family == "thermal"} == {
-        "qty_desc_amount",
-        "desc_qty_price_amount",
-        "desc_amount",
+
+
+def test_till_receipts_vary_in_structure() -> None:
+    receipts = [spec for spec in RENDER.values() if spec.family == "thermal"]
+    options = {
+        "columns": {"qty_desc_amount", "desc_qty_price_amount", "desc_amount"},
+        "payment": {"none", "cash", "card"},
+        "tax_block": {"line", "table", "net_total"},
+        "item_codes": {True, False},
+        "datetime_at": {"header", "footer"},
     }
+
+    for field, values in options.items():
+        used = Counter(getattr(spec, field) for spec in receipts)
+        assert set(used) == values, field
+        assert min(used.values()) >= 2, field
+
+
+def test_cash_receipts_print_cash_given_and_change() -> None:
+    text = pdf_text(document_path("D01").read_bytes())
+
+    assert "20,00" in text  # cash given for 18,50
+    assert "1,50" in text  # change

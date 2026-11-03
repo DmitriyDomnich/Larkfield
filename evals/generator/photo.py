@@ -2,6 +2,8 @@
 A phone photo of a printed page, simulated: rendered, cut, placed on a table, tilted and shaded
 """
 
+import hashlib
+from dataclasses import astuple
 from io import BytesIO
 
 import pypdfium2 as pdfium
@@ -12,6 +14,19 @@ from evals.generator.spec import Photo
 DPI = 200
 PAPER = (247, 243, 233)
 TABLE = (96, 80, 66)
+# The JPEG comment holds what the photo was made from. A stale photo is found by comparing this
+SOURCE_PREFIX = b"larkfield-source:"
+
+
+def source_fingerprint(pdf: bytes, photo: Photo) -> str:
+    return hashlib.sha256(pdf + repr(astuple(photo)).encode()).hexdigest()
+
+
+def read_source_fingerprint(jpeg: bytes) -> str | None:
+    comment = Image.open(BytesIO(jpeg)).info.get("comment", b"")
+    if not isinstance(comment, bytes) or not comment.startswith(SOURCE_PREFIX):
+        return None
+    return comment.removeprefix(SOURCE_PREFIX).decode()
 
 
 def to_photo(pdf: bytes, photo: Photo) -> bytes:
@@ -52,5 +67,6 @@ def to_photo(pdf: bytes, photo: Photo) -> bytes:
         scene = scene.crop((0, 0, width, margin + round(page.height * photo.keep)))
 
     out = BytesIO()
-    scene.save(out, "JPEG", quality=85)
+    comment = SOURCE_PREFIX + source_fingerprint(pdf, photo).encode()
+    scene.save(out, "JPEG", quality=85, comment=comment)
     return out.getvalue()

@@ -24,6 +24,7 @@ class Row:
     align: Literal["left", "center", "right"] = "left"
     rule: bool = False  # a dashed line instead of text
     gap: float = 0.0  # blank lines before the row
+    cells: tuple[str, ...] = ()
 
 
 def rule() -> Row:
@@ -48,8 +49,8 @@ def draw_roll(
     for row in rows:
         size = spec.size * row.scale
         leading = size * 1.4
-        if row.rule:
-            lines.append((row, leading * (0.8 + row.gap), "", ""))
+        if row.rule or row.cells:
+            lines.append((row, leading * ((0.8 if row.rule else 1) + row.gap), "", ""))
             continue
         font = spec.bold if row.bold else spec.font
         right_width = stringWidth(row.right, font, size) + 6 if row.right else 0
@@ -72,6 +73,12 @@ def draw_roll(
             canvas.setDash()
             continue
         canvas.setFont(spec.bold if row.bold else spec.font, size)
+        if row.cells:
+            canvas.drawString(MARGIN, y, row.cells[0])
+            step = usable / len(row.cells)
+            for i, cell in enumerate(row.cells[1:], 2):
+                canvas.drawRightString(MARGIN + step * i, y, cell)
+            continue
         if row.align == "center":
             canvas.drawCentredString(width / 2, y, left)
         elif row.align == "right":

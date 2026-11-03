@@ -14,6 +14,11 @@ Lang = Literal["de", "en"]
 # desc_qty_price_amount: "Espresso" / "  2 x 3,50   7,00"
 # desc_amount:           "Espresso                7,00" (quantity on a second line when not 1)
 Columns = Literal["qty_desc_amount", "desc_qty_price_amount", "desc_amount"]
+Payment = Literal["none", "cash", "card"]
+# line:      "enth. MwSt 19 %  2,95" / "Netto  15,55" under the total
+# table:     "MwSt % | Netto | MwSt | Brutto" table after the payment
+# net_total: "MwSt-Betrag 19 %: 3,01" / "Gesamtbetrag netto: 15,84" after the payment
+TaxBlock = Literal["line", "table", "net_total"]
 
 BOLD: dict[Font, str] = {
     "Helvetica": "Helvetica-Bold",
@@ -42,6 +47,12 @@ WORDS: dict[Lang, dict[str, str]] = {
         "invoice_date": "Rechnungsdatum",
         "pos": "Pos.",
         "page": "Seite",
+        "cash": "Barzahlung",
+        "change": "Rückgeld",
+        "card": "Kartenzahlung",
+        "gross": "Brutto",
+        "tax_amount": "MwSt-Betrag",
+        "net_total": "Gesamtbetrag netto",
     },
     "en": {
         "total": "TOTAL",
@@ -63,6 +74,12 @@ WORDS: dict[Lang, dict[str, str]] = {
         "invoice_date": "Invoice date",
         "pos": "#",
         "page": "Page",
+        "cash": "Cash",
+        "change": "Change",
+        "card": "Card payment",
+        "gross": "Gross",
+        "tax_amount": "VAT amount",
+        "net_total": "Net total",
     },
 }
 
@@ -96,6 +113,12 @@ class RenderSpec:
     align: Literal["left", "center", "right"] = "center"
     size: float = 8.5
     currency_symbol: str | None = None  # printed after amounts, e.g. "€"; else the code before
+    # Till receipt structure
+    payment: Payment = "none"
+    card: str = "Visa **** 4821"
+    tax_block: TaxBlock = "line"
+    item_codes: bool = False  # an article-code line above each item
+    datetime_at: Literal["header", "footer"] = "header"
     # Label fields written by hand under the printed receipt, in order
     handwritten: tuple[Literal["tip", "total"], ...] = ()
     photo: Photo | None = None
@@ -110,8 +133,17 @@ class RenderSpec:
         return BOLD[self.font]
 
     @property
-    def layout_key(self) -> tuple[str, ...]:
-        return (self.family, self.font, self.lang, self.columns, self.date_format, self.decimal)
+    def layout_key(self) -> tuple[str | bool, ...]:
+        """The structure of the document; date format, decimal separator and language don't count"""
+        return (
+            self.family,
+            self.font,
+            self.columns,
+            self.payment,
+            self.tax_block,
+            self.item_codes,
+            self.datetime_at,
+        )
 
     def money(self, value: Decimal) -> str:
         text = f"{value:,.2f}"
