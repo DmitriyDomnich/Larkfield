@@ -2,7 +2,7 @@
   "mcpServers": {
     "postgres": {
       "command": "sh",
-      "args": ["-c", "set -a; . ./.env; exec docker run -i --rm -e DATABASE_URI=\"$DATABASE_URL\" crystaldba/postgres-mcp:0.3.0 --access-mode=restricted"]
+      "args": [".claude/mcp/postgres.sh"]
     },
     "aws-docs": {
       "command": "uvx",
