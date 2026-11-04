@@ -13,9 +13,7 @@ from app.claims.schemas import ClaimCreate, ClaimCreated, ClaimPage, ClaimRead, 
 from app.claims.service import (
     ClaimNotFoundError,
     FileNotAvailableError,
-    FileNotUploadedError,
     InvalidTransitionError,
-    RejectedFileError,
 )
 from app.claims.status import ClaimStatus
 from app.claims.storage import ObjectStorage, get_storage
@@ -58,7 +56,8 @@ def not_found() -> HTTPException:
     description=(
         "Creates the claim in `pending_upload` and returns a presigned S3 form. Upload the file "
         "to `upload.url` as multipart/form-data with every entry of `upload.fields` before the "
-        "file, then call `POST /claims/{id}/upload-complete`."
+        "file. The upload starts processing by itself: poll `GET /claims/{id}` to follow the "
+        "status (`uploaded`, `extracting`, then `extracted` or `failed` with a reason)."
     ),
     responses=_errors(422),
 )
@@ -71,32 +70,6 @@ async def create_claim(
 ) -> ClaimCreated:
     claim, upload = await service.create_claim(session, storage, settings, user, body)
     return ClaimCreated(claim=ClaimRead.model_validate(claim), upload=upload)
-
-
-@router.post(
-    "/{claim_id}/upload-complete",
-    response_model=ClaimRead,
-    summary="Confirm the file upload",
-    description=(
-        "Called by the claim's owner after the S3 upload. Checks the stored file: if its content "
-        "is the declared type, the claim moves to `uploaded`; otherwise the file is deleted, the "
-        "claim moves to `failed` with the reason, and the answer is 422. 409 when the file is not "
-        "in S3 or the claim is no longer `pending_upload`."
-    ),
-    responses=_errors(404, 409, 422),
-)
-async def upload_complete(
-    claim_id: uuid.UUID, user: ClaimsUser, session: SessionDep, storage: StorageDep
-) -> ClaimRead:
-    try:
-        claim = await service.confirm_upload(session, storage, user, claim_id)
-    except ClaimNotFoundError:
-        raise not_found() from None
-    except FileNotUploadedError:
-        raise HTTPException(status.HTTP_409_CONFLICT, "The file has not been uploaded") from None
-    except RejectedFileError as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, exc.reason) from None
-    return ClaimRead.model_validate(claim)
 
 
 @router.get(

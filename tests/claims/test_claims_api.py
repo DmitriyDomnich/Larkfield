@@ -63,7 +63,6 @@ def test_invalid_list_query_is_422(api: TestClient, settings: Settings, query: s
         ("GET", "/claims"),
         ("GET", "/claims/00000000-0000-0000-0000-000000000000"),
         ("GET", "/claims/00000000-0000-0000-0000-000000000000/file"),
-        ("POST", "/claims/00000000-0000-0000-0000-000000000000/upload-complete"),
     ],
 )
 def test_claims_need_a_token_and_are_closed_to_admins(
@@ -84,7 +83,6 @@ def test_openapi_documents_every_claims_endpoint(api: TestClient) -> None:
         ("/claims", "get"): {"200", "401", "403", "422"},
         ("/claims/{claim_id}", "get"): {"200", "401", "403", "404"},
         ("/claims/{claim_id}/file", "get"): {"200", "401", "403", "404"},
-        ("/claims/{claim_id}/upload-complete", "post"): {"200", "401", "403", "404", "409", "422"},
     }
     for (path, method), codes in expected.items():
         operation = paths[path][method]

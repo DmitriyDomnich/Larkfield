@@ -1,4 +1,4 @@
-.PHONY: up down logs migrate revision lint fmt typecheck test test-unit check eval-docs
+.PHONY: up down logs extraction-worker migrate revision lint fmt typecheck test test-unit check eval-docs
 
 up:          ## start backend + db
 	docker compose up --build -d
@@ -7,7 +7,10 @@ down:
 	docker compose down
 
 logs:
-	docker compose logs -f api
+	docker compose logs -f api worker
+
+extraction-worker:
+	uv run python -m app.extraction
 
 migrate:
 	uv run alembic upgrade head

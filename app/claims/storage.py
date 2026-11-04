@@ -38,6 +38,8 @@ class ObjectStorage(Protocol):
 
     async def read_first_bytes(self, key: str, length: int) -> bytes: ...
 
+    async def read(self, key: str) -> bytes: ...
+
     async def delete(self, key: str) -> None: ...
 
 
@@ -97,6 +99,12 @@ class S3ObjectStorage:
     def _read_first_bytes(self, key: str, length: int) -> bytes:
         obj = self._client.get_object(Bucket=self._bucket, Key=key, Range=f"bytes=0-{length - 1}")
         return obj["Body"].read()
+
+    async def read(self, key: str) -> bytes:
+        return await asyncio.to_thread(self._read, key)
+
+    def _read(self, key: str) -> bytes:
+        return self._client.get_object(Bucket=self._bucket, Key=key)["Body"].read()
 
     async def delete(self, key: str) -> None:
         await asyncio.to_thread(self._client.delete_object, Bucket=self._bucket, Key=key)

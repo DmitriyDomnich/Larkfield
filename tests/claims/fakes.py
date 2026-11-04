@@ -32,6 +32,9 @@ class FakeStorage:
     async def read_first_bytes(self, key: str, length: int) -> bytes:
         return self.objects[key][:length]
 
+    async def read(self, key: str) -> bytes:
+        return self.objects[key]
+
     async def delete(self, key: str) -> None:
         self.objects.pop(key, None)
         self.deleted.append(key)

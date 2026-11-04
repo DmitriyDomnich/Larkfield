@@ -56,3 +56,11 @@ module "documents" {
   project_name     = var.project_name
   frontend_origins = var.frontend_origins
 }
+
+module "extraction" {
+  source                       = "../../modules/extraction"
+  project_name                 = var.project_name
+  documents_bucket_name        = module.documents.bucket_name
+  documents_bucket_arn         = module.documents.bucket_arn
+  bedrock_inference_profile_id = var.bedrock_inference_profile_id
+}

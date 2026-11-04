@@ -7,20 +7,20 @@ dependencies = [
     "alembic-utils>=0.8.8",
     "boto3>=1.43.119",
     "fastapi>=0.159.1",
+    "pillow>=13.0.0",
     "psycopg[binary]>=3.3.6",
     "pydantic-settings>=2.16.1",
     "pyjwt[crypto]>=2.15.1",
+    "pypdfium2>=5.14.0",
     "sqlalchemy[asyncio]>=2.0",
     "uvicorn[standard]>=0.54.0",
 ]
 
 [dependency-groups]
 dev = [
-    "boto3-stubs[cognito-idp,s3]>=1.43.119",
+    "boto3-stubs[bedrock-runtime,cognito-idp,s3,sqs]>=1.43.119",
     "httpx2>=2.16.0",
     "mypy>=2.4.0",
-    "pillow>=13.0.0",
-    "pypdfium2>=5.14.0",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
     "pytest-cov>=7.1.0",
