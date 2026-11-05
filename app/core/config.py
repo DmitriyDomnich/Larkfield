@@ -37,14 +37,6 @@ class Settings(BaseSettings):
         return f"{self.cognito_issuer}/.well-known/jwks.json"
 
 
-class WorkerSettings(Settings):
-    extraction_queue_url: str = Field(min_length=1)
-    bedrock_model_id: str = Field(min_length=1)
-
-    extraction_max_receives: int = 3
-    extraction_max_pages: int = 10
-
-
 @lru_cache
 def get_settings() -> Settings:
     return Settings()

@@ -5,7 +5,6 @@ import boto3
 import pytest
 from botocore.stub import Stubber
 
-from app.core.config import WorkerSettings
 from app.extraction.extractor import (
     BedrockExtractor,
     InvalidExtraction,
@@ -20,6 +19,7 @@ from app.extraction.prompts import (
     extraction_tools,
 )
 from app.extraction.schemas import ExtractedExpense
+from app.extraction.settings import WorkerSettings
 from tests.extraction.fakes import label
 
 PAGES = [PageImage(b"page-1", "png"), PageImage(b"page-2", "png")]

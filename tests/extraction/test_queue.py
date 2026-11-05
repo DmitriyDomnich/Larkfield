@@ -6,7 +6,6 @@ import boto3
 import pytest
 from botocore.stub import Stubber
 
-from app.core.config import WorkerSettings
 from app.extraction.queue import (
     RECEIVE_WAIT_SECONDS,
     SqsUploadQueue,
@@ -14,6 +13,7 @@ from app.extraction.queue import (
     UploadMessage,
     created_objects,
 )
+from app.extraction.settings import WorkerSettings
 
 
 @pytest.fixture(autouse=True)

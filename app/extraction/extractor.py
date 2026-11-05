@@ -8,7 +8,6 @@ import boto3
 from botocore.config import Config
 from pydantic import ValidationError
 
-from app.core.config import WorkerSettings
 from app.extraction.pages import PageImage
 from app.extraction.prompts import (
     NO_TOOL_FEEDBACK,
@@ -19,6 +18,7 @@ from app.extraction.prompts import (
     extraction_tools,
 )
 from app.extraction.schemas import ExtractedExpense
+from app.extraction.settings import WorkerSettings
 
 if TYPE_CHECKING:
     from mypy_boto3_bedrock_runtime import BedrockRuntimeClient
