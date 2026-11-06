@@ -18,9 +18,15 @@ RECEIVE_WAIT_SECONDS = 20
 
 
 @dataclass(frozen=True)
+class UploadedObject:
+    key: str
+    version_id: str | None
+
+
+@dataclass(frozen=True)
 class UploadMessage:
     receipt_handle: str
-    keys: list[str]  # keys of the s3 created objects
+    objects: list[UploadedObject]
     receive_count: int
 
 
@@ -49,7 +55,7 @@ class SqsUploadQueue:
         return [
             UploadMessage(
                 receipt_handle=message["ReceiptHandle"],
-                keys=created_object_keys(message["Body"]),
+                objects=created_objects(message["Body"]),
                 receive_count=int(message.get("Attributes", {}).get("ApproximateReceiveCount", 1)),
             )
             for message in response.get("Messages", [])
@@ -61,12 +67,15 @@ class SqsUploadQueue:
         )
 
 
-def created_object_keys(body: str) -> list[str]:
+def created_objects(body: str) -> list[UploadedObject]:
     try:
         event: Any = json.loads(body)
         records = event.get("Records", []) if isinstance(event, dict) else []
         return [
-            unquote_plus(record["s3"]["object"]["key"])
+            UploadedObject(
+                key=unquote_plus(record["s3"]["object"]["key"]),
+                version_id=record["s3"]["object"].get("versionId"),
+            )
             for record in records
             if str(record.get("eventName", "")).startswith("ObjectCreated:")
         ]

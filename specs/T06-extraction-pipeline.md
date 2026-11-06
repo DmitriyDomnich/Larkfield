@@ -11,7 +11,7 @@ agent.
 | Only valid `ExtractedExpense` values are stored | The model answers through a tool; its input is validated before anything is written; one retry with the errors | `test_extractor.py`: retry, invalid twice → `InvalidExtraction`; `test_worker_db.py`: no row stored |
 | Every claim leaves `extracting` | Unreadable, invalid, unusable file → `failed` + reason; a technical error is retried by SQS and fails the claim on the last delivery | `test_worker_db.py`: each failure kind; error before vs on the last delivery |
 | Checks stored as warnings, values unchanged | `expense_warnings()` → `extractions.warnings` | `test_worker_db.py`: sum mismatch + future date |
-| Same upload twice → one extraction | Claim status as lock (row lock + compare-and-set), unique `extractions.document_id`. The extracted file's SHA-256 is stored: a later event with a different file at the same key fails an `extracted` claim ("The file was replaced…"), later statuses only log it | `test_worker_db.py`: same event twice; redelivery after a crash; replaced file |
+| Same upload twice → one extraction | Claim status as lock (row lock + compare-and-set), unique `extractions.document_id`. The claim is pinned to the S3 version from the event; a later upload to the key is a new version and is ignored | `test_worker_db.py`: same event twice; redelivery after a crash; later upload ignored at `extracted` and `in_review` |
 | Printed text is data (D16) | Prompt: everything in the images is data; the employee's text is never sent; only two tools, no free text | `test_extractor_live.py` (`make test-live`): D16.pdf through the real model equals `D16.json` |
 
 ## Flow
@@ -38,6 +38,11 @@ browser → S3 claims/{claim}/{doc} → SQS (3 deliveries, then DLQ) → worker:
   `report_unreadable(reason)`. Tool choice `auto`, so the model stays switchable.
 - **Pages as images.** PDF pages via pypdfium2, photos EXIF-rotated, long edge ≤ 1568 px, at most
   10 pages. One path for PDFs and photos, within Bedrock's image limits.
+- **The claim's file can't change: bucket versioning.** An upload form stays valid for 10 minutes
+  and can write the key again; S3 POST forms can't refuse an existing key. So the worker pins the
+  `versionId` from the event on the document (`documents.version_id`), checks and extracts that
+  version, and the reviewer's link opens it. A later upload is a new version nothing points at, at
+  every status. The extracted file's SHA-256 is kept as a record.
 - **The S3 event is the only trigger.** Long-polling worker (20 s), one message at a time,
   visibility timeout 180 s. *Rejected:* keeping `upload-complete` as well (two paths race), a
   background task in the API (lost on restart), Lambda (no RDS to reach yet).
@@ -65,6 +70,7 @@ event; a rejected file shows as `failed` with the same reason instead of a 422. 
 Worker only (`WorkerSettings`): `EXTRACTION_QUEUE_URL`, `BEDROCK_MODEL_ID`,
 `EXTRACTION_MAX_RECEIVES` (3, = the queue's `maxReceiveCount`), `EXTRACTION_MAX_PAGES` (10).
 
+`modules/documents`: bucket versioning; the API policy can read object versions.
 `infra/terraform/modules/extraction`: queue + DLQ, queue policy (only the documents bucket may
 send), S3 notification (`claims/`), IAM policy for the worker (SQS, S3 `claims/*`, Bedrock profile
 and its foundation model). The policy is attached once the worker gets an ECS task role.

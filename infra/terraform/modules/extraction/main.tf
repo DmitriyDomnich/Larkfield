@@ -57,7 +57,7 @@ resource "aws_iam_policy" "worker" {
       {
         Sid      = "ReadClaimFiles"
         Effect   = "Allow"
-        Action   = ["s3:GetObject", "s3:DeleteObject"]
+        Action   = ["s3:GetObject", "s3:GetObjectVersion", "s3:DeleteObject", "s3:DeleteObjectVersion"]
         Resource = "${var.documents_bucket_arn}/claims/*"
       },
       {

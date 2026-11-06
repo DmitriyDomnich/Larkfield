@@ -158,19 +158,21 @@ async def create_claim(
 
 
 async def verify_upload(session: AsyncSession, storage: ObjectStorage, document: Document) -> bool:
-    size = await storage.size(document.s3_key)
+    version = document.version_id
+    size = await storage.size(document.s3_key, version)
     reason = None
     if size is None:
         reason = "The uploaded file could not be found"
     elif size > MAX_FILE_BYTES:
         reason = "The file is larger than 10 MB"
     elif not content_matches_type(
-        await storage.read_first_bytes(document.s3_key, BYTES_TO_CHECK), document.content_type
+        await storage.read_first_bytes(document.s3_key, BYTES_TO_CHECK, version),
+        document.content_type,
     ):
         reason = f"The file is not a valid {LABELS[document.content_type]}"
 
     if reason is not None:
-        await storage.delete(document.s3_key)
+        await storage.delete(document.s3_key, version)
         await transition(session, document.claim_id, ClaimStatus.FAILED, failure_reason=reason)
         return False
 
@@ -197,5 +199,6 @@ async def file_link(
         document.content_type,
         content_disposition(document.original_filename),
         settings.file_url_ttl_seconds,
+        document.version_id,
     )
     return FileLink(url=url, expires_at=expires_at)

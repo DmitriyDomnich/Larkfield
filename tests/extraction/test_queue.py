@@ -10,8 +10,9 @@ from app.core.config import WorkerSettings
 from app.extraction.queue import (
     RECEIVE_WAIT_SECONDS,
     SqsUploadQueue,
+    UploadedObject,
     UploadMessage,
-    created_object_keys,
+    created_objects,
 )
 
 
@@ -35,14 +36,17 @@ def stubbed(worker_settings: WorkerSettings) -> Iterator[tuple[SqsUploadQueue, S
         stubber.assert_no_pending_responses()
 
 
-def s3_event(*keys: str, event_name: str = "ObjectCreated:Post") -> str:
+def s3_event(*keys: str, event_name: str = "ObjectCreated:Post", version_id: str = "v1") -> str:
     return json.dumps(
         {
             "Records": [
                 {
                     "eventSource": "aws:s3",
                     "eventName": event_name,
-                    "s3": {"bucket": {"name": "documents"}, "object": {"key": key, "size": 1}},
+                    "s3": {
+                        "bucket": {"name": "documents"},
+                        "object": {"key": key, "size": 1, "versionId": version_id},
+                    },
                 }
                 for key in keys
             ]
@@ -70,7 +74,9 @@ async def test_receive_long_polls_for_one_message_with_its_delivery_count(
         },
     )
 
-    assert await queue.receive_messages() == [UploadMessage("handle-1", ["claims/c/d"], 2)]
+    assert await queue.receive_messages() == [
+        UploadMessage("handle-1", [UploadedObject("claims/c/d", "v1")], 2)
+    ]
 
 
 async def test_receive_returns_nothing_when_the_wait_ends_empty(
@@ -96,7 +102,22 @@ async def test_delete(
 
 
 def test_keys_are_url_decoded() -> None:
-    assert created_object_keys(s3_event("claims/a+b/c%2Bd")) == ["claims/a b/c+d"]
+    assert [obj.key for obj in created_objects(s3_event("claims/a+b/c%2Bd"))] == ["claims/a b/c+d"]
+
+
+def test_each_object_carries_the_version_its_upload_created() -> None:
+    version = "3HL4kqtJlcpXroDTDmJ+rmSpXd3dIbrH"
+
+    assert created_objects(s3_event("claims/c/d", version_id=version)) == [
+        UploadedObject("claims/c/d", version)
+    ]
+
+
+def test_an_unversioned_bucket_gives_no_version() -> None:
+    body = json.loads(s3_event("claims/c/d"))
+    del body["Records"][0]["s3"]["object"]["versionId"]
+
+    assert created_objects(json.dumps(body)) == [UploadedObject("claims/c/d", None)]
 
 
 def test_only_created_objects_count() -> None:
@@ -105,7 +126,7 @@ def test_only_created_objects_count() -> None:
         "Records"
     ]
 
-    assert created_object_keys(json.dumps(body)) == ["claims/c/d"]
+    assert [obj.key for obj in created_objects(json.dumps(body))] == ["claims/c/d"]
 
 
 @pytest.mark.parametrize(
@@ -119,4 +140,4 @@ def test_only_created_objects_count() -> None:
     ids=["s3-test-event", "not-json", "not-an-object", "record-without-s3"],
 )
 def test_messages_that_are_not_upload_events_have_no_keys(body: str) -> None:
-    assert created_object_keys(body) == []
+    assert created_objects(body) == []

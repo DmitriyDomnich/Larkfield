@@ -49,13 +49,13 @@ class ExtractionWorker:
 
     async def handle_message(self, message: UploadMessage) -> None:
         try:
-            for key in message.keys:
+            for uploaded in message.objects:
                 async with self._sessions() as session:
                     await process_upload(
                         session,
                         self._storage,
                         self._extractor,
-                        key,
+                        uploaded,
                         today=datetime.now(UTC).date(),
                         receive_count=message.receive_count,
                         max_receives=self._settings.extraction_max_receives,

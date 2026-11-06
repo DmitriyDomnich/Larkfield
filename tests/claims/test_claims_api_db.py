@@ -60,7 +60,7 @@ async def submit(api: AsyncClient, headers: dict[str, str], **body: Any) -> dict
 async def upload(api: AsyncClient, storage: FakeStorage, headers: dict[str, str]) -> dict[str, Any]:
     """Submit a claim and put a PDF where the browser would; returns the created claim."""
     created = await submit(api, headers)
-    storage.objects[created["upload"]["fields"]["key"]] = PDF
+    storage.put(created["upload"]["fields"]["key"], PDF)
     claim: dict[str, Any] = created["claim"]
     return claim
 
@@ -69,6 +69,7 @@ async def verify(db_session: AsyncSession, storage: FakeStorage, claim_id: str) 
     """What the extraction worker does first with the S3 event: the claim becomes `uploaded`."""
     document = await db_session.scalar(select(Document).where(Document.claim_id == claim_id))
     assert document is not None
+    document.version_id = storage.current_version[document.s3_key]  # pinned from the S3 event
     assert await verify_upload(db_session, storage, document)
     await db_session.commit()
 
@@ -176,6 +177,7 @@ async def test_file_link_for_owner_and_reviewer_only(
     assert before.status_code == 404
     assert owner.status_code == reviewer.status_code == 200
     assert f"X-Amz-Expires={settings.file_url_ttl_seconds}" in owner.json()["url"]
+    assert "versionId=v1" in owner.json()["url"]  # the version that was checked and extracted
     expires_at = datetime.fromisoformat(owner.json()["expires_at"])
     assert expires_at - datetime.now(UTC) <= timedelta(minutes=5)
     assert other.status_code == 404

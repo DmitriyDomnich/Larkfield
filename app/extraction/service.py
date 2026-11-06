@@ -25,6 +25,7 @@ from app.extraction.extractor import (
 )
 from app.extraction.models import Extraction, ExtractionLineItem
 from app.extraction.pages import UnusableFileError, document_to_images
+from app.extraction.queue import UploadedObject
 from app.extraction.schemas import expense_warnings
 
 logger = logging.getLogger(__name__)
@@ -37,26 +38,25 @@ INVALID_EXTRACTION_REASON = (
 TECHNICAL_FAILURE_REASON = (
     "Extraction could not be completed because of a technical problem. Please submit a new claim."
 )
-REPLACED_FILE_REASON = "The file was replaced after it was processed. Please submit a new claim."
 
 
 async def process_upload(
     session: AsyncSession,
     storage: ObjectStorage,
     extractor: ExpenseExtractor,
-    key: str,
+    uploaded: UploadedObject,
     *,
     today: date,
     receive_count: int,
     max_receives: int,
     max_pages: int,
 ) -> None:
-    document = await _start_extraction(session, storage, key, redelivered=receive_count > 1)
+    document = await _start_extraction(session, storage, uploaded, redelivered=receive_count > 1)
     if document is None:
         return
     claim_id = document.claim_id
     try:
-        data = await storage.read(document.s3_key)
+        data = await storage.read(document.s3_key, document.version_id)
         document.sha256 = await file_sha256(data)
         result = await _extract_expense(extractor, document, data, max_pages)
         if isinstance(result, ValidExtraction):
@@ -72,22 +72,23 @@ async def process_upload(
 
 
 async def _start_extraction(
-    session: AsyncSession, storage: ObjectStorage, key: str, *, redelivered: bool
+    session: AsyncSession, storage: ObjectStorage, uploaded: UploadedObject, *, redelivered: bool
 ) -> Document | None:
     claim = await session.scalar(
         select(Claim)
         .join(Claim.document)
-        .where(Document.s3_key == key)
+        .where(Document.s3_key == uploaded.key)
         .options(selectinload(Claim.document))
         .with_for_update(of=Claim)
         .execution_options(populate_existing=True)
     )
     if claim is None or claim.document is None:
-        logger.warning("no claim has the uploaded object %s", key)
+        logger.warning("no claim has the uploaded object %s", uploaded.key)
         return None
 
     status = claim.status
     if status is ClaimStatus.PENDING_UPLOAD:
+        claim.document.version_id = uploaded.version_id
         if not await verify_upload(session, storage, claim.document):
             await session.commit()
             return None
@@ -96,28 +97,19 @@ async def _start_extraction(
         await transition(session, claim.id, ClaimStatus.EXTRACTING)
     # a redelivery continues the extraction an earlier attempt of the same message started
     elif not (status is ClaimStatus.EXTRACTING and redelivered):
-        logger.info("claim %s is %s; nothing to extract", claim.id, status)
-        await _fail_if_file_replaced(session, storage, claim.document, status)
+        if uploaded.version_id != claim.document.version_id:
+            logger.warning(
+                "claim %s: ignoring a later upload to its key (version %s); it keeps version %s",
+                claim.id,
+                uploaded.version_id,
+                claim.document.version_id,
+            )
+        else:
+            logger.info("claim %s is %s; nothing to extract", claim.id, status)
         await session.commit()
         return None
     await session.commit()
     return claim.document
-
-
-async def _fail_if_file_replaced(
-    session: AsyncSession, storage: ObjectStorage, document: Document, status: ClaimStatus
-) -> None:
-    if document.sha256 is None:
-        return
-    if await file_sha256(await storage.read(document.s3_key)) == document.sha256:
-        return
-    if status is ClaimStatus.EXTRACTED:
-        logger.warning("claim %s: its file was replaced after extraction", document.claim_id)
-        await transition(
-            session, document.claim_id, ClaimStatus.FAILED, failure_reason=REPLACED_FILE_REASON
-        )
-    else:
-        logger.warning("claim %s: its file was replaced while %s", document.claim_id, status)
 
 
 async def _extract_expense(
