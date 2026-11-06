@@ -3,9 +3,9 @@ import os
 import pytest
 from dotenv import dotenv_values
 
-from app.core.config import WorkerSettings
 from app.extraction.extractor import BedrockExtractor, ValidExtraction
 from app.extraction.pages import document_to_images
+from app.extraction.settings import WorkerSettings
 from tests.extraction.fakes import document_bytes, label
 
 REAL_ENV = dotenv_values(".env")
