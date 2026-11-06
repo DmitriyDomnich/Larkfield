@@ -1,7 +1,9 @@
 import asyncio
+import hashlib
 import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
@@ -24,6 +26,7 @@ from app.extraction.models import Extraction
 from app.extraction.queue import UploadMessage
 from app.extraction.service import (
     INVALID_EXTRACTION_REASON,
+    REPLACED_FILE_REASON,
     RESUBMIT_ADVICE,
     TECHNICAL_FAILURE_REASON,
 )
@@ -66,12 +69,20 @@ def make_worker(
     return ExtractionWorker(settings, queue, sessions, storage, extractor), extractor
 
 
+@dataclass(frozen=True)
+class UploadedFile:
+
+    id: uuid.UUID
+    claim_id: uuid.UUID
+    s3_key: str
+
+
 async def uploaded_file(
     db_session: AsyncSession,
     storage: FakeStorage,
     content: bytes,
     content_type: str = "application/pdf",
-) -> Document:
+) -> UploadedFile:
     """A `pending_upload` claim whose file the browser has just put in S3"""
     claim = Claim(employee_sub="user-1", purpose="Lunch during client workshop trip to Hamburg")
     db_session.add(claim)
@@ -85,14 +96,14 @@ async def uploaded_file(
     db_session.add(document)
     await db_session.commit()
     storage.objects[document.s3_key] = content
-    return document
+    return UploadedFile(document.id, document.claim_id, document.s3_key)
 
 
-def event(document: Document, receive_count: int = 1) -> UploadMessage:
+def event(document: UploadedFile, receive_count: int = 1) -> UploadMessage:
     return UploadMessage(f"handle-{receive_count}", [document.s3_key], receive_count)
 
 
-async def claim_of(db_session: AsyncSession, document: Document) -> Claim:
+async def claim_of(db_session: AsyncSession, document: UploadedFile) -> Claim:
     claim = await db_session.scalar(
         select(Claim)
         .where(Claim.id == document.claim_id)
@@ -103,7 +114,7 @@ async def claim_of(db_session: AsyncSession, document: Document) -> Claim:
     return claim
 
 
-async def extractions(db_session: AsyncSession, document: Document) -> list[Extraction]:
+async def extractions(db_session: AsyncSession, document: UploadedFile) -> list[Extraction]:
     rows = await db_session.scalars(
         select(Extraction)
         .where(Extraction.document_id == document.id)
@@ -339,6 +350,72 @@ async def test_the_same_upload_twice_gives_one_extraction(
     assert count == 1
     assert len(extractor.calls) == 1
     assert queue.deleted == ["first", "duplicate"]
+    assert (await claim_of(db_session, document)).status is ClaimStatus.EXTRACTED
+
+
+async def test_extracted_file_hash_is_stored(
+    db_session: AsyncSession,
+    storage: FakeStorage,
+    queue: FakeQueue,
+    worker_settings: WorkerSettings,
+) -> None:
+    document = await uploaded_file(db_session, storage, document_bytes("D01.pdf"))
+    worker, _ = make_worker(
+        db_session, worker_settings, queue, storage, ValidExtraction(expense("D01"), MODEL)
+    )
+
+    await worker.handle_message(event(document))
+
+    claim = await claim_of(db_session, document)
+    assert claim.document is not None
+    assert claim.document.sha256 == hashlib.sha256(document_bytes("D01.pdf")).hexdigest()
+
+
+async def test_file_replaced_after_extraction_fails_the_claim(
+    db_session: AsyncSession,
+    storage: FakeStorage,
+    queue: FakeQueue,
+    worker_settings: WorkerSettings,
+) -> None:
+    document = await uploaded_file(db_session, storage, document_bytes("D01.pdf"))
+    worker, extractor = make_worker(
+        db_session, worker_settings, queue, storage, ValidExtraction(expense("D01"), MODEL)
+    )
+    await worker.handle_message(UploadMessage("original", [document.s3_key], 1))
+
+    storage.objects[document.s3_key] = document_bytes("D16.pdf")
+    await worker.handle_message(UploadMessage("replacement", [document.s3_key], 1))
+
+    claim = await claim_of(db_session, document)
+    assert claim.status is ClaimStatus.FAILED
+    assert claim.failure_reason == REPLACED_FILE_REASON
+    assert len(extractor.calls) == 1
+    assert queue.deleted == ["original", "replacement"]
+
+
+async def test_file_replaced_after_review_started_is_only_logged(
+    db_session: AsyncSession,
+    storage: FakeStorage,
+    queue: FakeQueue,
+    worker_settings: WorkerSettings,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """`in_review → failed` is not an allowed transition"""
+    document = await uploaded_file(db_session, storage, document_bytes("D01.pdf"))
+    worker, _ = make_worker(
+        db_session, worker_settings, queue, storage, ValidExtraction(expense("D01"), MODEL)
+    )
+    await worker.handle_message(UploadMessage("original", [document.s3_key], 1))
+    async with db_session.begin_nested():
+        await transition(db_session, document.claim_id, ClaimStatus.IN_REVIEW)
+    await db_session.commit()
+
+    storage.objects[document.s3_key] = document_bytes("D16.pdf")
+    await worker.handle_message(UploadMessage("replacement", [document.s3_key], 1))
+
+    assert (await claim_of(db_session, document)).status is ClaimStatus.IN_REVIEW
+    assert "its file was replaced while in_review" in caplog.text
+    assert queue.deleted == ["original", "replacement"]
 
 
 async def test_a_second_event_leaves_a_claim_another_worker_is_extracting(

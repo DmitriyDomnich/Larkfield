@@ -16,6 +16,7 @@ from app.claims.service import (
 )
 from app.claims.status import ClaimStatus
 from app.claims.storage import ObjectStorage
+from app.core.hashing import file_sha256
 from app.extraction.extractor import (
     ExpenseExtractor,
     InvalidExtraction,
@@ -36,6 +37,7 @@ INVALID_EXTRACTION_REASON = (
 TECHNICAL_FAILURE_REASON = (
     "Extraction could not be completed because of a technical problem. Please submit a new claim."
 )
+REPLACED_FILE_REASON = "The file was replaced after it was processed. Please submit a new claim."
 
 
 async def process_upload(
@@ -52,18 +54,21 @@ async def process_upload(
     document = await _start_extraction(session, storage, key, redelivered=receive_count > 1)
     if document is None:
         return
+    claim_id = document.claim_id
     try:
-        result = await _extract_expense(storage, extractor, document, max_pages)
+        data = await storage.read(document.s3_key)
+        document.sha256 = await file_sha256(data)
+        result = await _extract_expense(extractor, document, data, max_pages)
         if isinstance(result, ValidExtraction):
             await _store_extraction(session, document, result, today)
         else:
-            await _fail_claim(session, document.claim_id, result)
+            await _fail_claim(session, claim_id, result)
     except Exception:
         await session.rollback()
         if receive_count < max_receives:
             raise
-        logger.exception("extraction of claim %s failed on the last delivery", document.claim_id)
-        await _fail_claim(session, document.claim_id, TECHNICAL_FAILURE_REASON)
+        logger.exception("extraction of claim %s failed on the last delivery", claim_id)
+        await _fail_claim(session, claim_id, TECHNICAL_FAILURE_REASON)
 
 
 async def _start_extraction(
@@ -92,16 +97,32 @@ async def _start_extraction(
     # a redelivery continues the extraction an earlier attempt of the same message started
     elif not (status is ClaimStatus.EXTRACTING and redelivered):
         logger.info("claim %s is %s; nothing to extract", claim.id, status)
+        await _fail_if_file_replaced(session, storage, claim.document, status)
         await session.commit()
         return None
     await session.commit()
     return claim.document
 
 
+async def _fail_if_file_replaced(
+    session: AsyncSession, storage: ObjectStorage, document: Document, status: ClaimStatus
+) -> None:
+    if document.sha256 is None:
+        return
+    if await file_sha256(await storage.read(document.s3_key)) == document.sha256:
+        return
+    if status is ClaimStatus.EXTRACTED:
+        logger.warning("claim %s: its file was replaced after extraction", document.claim_id)
+        await transition(
+            session, document.claim_id, ClaimStatus.FAILED, failure_reason=REPLACED_FILE_REASON
+        )
+    else:
+        logger.warning("claim %s: its file was replaced while %s", document.claim_id, status)
+
+
 async def _extract_expense(
-    storage: ObjectStorage, extractor: ExpenseExtractor, document: Document, max_pages: int
+    extractor: ExpenseExtractor, document: Document, data: bytes, max_pages: int
 ) -> ValidExtraction | str:
-    data = await storage.read(document.s3_key)
     try:
         pages = await asyncio.to_thread(document_to_images, data, document.content_type, max_pages)
     except UnusableFileError as exc:

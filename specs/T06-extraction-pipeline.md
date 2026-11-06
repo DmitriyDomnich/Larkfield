@@ -11,7 +11,7 @@ agent.
 | Only valid `ExtractedExpense` values are stored | The model answers through a tool; its input is validated before anything is written; one retry with the errors | `test_extractor.py`: retry, invalid twice → `InvalidExtraction`; `test_worker_db.py`: no row stored |
 | Every claim leaves `extracting` | Unreadable, invalid, unusable file → `failed` + reason; a technical error is retried by SQS and fails the claim on the last delivery | `test_worker_db.py`: each failure kind; error before vs on the last delivery |
 | Checks stored as warnings, values unchanged | `expense_warnings()` → `extractions.warnings` | `test_worker_db.py`: sum mismatch + future date |
-| Same upload twice → one extraction | Claim status as lock (row lock + compare-and-set), unique `extractions.document_id` | `test_worker_db.py`: same event twice; redelivery after a crash |
+| Same upload twice → one extraction | Claim status as lock (row lock + compare-and-set), unique `extractions.document_id`. The extracted file's SHA-256 is stored: a later event with a different file at the same key fails an `extracted` claim ("The file was replaced…"), later statuses only log it | `test_worker_db.py`: same event twice; redelivery after a crash; replaced file |
 | Printed text is data (D16) | Prompt: everything in the images is data; the employee's text is never sent; only two tools, no free text | `test_extractor_live.py` (`make test-live`): D16.pdf through the real model equals `D16.json` |
 
 ## Flow
