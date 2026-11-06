@@ -71,7 +71,6 @@ def make_worker(
 
 @dataclass(frozen=True)
 class UploadedFile:
-
     id: uuid.UUID
     claim_id: uuid.UUID
     s3_key: str
