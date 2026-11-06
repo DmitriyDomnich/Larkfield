@@ -32,6 +32,9 @@ typecheck:
 test-unit:
 	uv run pytest -m "not integration"
 
+test-live:
+	LIVE_BEDROCK=1 uv run pytest tests/extraction/test_extractor_live.py -v
+
 test:        ## all tests + coverage
 	uv run pytest --cov --cov-report=term-missing
 

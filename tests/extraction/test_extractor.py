@@ -109,10 +109,10 @@ async def test_valid_answer_is_the_extracted_expense(
     )
 
 
-async def test_printed_instructions_are_kept_as_data(
+async def test_answer_with_an_injection_line_validates(
     stubbed: tuple[BedrockExtractor, Stubber],
 ) -> None:
-    """D16: the injection line is a line item like any other, and the result is its label."""
+    """A D16 answer keeps its injection line as an item"""
     extractor, stubber = stubbed
     stubber.add_response("converse", answer(tool_use("record_expense", label("D16"))))
 

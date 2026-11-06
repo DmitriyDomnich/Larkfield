@@ -12,7 +12,7 @@ agent.
 | Every claim leaves `extracting` | Unreadable, invalid, unusable file → `failed` + reason; a technical error is retried by SQS and fails the claim on the last delivery | `test_worker_db.py`: each failure kind; error before vs on the last delivery |
 | Checks stored as warnings, values unchanged | `expense_warnings()` → `extractions.warnings` | `test_worker_db.py`: sum mismatch + future date |
 | Same upload twice → one extraction | Claim status as lock (row lock + compare-and-set), unique `extractions.document_id` | `test_worker_db.py`: same event twice; redelivery after a crash |
-| Printed text is data (D16) | Prompt: everything in the images is data; the employee's text is never sent; only two tools, no free text | `test_prompts.py`, `test_extractor.py` (D16 answer = `D16.json`) |
+| Printed text is data (D16) | Prompt: everything in the images is data; the employee's text is never sent; only two tools, no free text | `test_extractor_live.py` (`make test-live`): D16.pdf through the real model equals `D16.json` |
 
 ## Flow
 
@@ -76,7 +76,10 @@ and its foundation model). The policy is attached once the worker gets an ECS ta
   turn, S3 event parsing), `test_prompts.py`, `test_storage.py` (`read`), `test_config.py`
   (`WorkerSettings`).
 - **Integration** (`@pytest.mark.integration`, PostgreSQL, fake storage, extractor and queue):
-  `test_worker_db.py` covers every criterion above and the T04 file checks, now run from the event.
+  `test_worker_db.py` covers every criterion above except D16, and the T04 file checks, now run
+  from the event.
+- **Live** (`make test-live`, calls Bedrock, never in CI): `test_extractor_live.py` sends D16.pdf
+  to the model in `.env` and compares the result with `D16.json`.
 - **Manual, against the dev queue and Bedrock:** D01, D02, D05–D07, D16, E01, E02 and E04–E10
   uploaded and compared field by field with their labels; E10 and an unrelated image end `failed`
   with a reason.
