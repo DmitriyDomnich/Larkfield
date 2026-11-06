@@ -12,7 +12,7 @@ review eval, the retrieval eval.
 | Cost per document | Real Bedrock token counts (retries included) × `MODEL_PRICES` | `test_extraction_run.py`: stubbed Converse, two attempts counted |
 | p95 latency | Nearest-rank p50 / p95 over each document's `extract_expense()` time | `test_extraction_scoring.py`, `test_extraction_report.py` |
 | Estimated cost and confirmation before a live run | Estimate printed, `[y/N]` prompt; `--yes` skips it | `test_extraction_run.py`: declined → nothing runs; `--yes` → report written |
-| A report from one live run under `evals/reports/` | `evals/reports/extraction-2026-11-05-1518.md` | committed: `extraction-2026-11-05-1518.md` |
+| A report from one live run under `evals/reports/` | `evals/reports/extraction-_.md` | committed: `extraction-baseline.md`, `extraction-2026-11-05-1518.md` |
 
 ## Layout
 
@@ -56,10 +56,20 @@ Per field, correct or wrong: strings trimmed and case-folded, everything else ex
 limits, deadlines, duplicates and time rules. Every other field at least 27 / 29 (90 %). At least
 23 / 29 documents (80 %) fully correct. E10 fails with a reason.
 
-## Result (`extraction-2026-11-05-1518.md`, Sonnet 4.6)
+## Result (Sonnet 4.6)
 
-27 / 29 fully correct, E10 failed with a reason, `line_items` and `category` 28 / 29, the rest
-29 / 29. $0.026 per document; latency p50 4.0 s, p95 15.7 s. Every target is met.
+Both runs on the same documents and labels; only the category rules differ.
+
+- **Baseline**, prompt without category rules (`extraction-baseline.md`): 27 / 29 fully correct,
+  `category` 27 / 29 (D20 book → `other`, E01 office supplies → `accessories`).
+- **With category rules** (`extraction-2026-11-05-1518.md`): 27 / 29 fully correct, `category`
+  28 / 29. D20 and E01 now pass; E02 comes out `accessories`: by "largest share of the total"
+  its docks, keyboards, cables and other add-ons (≈ €2,940) outweigh the monitors (≈ €1,950), so
+  the model follows the rule but no longer matches the `equipment` label. About 440 more input
+  tokens per document.
+- Both: E10 failed with a reason, `line_items` 28 / 29 with a different document each run (one
+  miss is run-to-run noise), the rest 29 / 29. $0.026 per document; p50 about 4 s. D03 and D04
+  pass in both: the "Bewirtungsbeleg" section alone makes them `client_entertainment`.
 
 ## Testing
 
