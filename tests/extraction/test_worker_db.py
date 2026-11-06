@@ -15,7 +15,6 @@ from sqlalchemy.orm import selectinload
 from app.claims.models import Claim, Document
 from app.claims.service import transition
 from app.claims.status import ClaimStatus
-from app.core.config import WorkerSettings
 from app.extraction.extractor import (
     ExtractionOutcome,
     InvalidExtraction,
@@ -29,6 +28,7 @@ from app.extraction.service import (
     RESUBMIT_ADVICE,
     TECHNICAL_FAILURE_REASON,
 )
+from app.extraction.settings import WorkerSettings
 from app.extraction.worker import ExtractionWorker
 from tests.claims.fakes import EXE, FakeStorage
 from tests.extraction.fakes import FakeExtractor, FakeQueue, document_bytes, expense

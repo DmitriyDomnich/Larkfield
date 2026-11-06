@@ -1,4 +1,4 @@
-.PHONY: up down logs extraction-worker migrate revision lint fmt typecheck test test-unit check eval-docs
+.PHONY: up down logs extraction-worker migrate revision lint fmt typecheck test test-unit check eval-docs eval-extraction
 
 up:          ## start backend + db
 	docker compose up --build -d
@@ -42,3 +42,6 @@ check: lint typecheck test
 
 eval-docs:   ## (re)generate evals/documents from their labels, e.g. make eval-docs ids="D01 E06"
 	uv run python -m evals.generator $(ids)
+
+eval-extraction:
+	uv run python -m evals.extraction $(ids)

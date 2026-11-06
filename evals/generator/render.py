@@ -91,6 +91,10 @@ RENDER: dict[str, RenderSpec] = {
         footer=("Grazie e arrivederci!",),
         tax_rate="19%",
         size=8.0,
+        entertainment=(
+            ("Bewirtete Person(en):", "A. Novak, J. Ortega\n(Meridian Health)"),
+            ("Anlass der Bewirtung:", "Abschluss Q4-Verlängerung"),
+        ),
     ),
     "D04": RenderSpec(
         family="thermal",
@@ -106,6 +110,7 @@ RENDER: dict[str, RenderSpec] = {
         footer=("Thank you - see you soon!",),
         tax_rate="19%",
         align="right",
+        entertainment=(("Persons entertained:", ""), ("Occasion:", "Client dinner, renewal")),
     ),
     "D05": RenderSpec(
         family="folio",

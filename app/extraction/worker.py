@@ -8,11 +8,11 @@ from datetime import UTC, datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.claims.storage import ObjectStorage, S3ObjectStorage
-from app.core.config import WorkerSettings
 from app.core.db import build_engine, build_session_factory
 from app.extraction.extractor import BedrockExtractor, ExpenseExtractor
 from app.extraction.queue import SqsUploadQueue, UploadMessage, UploadQueue
 from app.extraction.service import process_upload
+from app.extraction.settings import WorkerSettings
 
 logger = logging.getLogger(__name__)
 

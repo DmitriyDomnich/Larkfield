@@ -35,6 +35,8 @@ def render(expense: ExtractedExpense, spec: RenderSpec) -> bytes:
     ]
     if spec.datetime_at == "footer":
         rows.append(Row(_datetime(expense, spec), gap=0.6))
+    if spec.entertainment:
+        rows += _entertainment(spec)
     width_mm = 72 if spec.columns == "desc_amount" else 80
     if not spec.handwritten:
         return draw_roll(rows, spec, width_mm)
@@ -140,6 +142,19 @@ def _tax(expense: ExtractedExpense, spec: RenderSpec) -> list[Row]:
         Row(f"{spec.word('tax_amount')} {rate}:", spec.money(tax), gap=0.6),
         Row(f"{spec.word('net_total')}:", spec.money(net)),
     ]
+
+
+def _entertainment(spec: RenderSpec) -> list[Row]:
+    """A business entertainment form printed under the receipt"""
+    rows = [
+        Row(rule=True, gap=0.6),
+        Row(spec.word("entertainment_title"), bold=True, align="center"),
+        Row(spec.word("entertainment_law"), align="center"),
+    ]
+    for label, value in spec.entertainment:
+        rows.append(Row(label, gap=0.4))
+        rows += [Row(line) for line in value.splitlines()] if value else [Row("_" * 24)]
+    return rows
 
 
 def _datetime(expense: ExtractedExpense, spec: RenderSpec) -> str:
