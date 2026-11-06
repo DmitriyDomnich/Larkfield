@@ -97,6 +97,18 @@ async def test_read_first_bytes_requests_only_those_bytes(
     assert await storage.read_first_bytes("claims/c/d", 8) == b"%PDF-1.7"
 
 
+async def test_read_whole_object(
+    stubbed: tuple[S3ObjectStorage, Stubber], settings: Settings
+) -> None:
+    storage, stubber = stubbed
+    body = StreamingBody(io.BytesIO(b"%PDF-1.7 whole"), 14)
+    stubber.add_response(
+        "get_object", {"Body": body}, {"Bucket": settings.documents_bucket, "Key": "claims/c/d"}
+    )
+
+    assert await storage.read("claims/c/d") == b"%PDF-1.7 whole"
+
+
 async def test_delete(stubbed: tuple[S3ObjectStorage, Stubber], settings: Settings) -> None:
     storage, stubber = stubbed
     stubber.add_response(
@@ -104,3 +116,31 @@ async def test_delete(stubbed: tuple[S3ObjectStorage, Stubber], settings: Settin
     )
 
     await storage.delete("claims/c/d")
+
+
+async def test_view_link_of_a_version(settings: Settings) -> None:
+    storage = S3ObjectStorage(settings)
+
+    url = await storage.presigned_get("claims/c/d", "image/png", "inline", 300, version_id="v1")
+
+    assert parse_qs(urlsplit(url).query)["versionId"] == ["v1"]
+
+
+async def test_calls_on_a_version_name_it(
+    stubbed: tuple[S3ObjectStorage, Stubber], settings: Settings
+) -> None:
+    storage, stubber = stubbed
+    version = {"Bucket": settings.documents_bucket, "Key": "claims/c/d", "VersionId": "v1"}
+    stubber.add_response("head_object", {"ContentLength": 8}, version)
+    stubber.add_response(
+        "get_object",
+        {"Body": StreamingBody(io.BytesIO(b"%PDF-"), 5)},
+        version | {"Range": "bytes=0-4"},
+    )
+    stubber.add_response("get_object", {"Body": StreamingBody(io.BytesIO(b"%PDF-1.7"), 8)}, version)
+    stubber.add_response("delete_object", {}, version)
+
+    assert await storage.size("claims/c/d", "v1") == 8
+    assert await storage.read_first_bytes("claims/c/d", 5, "v1") == b"%PDF-"
+    assert await storage.read("claims/c/d", "v1") == b"%PDF-1.7"
+    await storage.delete("claims/c/d", "v1")

@@ -2,7 +2,7 @@
 
 import asyncio
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 import boto3
 from botocore.config import Config
@@ -29,16 +29,25 @@ class ObjectStorage(Protocol):
     ) -> PresignedPost: ...
 
     async def presigned_get(
-        self, key: str, content_type: str, content_disposition: str, expires_in: int
+        self,
+        key: str,
+        content_type: str,
+        content_disposition: str,
+        expires_in: int,
+        version_id: str | None = None,
     ) -> str: ...
 
-    async def size(self, key: str) -> int | None:
+    async def size(self, key: str, version_id: str | None = None) -> int | None:
         """Size in bytes, or None if there is no such object."""
         ...
 
-    async def read_first_bytes(self, key: str, length: int) -> bytes: ...
+    async def read_first_bytes(
+        self, key: str, length: int, version_id: str | None = None
+    ) -> bytes: ...
 
-    async def delete(self, key: str) -> None: ...
+    async def read(self, key: str, version_id: str | None = None) -> bytes: ...
+
+    async def delete(self, key: str, version_id: str | None = None) -> None: ...
 
 
 class S3ObjectStorage:
@@ -68,7 +77,12 @@ class S3ObjectStorage:
         return PresignedPost(url=post["url"], fields=post["fields"])
 
     async def presigned_get(
-        self, key: str, content_type: str, content_disposition: str, expires_in: int
+        self,
+        key: str,
+        content_type: str,
+        content_disposition: str,
+        expires_in: int,
+        version_id: str | None = None,
     ) -> str:
         return await asyncio.to_thread(
             self._client.generate_presigned_url,
@@ -78,28 +92,46 @@ class S3ObjectStorage:
                 "Key": key,
                 "ResponseContentType": content_type,
                 "ResponseContentDisposition": content_disposition,
+                **_version(version_id),
             },
             ExpiresIn=expires_in,
         )
 
-    async def size(self, key: str) -> int | None:
+    async def size(self, key: str, version_id: str | None = None) -> int | None:
         try:
-            head = await asyncio.to_thread(self._client.head_object, Bucket=self._bucket, Key=key)
+            head = await asyncio.to_thread(
+                self._client.head_object, Bucket=self._bucket, Key=key, **_version(version_id)
+            )
         except ClientError as exc:
             if exc.response.get("Error", {}).get("Code") in ("404", "NoSuchKey", "NotFound"):
                 return None
             raise
         return head["ContentLength"]
 
-    async def read_first_bytes(self, key: str, length: int) -> bytes:
-        return await asyncio.to_thread(self._read_first_bytes, key, length)
+    async def read_first_bytes(self, key: str, length: int, version_id: str | None = None) -> bytes:
+        return await asyncio.to_thread(self._read_first_bytes, key, length, version_id)
 
-    def _read_first_bytes(self, key: str, length: int) -> bytes:
-        obj = self._client.get_object(Bucket=self._bucket, Key=key, Range=f"bytes=0-{length - 1}")
+    def _read_first_bytes(self, key: str, length: int, version_id: str | None) -> bytes:
+        obj = self._client.get_object(
+            Bucket=self._bucket, Key=key, Range=f"bytes=0-{length - 1}", **_version(version_id)
+        )
         return obj["Body"].read()
 
-    async def delete(self, key: str) -> None:
-        await asyncio.to_thread(self._client.delete_object, Bucket=self._bucket, Key=key)
+    async def read(self, key: str, version_id: str | None = None) -> bytes:
+        return await asyncio.to_thread(self._read, key, version_id)
+
+    def _read(self, key: str, version_id: str | None) -> bytes:
+        obj = self._client.get_object(Bucket=self._bucket, Key=key, **_version(version_id))
+        return obj["Body"].read()
+
+    async def delete(self, key: str, version_id: str | None = None) -> None:
+        await asyncio.to_thread(
+            self._client.delete_object, Bucket=self._bucket, Key=key, **_version(version_id)
+        )
+
+
+def _version(version_id: str | None) -> dict[str, Any]:
+    return {"VersionId": version_id} if version_id else {}
 
 
 def get_storage(request: Request) -> ObjectStorage:

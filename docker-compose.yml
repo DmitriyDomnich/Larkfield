@@ -21,6 +21,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       APP_ENV: local
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      WATCHFILES_FORCE_POLLING: "true"
       COGNITO_REGION: ${COGNITO_REGION:?set COGNITO_REGION in .env}
       COGNITO_USER_POOL_ID: ${COGNITO_USER_POOL_ID:?set COGNITO_USER_POOL_ID in .env}
       COGNITO_APP_CLIENT_ID: ${COGNITO_APP_CLIENT_ID:?set COGNITO_APP_CLIENT_ID in .env}
@@ -34,6 +35,31 @@ services:
       - ./app:/app/app:ro
       - ./migrations:/app/migrations:ro
       - ./alembic.ini:/app/alembic.ini:ro
+      - ~/.aws:/home/larkfield/.aws:ro
+    depends_on:
+      db:
+        condition: service_healthy
+
+  worker:
+    build: .
+    profiles: [worker]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      APP_ENV: local
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      WATCHFILES_FORCE_POLLING: "true"
+      COGNITO_REGION: ${COGNITO_REGION:?set COGNITO_REGION in .env}
+      COGNITO_USER_POOL_ID: ${COGNITO_USER_POOL_ID:?set COGNITO_USER_POOL_ID in .env}
+      COGNITO_APP_CLIENT_ID: ${COGNITO_APP_CLIENT_ID:?set COGNITO_APP_CLIENT_ID in .env}
+      AWS_REGION: ${AWS_REGION:?set AWS_REGION in .env}
+      DOCUMENTS_BUCKET: ${DOCUMENTS_BUCKET:?set DOCUMENTS_BUCKET in .env}
+      EXTRACTION_QUEUE_URL: ${EXTRACTION_QUEUE_URL:-}
+      BEDROCK_MODEL_ID: ${BEDROCK_MODEL_ID:-}
+      AWS_PROFILE: ${AWS_PROFILE:?set AWS_PROFILE in .env}
+    command:
+      ["watchfiles", "--filter", "python", "--sigint-timeout", "25", "python -m app.extraction", "app"]
+    volumes:
+      - ./app:/app/app:ro
       - ~/.aws:/home/larkfield/.aws:ro
     depends_on:
       db:

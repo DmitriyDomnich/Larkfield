@@ -17,3 +17,11 @@ output "documents_bucket" {
 output "api_documents_policy_arn" {
   value = module.documents.api_policy_arn
 }
+
+output "extraction_queue_url" {
+  value = module.extraction.queue_url
+}
+
+output "extraction_worker_policy_arn" {
+  value = module.extraction.worker_policy_arn
+}

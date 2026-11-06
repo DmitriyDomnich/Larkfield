@@ -12,11 +12,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_token_verifier
 from app.claims.models import Document
+from app.claims.service import verify_upload
 from app.claims.storage import get_storage
 from app.core.config import Settings
 from app.core.db import get_session
 from app.main import create_app
-from tests.claims.fakes import EXE, PDF, FakeStorage, auth, claim_body
+from tests.claims.fakes import PDF, FakeStorage, auth, claim_body
 from tests.tokens import make_verifier
 
 pytestmark = pytest.mark.integration
@@ -56,17 +57,21 @@ async def submit(api: AsyncClient, headers: dict[str, str], **body: Any) -> dict
     return created
 
 
-async def upload(
-    api: AsyncClient,
-    storage: FakeStorage,
-    headers: dict[str, str],
-    content: bytes = PDF,
-) -> dict[str, Any]:
-    """Submit a claim, put `content` where the browser would, and return the created claim."""
+async def upload(api: AsyncClient, storage: FakeStorage, headers: dict[str, str]) -> dict[str, Any]:
+    """Submit a claim and put a PDF where the browser would; returns the created claim."""
     created = await submit(api, headers)
-    storage.objects[created["upload"]["fields"]["key"]] = content
+    storage.put(created["upload"]["fields"]["key"], PDF)
     claim: dict[str, Any] = created["claim"]
     return claim
+
+
+async def verify(db_session: AsyncSession, storage: FakeStorage, claim_id: str) -> None:
+    """What the extraction worker does first with the S3 event: the claim becomes `uploaded`."""
+    document = await db_session.scalar(select(Document).where(Document.claim_id == claim_id))
+    assert document is not None
+    document.version_id = storage.current_version[document.s3_key]  # pinned from the S3 event
+    assert await verify_upload(db_session, storage, document)
+    await db_session.commit()
 
 
 async def test_submit_creates_pending_claim_and_upload_form(
@@ -97,82 +102,6 @@ async def test_reviewer_can_submit_own_claim(api: AsyncClient, as_: Any) -> None
     created = await submit(api, as_(**REVIEWER))
 
     assert created["claim"]["employee_sub"] == "reviewer-1"
-
-
-async def test_valid_upload_moves_claim_to_uploaded(
-    api: AsyncClient, storage: FakeStorage, as_: Any
-) -> None:
-    claim = await upload(api, storage, as_())
-
-    response = await api.post(f"/claims/{claim['id']}/upload-complete", headers=as_())
-
-    assert response.status_code == 200
-    assert response.json()["status"] == "uploaded"
-    assert response.json()["document"]["size_bytes"] == len(PDF)
-
-
-async def test_executable_renamed_to_pdf_fails_the_claim(
-    api: AsyncClient, storage: FakeStorage, as_: Any
-) -> None:
-    claim = await upload(api, storage, as_(), content=EXE)
-
-    response = await api.post(f"/claims/{claim['id']}/upload-complete", headers=as_())
-
-    assert response.status_code == 422
-    assert response.json() == {"detail": "The file is not a valid PDF"}
-    stored = (await api.get(f"/claims/{claim['id']}", headers=as_())).json()
-    assert stored["status"] == "failed"
-    assert stored["failure_reason"] == "The file is not a valid PDF"
-    assert storage.objects == {}
-    assert len(storage.deleted) == 1
-
-
-async def test_oversized_object_fails_the_claim(
-    api: AsyncClient, storage: FakeStorage, as_: Any
-) -> None:
-    claim = await upload(api, storage, as_(), content=PDF + b"0" * (10 * 1024 * 1024))
-
-    response = await api.post(f"/claims/{claim['id']}/upload-complete", headers=as_())
-
-    assert response.status_code == 422
-    assert response.json() == {"detail": "The file is larger than 10 MB"}
-
-
-async def test_confirm_without_file_is_409_and_claim_stays_pending(
-    api: AsyncClient, as_: Any
-) -> None:
-    claim = (await submit(api, as_()))["claim"]
-
-    response = await api.post(f"/claims/{claim['id']}/upload-complete", headers=as_())
-
-    assert response.status_code == 409
-    stored = (await api.get(f"/claims/{claim['id']}", headers=as_())).json()
-    assert stored["status"] == "pending_upload"
-
-
-async def test_refused_transition_is_409(api: AsyncClient, storage: FakeStorage, as_: Any) -> None:
-    claim = await upload(api, storage, as_())
-    await api.post(f"/claims/{claim['id']}/upload-complete", headers=as_())
-
-    response = await api.post(f"/claims/{claim['id']}/upload-complete", headers=as_())
-
-    assert response.status_code == 409
-    assert response.json() == {"detail": "The claim cannot move from uploaded to uploaded"}
-
-
-@pytest.mark.parametrize(
-    "caller",
-    [{"sub": "user-2", "role": "employee"}, REVIEWER],
-    ids=["other-employee", "reviewer"],
-)
-async def test_only_the_owner_confirms_the_upload(
-    api: AsyncClient, storage: FakeStorage, as_: Any, caller: dict[str, str]
-) -> None:
-    claim = await upload(api, storage, as_())
-
-    response = await api.post(f"/claims/{claim['id']}/upload-complete", headers=as_(**caller))
-
-    assert response.status_code == 404
 
 
 async def test_employee_lists_only_own_claims(api: AsyncClient, as_: Any) -> None:
@@ -207,10 +136,10 @@ async def test_reviewer_gets_any_claim(api: AsyncClient, as_: Any) -> None:
 
 
 async def test_reviewer_lists_all_claims_by_status_and_page(
-    api: AsyncClient, storage: FakeStorage, as_: Any
+    api: AsyncClient, db_session: AsyncSession, storage: FakeStorage, as_: Any
 ) -> None:
     uploaded = await upload(api, storage, as_())
-    await api.post(f"/claims/{uploaded['id']}/upload-complete", headers=as_())
+    await verify(db_session, storage, uploaded["id"])
     await submit(api, as_(sub="user-2"))
     await submit(api, as_(sub="user-3"))
     reviewer = as_(**REVIEWER)
@@ -234,12 +163,12 @@ async def test_reviewer_lists_all_claims_by_status_and_page(
 
 
 async def test_file_link_for_owner_and_reviewer_only(
-    api: AsyncClient, storage: FakeStorage, as_: Any, settings: Settings
+    api: AsyncClient, db_session: AsyncSession, storage: FakeStorage, as_: Any, settings: Settings
 ) -> None:
     claim = await upload(api, storage, as_())
     path = f"/claims/{claim['id']}/file"
     before = await api.get(path, headers=as_())
-    await api.post(f"/claims/{claim['id']}/upload-complete", headers=as_())
+    await verify(db_session, storage, claim["id"])
 
     owner = await api.get(path, headers=as_())
     reviewer = await api.get(path, headers=as_(**REVIEWER))
@@ -248,6 +177,7 @@ async def test_file_link_for_owner_and_reviewer_only(
     assert before.status_code == 404
     assert owner.status_code == reviewer.status_code == 200
     assert f"X-Amz-Expires={settings.file_url_ttl_seconds}" in owner.json()["url"]
+    assert "versionId=v1" in owner.json()["url"]  # the version that was checked and extracted
     expires_at = datetime.fromisoformat(owner.json()["expires_at"])
     assert expires_at - datetime.now(UTC) <= timedelta(minutes=5)
     assert other.status_code == 404

@@ -38,18 +38,6 @@ class ConcurrentTransitionError(Exception):
     """The status changed between reading it and updating it."""
 
 
-class FileNotUploadedError(Exception):
-    """The claim's file is not in S3 (yet)."""
-
-
-class RejectedFileError(Exception):
-    """The uploaded file is not what was declared; the claim is now failed with `reason`."""
-
-    def __init__(self, reason: str) -> None:
-        super().__init__(reason)
-        self.reason = reason
-
-
 class FileNotAvailableError(Exception):
     """The claim has no verified file to show."""
 
@@ -169,42 +157,28 @@ async def create_claim(
     return await get_claim(session, user, claim.id), upload
 
 
-async def confirm_upload(
-    session: AsyncSession, storage: ObjectStorage, user: CurrentUser, claim_id: uuid.UUID
-) -> Claim:
-    claim = await session.scalar(
-        _with_document()
-        .where(Claim.id == claim_id, Claim.employee_sub == user.sub)
-        .with_for_update(of=Claim)
-    )
-    if claim is None or claim.document is None:
-        raise ClaimNotFoundError(claim_id)
-    if claim.status is not ClaimStatus.PENDING_UPLOAD:
-        raise InvalidTransitionError(claim.status, ClaimStatus.UPLOADED)
-
-    document = claim.document
-    size = await storage.size(document.s3_key)
-    if size is None:
-        raise FileNotUploadedError(claim_id)
-
+async def verify_upload(session: AsyncSession, storage: ObjectStorage, document: Document) -> bool:
+    version = document.version_id
+    size = await storage.size(document.s3_key, version)
     reason = None
-    if size > MAX_FILE_BYTES:
+    if size is None:
+        reason = "The uploaded file could not be found"
+    elif size > MAX_FILE_BYTES:
         reason = "The file is larger than 10 MB"
     elif not content_matches_type(
-        await storage.read_first_bytes(document.s3_key, BYTES_TO_CHECK), document.content_type
+        await storage.read_first_bytes(document.s3_key, BYTES_TO_CHECK, version),
+        document.content_type,
     ):
         reason = f"The file is not a valid {LABELS[document.content_type]}"
 
     if reason is not None:
-        await storage.delete(document.s3_key)
-        await transition(session, claim.id, ClaimStatus.FAILED, failure_reason=reason)
-        await session.commit()
-        raise RejectedFileError(reason)
+        await storage.delete(document.s3_key, version)
+        await transition(session, document.claim_id, ClaimStatus.FAILED, failure_reason=reason)
+        return False
 
     document.size_bytes = size
-    await transition(session, claim.id, ClaimStatus.UPLOADED)
-    await session.commit()
-    return await get_claim(session, user, claim.id)
+    await transition(session, document.claim_id, ClaimStatus.UPLOADED)
+    return True
 
 
 async def file_link(
@@ -225,5 +199,6 @@ async def file_link(
         document.content_type,
         content_disposition(document.original_filename),
         settings.file_url_ttl_seconds,
+        document.version_id,
     )
     return FileLink(url=url, expires_at=expires_at)

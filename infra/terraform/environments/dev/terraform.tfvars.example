@@ -1,2 +1,3 @@
 # read automatically by `terraform plan/apply`
 aws_region = "<region>"
+bedrock_inference_profile_id = "<eu_inference_profile_id>"

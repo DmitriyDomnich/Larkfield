@@ -86,5 +86,6 @@ class Document(CreatedAtMixin, Base):
     content_type: Mapped[str] = mapped_column(String(127))
     size_bytes: Mapped[int | None] = mapped_column(BigInteger)
     sha256: Mapped[str | None] = mapped_column(String(64))
+    version_id: Mapped[str | None] = mapped_column(String(1024))
 
     claim: Mapped[Claim] = relationship(back_populates="document", lazy="raise")

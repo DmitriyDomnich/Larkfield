@@ -2,6 +2,13 @@ resource "aws_s3_bucket" "documents" {
   bucket_prefix = "${var.project_name}-documents-"
 }
 
+resource "aws_s3_bucket_versioning" "documents" {
+  bucket = aws_s3_bucket.documents.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
 resource "aws_s3_bucket_public_access_block" "documents" {
   bucket                  = aws_s3_bucket.documents.id
   block_public_acls       = true
@@ -44,7 +51,7 @@ resource "aws_iam_policy" "api_documents" {
     Version = "2012-10-17"
     Statement = [{
       Effect   = "Allow"
-      Action   = ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"]
+      Action   = ["s3:PutObject", "s3:GetObject", "s3:GetObjectVersion", "s3:DeleteObject"]
       Resource = "${aws_s3_bucket.documents.arn}/claims/*"
     }]
   })

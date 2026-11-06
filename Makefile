@@ -1,4 +1,4 @@
-.PHONY: up down logs migrate revision lint fmt typecheck test test-unit check eval-docs
+.PHONY: up down logs extraction-worker migrate revision lint fmt typecheck test test-unit check eval-docs
 
 up:          ## start backend + db
 	docker compose up --build -d
@@ -7,7 +7,10 @@ down:
 	docker compose down
 
 logs:
-	docker compose logs -f api
+	docker compose logs -f api worker
+
+extraction-worker:
+	uv run python -m app.extraction
 
 migrate:
 	uv run alembic upgrade head
@@ -28,6 +31,9 @@ typecheck:
 
 test-unit:
 	uv run pytest -m "not integration"
+
+test-live:
+	LIVE_BEDROCK=1 uv run pytest tests/extraction/test_extractor_live.py -v
 
 test:        ## all tests + coverage
 	uv run pytest --cov --cov-report=term-missing
