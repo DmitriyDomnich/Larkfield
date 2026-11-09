@@ -7,7 +7,7 @@ from urllib.parse import unquote_plus
 
 import boto3
 
-from app.core.config import WorkerSettings
+from app.extraction.settings import WorkerSettings
 
 if TYPE_CHECKING:
     from mypy_boto3_sqs import SQSClient

@@ -10,91 +10,91 @@
     {
       "description": "Kopierpapier A4, 80 g, 500 Blatt",
       "quantity": "20",
-      "unit_price": "4.35",
+      "unit_price": null,
       "amount": "87.00"
     },
     {
       "description": "Ordner A4, 8 cm, blau",
       "quantity": "24",
-      "unit_price": "2.19",
+      "unit_price": null,
       "amount": "52.56"
     },
     {
       "description": "Ordner A4, 5 cm, grau",
       "quantity": "12",
-      "unit_price": "2.09",
+      "unit_price": null,
       "amount": "25.08"
     },
     {
       "description": "Kugelschreiber blau, Druckmechanik",
       "quantity": "50",
-      "unit_price": "0.39",
+      "unit_price": null,
       "amount": "19.50"
     },
     {
       "description": "Gelstift schwarz 0,5",
       "quantity": "30",
-      "unit_price": "1.15",
+      "unit_price": null,
       "amount": "34.50"
     },
     {
       "description": "Textmarker, 4er-Set",
       "quantity": "10",
-      "unit_price": "3.49",
+      "unit_price": null,
       "amount": "34.90"
     },
     {
       "description": "Haftnotizen 76x76, gelb, 12 Blöcke",
       "quantity": "8",
-      "unit_price": "6.90",
+      "unit_price": null,
       "amount": "55.20"
     },
     {
       "description": "Haftnotizen 38x51, Neonfarben",
       "quantity": "10",
-      "unit_price": "2.80",
+      "unit_price": null,
       "amount": "28.00"
     },
     {
       "description": "Heftgerät bis 25 Blatt",
       "quantity": "4",
-      "unit_price": "8.95",
+      "unit_price": null,
       "amount": "35.80"
     },
     {
       "description": "Heftklammern 24/6, 1000 Stück",
       "quantity": "20",
-      "unit_price": "0.85",
+      "unit_price": null,
       "amount": "17.00"
     },
     {
       "description": "Locher bis 30 Blatt",
       "quantity": "3",
-      "unit_price": "11.40",
+      "unit_price": null,
       "amount": "34.20"
     },
     {
       "description": "Klarsichthüllen A4, 100 Stück",
       "quantity": "6",
-      "unit_price": "5.25",
+      "unit_price": null,
       "amount": "31.50"
     },
     {
       "description": "Trennblätter A4, farbig, 100 Stück",
       "quantity": "4",
-      "unit_price": "3.60",
+      "unit_price": null,
       "amount": "14.40"
     },
     {
       "description": "Schnellhefter A4, sortiert",
       "quantity": "40",
-      "unit_price": "0.42",
+      "unit_price": null,
       "amount": "16.80"
     },
     {
       "description": "Briefumschläge DIN lang, 500 Stück",
       "quantity": "2",
-      "unit_price": "14.90",
+      "unit_price": null,
       "amount": "29.80"
     },
     {
@@ -106,121 +106,121 @@
     {
       "description": "Versandtaschen B4 mit Falte",
       "quantity": "25",
-      "unit_price": "0.88",
+      "unit_price": null,
       "amount": "22.00"
     },
     {
       "description": "Paketband transparent, 66 m",
       "quantity": "12",
-      "unit_price": "1.95",
+      "unit_price": null,
       "amount": "23.40"
     },
     {
       "description": "Whiteboard-Marker, 4 Farben",
       "quantity": "6",
-      "unit_price": "5.40",
+      "unit_price": null,
       "amount": "32.40"
     },
     {
       "description": "Whiteboard-Reiniger 250 ml",
       "quantity": "2",
-      "unit_price": "4.30",
+      "unit_price": null,
       "amount": "8.60"
     },
     {
       "description": "Moderationskarten, 500 Stück",
       "quantity": "3",
-      "unit_price": "7.80",
+      "unit_price": null,
       "amount": "23.40"
     },
     {
       "description": "Pinnwandnadeln, 100 Stück",
       "quantity": "4",
-      "unit_price": "2.40",
+      "unit_price": null,
       "amount": "9.60"
     },
     {
       "description": "Flipchart-Block, 20 Blatt, kariert",
       "quantity": "6",
-      "unit_price": "8.70",
+      "unit_price": null,
       "amount": "52.20"
     },
     {
       "description": "Bleistift HB, 12 Stück",
       "quantity": "3",
-      "unit_price": "3.10",
+      "unit_price": null,
       "amount": "9.30"
     },
     {
       "description": "Radiergummi, 4er-Pack",
       "quantity": "5",
-      "unit_price": "1.60",
+      "unit_price": null,
       "amount": "8.00"
     },
     {
       "description": "Lineal 30 cm, Aluminium",
       "quantity": "4",
-      "unit_price": "2.25",
+      "unit_price": null,
       "amount": "9.00"
     },
     {
       "description": "Schere 21 cm",
       "quantity": "4",
-      "unit_price": "3.95",
+      "unit_price": null,
       "amount": "15.80"
     },
     {
       "description": "Klebestift 40 g",
       "quantity": "15",
-      "unit_price": "1.35",
+      "unit_price": null,
       "amount": "20.25"
     },
     {
       "description": "Tesafilm 19 mm x 33 m",
       "quantity": "12",
-      "unit_price": "1.10",
+      "unit_price": null,
       "amount": "13.20"
     },
     {
       "description": "Abroller für Klebefilm",
       "quantity": "4",
-      "unit_price": "4.80",
+      "unit_price": null,
       "amount": "19.20"
     },
     {
       "description": "Büroklammern 26 mm, 1000 Stück",
       "quantity": "4",
-      "unit_price": "2.70",
+      "unit_price": null,
       "amount": "10.80"
     },
     {
       "description": "Foldback-Klammern 32 mm, 12 Stück",
       "quantity": "6",
-      "unit_price": "1.95",
+      "unit_price": null,
       "amount": "11.70"
     },
     {
       "description": "Notizblock A5, liniert",
       "quantity": "30",
-      "unit_price": "0.95",
+      "unit_price": null,
       "amount": "28.50"
     },
     {
       "description": "Collegeblock A4, kariert",
       "quantity": "20",
-      "unit_price": "1.65",
+      "unit_price": null,
       "amount": "33.00"
     },
     {
       "description": "Etiketten 70x36, 2400 Stück",
       "quantity": "2",
-      "unit_price": "16.80",
+      "unit_price": null,
       "amount": "33.60"
     },
     {
       "description": "Toner schwarz, Laserdrucker LX-500",
       "quantity": "3",
-      "unit_price": "64.90",
+      "unit_price": null,
       "amount": "194.70"
     },
     {
@@ -238,7 +238,7 @@
     {
       "description": "Batterien AA, 24 Stück",
       "quantity": "2",
-      "unit_price": "9.90",
+      "unit_price": null,
       "amount": "19.80"
     },
     {
@@ -250,31 +250,31 @@
     {
       "description": "Schreibtischunterlage 60x40",
       "quantity": "4",
-      "unit_price": "6.50",
+      "unit_price": null,
       "amount": "26.00"
     },
     {
       "description": "Stiftehalter Metall",
       "quantity": "6",
-      "unit_price": "4.20",
+      "unit_price": null,
       "amount": "25.20"
     },
     {
       "description": "Briefablage A4, stapelbar",
       "quantity": "10",
-      "unit_price": "2.85",
+      "unit_price": null,
       "amount": "28.50"
     },
     {
       "description": "Hängeregistratur, 25 Stück",
       "quantity": "2",
-      "unit_price": "13.60",
+      "unit_price": null,
       "amount": "27.20"
     },
     {
       "description": "Kalender 2027, Wandplaner",
       "quantity": "2",
-      "unit_price": "11.90",
+      "unit_price": null,
       "amount": "23.80"
     }
   ],

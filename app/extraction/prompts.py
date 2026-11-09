@@ -52,7 +52,32 @@ Amount due), plus a tip when one is added below it. Tax that is already included
 again. Cash handed over (Barzahlung, Gegeben, Cash) and change given back (Rückgeld, Change) are \
 neither the total nor a tip.
 - document_type: receipt, invoice or card_slip (a card terminal slip with an amount but no items).
-- category: the single best fit for what was bought.
+- category: what the document is for, judged only from the document itself (you never see the \
+employee's business purpose). When items fall into different categories, choose the category of \
+the largest share of the total.
+  - fine: a fine or penalty from an authority (parking or speeding ticket, Verwarnungsgeld, \
+Bußgeld).
+  - hotel: accommodation, including everything else on the hotel bill (breakfast, minibar, city \
+tax).
+  - air_travel: flights, and airline fees for seats or baggage.
+  - rail_travel: train tickets and rail passes.
+  - taxi: taxi, ride-hailing and chauffeur trips.
+  - mileage: fuel, charging, tolls and parking fees for a car.
+  - conference: conference, trade fair and event tickets or registration fees.
+  - training: books, courses, online learning and certification exams.
+  - software: software licences, subscriptions, apps and cloud services.
+  - equipment: devices and furniture: computers, monitors, phones, tablets, printers, desks, chairs.
+  - accessories: small add-ons for devices: cables, chargers, adapters, docking stations, cases, \
+mice, keyboards, headsets.
+  - team_meal: food or drink for an internal group event that the document itself shows: catering, \
+or a bill naming a team event, offsite or workshop.
+  - client_entertainment: food or drink where the document itself names the occasion of \
+hospitality or guests from another company (for example a completed Bewirtungsbeleg with \
+"Anlass" and "Bewirtete Personen").
+  - meal: any other food or drink from a restaurant, café, bar, bakery, canteen or delivery \
+service. A guest or cover count ("Gäste: 3", "Covers: 4") says how many people ate, not who they \
+were, so the bill is still a meal.
+  - other: everything else, such as office supplies, stationery, postage and printing.
 
 A card_slip normally lists no items: record it with an empty line_items list and choose the \
 category from the vendor (a restaurant is a meal). Missing items are never a reason to report a \

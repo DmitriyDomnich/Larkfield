@@ -53,6 +53,8 @@ WORDS: dict[Lang, dict[str, str]] = {
         "gross": "Brutto",
         "tax_amount": "MwSt-Betrag",
         "net_total": "Gesamtbetrag netto",
+        "entertainment_title": "Bewirtungsbeleg",
+        "entertainment_law": "Angaben nach § 4 Abs. 5 Nr. 2 EStG",
     },
     "en": {
         "total": "TOTAL",
@@ -80,6 +82,8 @@ WORDS: dict[Lang, dict[str, str]] = {
         "gross": "Gross",
         "tax_amount": "VAT amount",
         "net_total": "Net total",
+        "entertainment_title": "Business entertainment receipt",
+        "entertainment_law": "Details per Sec. 4(5) no. 2 EStG",
     },
 }
 
@@ -121,6 +125,8 @@ class RenderSpec:
     datetime_at: Literal["header", "footer"] = "header"
     # Label fields written by hand under the printed receipt, in order
     handwritten: tuple[Literal["tip", "total"], ...] = ()
+    # Bewirtungsbeleg under the receipt: (label, value); "" is left blank
+    entertainment: tuple[tuple[str, str], ...] = ()
     photo: Photo | None = None
     # Content for a document that has no label
     data: ExtractedExpense | None = None
