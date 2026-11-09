@@ -1,0 +1,464 @@
+[
+  {
+    "number": 1,
+    "question": "I'm on a work trip in Hamburg. How much can I spend on dinner?",
+    "required": [
+      "2.1"
+    ],
+    "also_relevant": [
+      "FAQ-13"
+    ],
+    "traps": []
+  },
+  {
+    "number": 2,
+    "question": "Can I have a glass of wine with dinner when I'm travelling on my own?",
+    "required": [
+      "2.3"
+    ],
+    "also_relevant": [
+      "FAQ-19"
+    ],
+    "traps": []
+  },
+  {
+    "number": 3,
+    "question": "We're taking two people from a customer out for lunch. What's the budget per head?",
+    "required": [
+      "2.2"
+    ],
+    "also_relevant": [
+      "FAQ-15"
+    ],
+    "traps": []
+  },
+  {
+    "number": 4,
+    "question": "Is a first-class train ticket fine for a five-hour journey?",
+    "required": [
+      "3.2"
+    ],
+    "also_relevant": [
+      "FAQ-29"
+    ],
+    "traps": []
+  },
+  {
+    "number": 5,
+    "question": "Can I get a cab back to the hotel at midnight?",
+    "required": [
+      "3.3"
+    ],
+    "also_relevant": [
+      "FAQ-23"
+    ],
+    "traps": []
+  },
+  {
+    "number": 6,
+    "question": "What's the most a hotel room in Berlin can cost per night?",
+    "required": [
+      "3.5"
+    ],
+    "also_relevant": [
+      "FAQ-32"
+    ],
+    "traps": []
+  },
+  {
+    "number": 7,
+    "question": "Will the company cover what I took from the minibar?",
+    "required": [
+      "3.6"
+    ],
+    "also_relevant": [
+      "FAQ-34"
+    ],
+    "traps": []
+  },
+  {
+    "number": 8,
+    "question": "I found a receipt from three months ago. Is it too late?",
+    "required": [
+      "1.2"
+    ],
+    "also_relevant": [
+      "FAQ-3",
+      "FAQ-4"
+    ],
+    "traps": []
+  },
+  {
+    "number": 9,
+    "question": "Do I need sign-off before buying a new laptop?",
+    "required": [
+      "4.1"
+    ],
+    "also_relevant": [
+      "FAQ-37",
+      "IT2.5",
+      "IT3.5"
+    ],
+    "traps": []
+  },
+  {
+    "number": 10,
+    "question": "I paid for a design app subscription with my own card. Can I get the money back?",
+    "required": [
+      "4.2"
+    ],
+    "also_relevant": [
+      "FAQ-38",
+      "IT5.2"
+    ],
+    "traps": []
+  },
+  {
+    "number": 11,
+    "question": "I got a parking ticket outside the customer's office. Will Larkfield pay it?",
+    "required": [
+      "6.1"
+    ],
+    "also_relevant": [
+      "FAQ-43"
+    ],
+    "traps": []
+  },
+  {
+    "number": 12,
+    "question": "The shop only gave me the slip from the card machine. Is that enough?",
+    "required": [
+      "1.3"
+    ],
+    "also_relevant": [
+      "FAQ-9"
+    ],
+    "traps": []
+  },
+  {
+    "number": 13,
+    "question": "I drove to the customer site in my own car. Can I add the fuel receipt as well?",
+    "required": [
+      "3.4"
+    ],
+    "also_relevant": [
+      "FAQ-30"
+    ],
+    "traps": []
+  },
+  {
+    "number": 14,
+    "question": "How much can I spend on books and online courses in a year?",
+    "required": [
+      "5.1"
+    ],
+    "also_relevant": [
+      "FAQ-40"
+    ],
+    "traps": []
+  },
+  {
+    "number": 15,
+    "question": "My claim was over a limit. Can Finance just pay the part that was allowed?",
+    "required": [
+      "7.1"
+    ],
+    "also_relevant": [
+      "FAQ-49",
+      "FAQ-50"
+    ],
+    "traps": []
+  },
+  {
+    "number": 16,
+    "question": "Does the city tax on my hotel bill count towards the nightly limit?",
+    "required": [
+      "3.5"
+    ],
+    "also_relevant": [
+      "FAQ-33"
+    ],
+    "traps": []
+  },
+  {
+    "number": 17,
+    "question": "Can I put a gift card for a customer on my expenses?",
+    "required": [
+      "6.3"
+    ],
+    "also_relevant": [
+      "FAQ-44",
+      "FAQ-45"
+    ],
+    "traps": []
+  },
+  {
+    "number": 18,
+    "question": "How long can I wait between getting a pre-approval number and buying the thing?",
+    "required": [
+      "IT3.4"
+    ],
+    "also_relevant": [],
+    "traps": []
+  },
+  {
+    "number": 19,
+    "question": "Can I claim a phone case and a charging cable?",
+    "required": [
+      "4.3"
+    ],
+    "also_relevant": [
+      "FAQ-39",
+      "IT2.4"
+    ],
+    "traps": []
+  },
+  {
+    "number": 20,
+    "question": "How long does it take to get a pre-approval number?",
+    "required": [
+      "IT3.3"
+    ],
+    "also_relevant": [],
+    "traps": []
+  },
+  {
+    "number": 21,
+    "question": "How long does IT take to deliver a keyboard I asked for?",
+    "required": [
+      "IT2.3"
+    ],
+    "also_relevant": [],
+    "traps": []
+  },
+  {
+    "number": 22,
+    "question": "How long does Finance take to look at a claim?",
+    "required": [
+      "FAQ-52"
+    ],
+    "also_relevant": [],
+    "traps": []
+  },
+  {
+    "number": 23,
+    "question": "Can I try a paid tool for free before IT buys it?",
+    "required": [
+      "IT5.3"
+    ],
+    "also_relevant": [],
+    "traps": []
+  },
+  {
+    "number": 24,
+    "question": "Who has to approve buying four monitors for the team for EUR 3,600?",
+    "required": [
+      "IT9.3"
+    ],
+    "also_relevant": [],
+    "traps": []
+  },
+  {
+    "number": 25,
+    "question": "What should I do if my work laptop is stolen?",
+    "required": [
+      "IT7.1"
+    ],
+    "also_relevant": [],
+    "traps": []
+  },
+  {
+    "number": 26,
+    "question": "Dinner with a customer for three people, with wine. What's allowed, and what do I need to enter?",
+    "required": [
+      "2.2",
+      "2.3"
+    ],
+    "also_relevant": [
+      "FAQ-16",
+      "FAQ-20"
+    ],
+    "traps": []
+  },
+  {
+    "number": 27,
+    "question": "My hotel in Berlin was EUR 160 a night. Will they pay at least the EUR 150?",
+    "required": [
+      "3.5",
+      "7.1"
+    ],
+    "also_relevant": [
+      "FAQ-32",
+      "FAQ-50"
+    ],
+    "traps": []
+  },
+  {
+    "number": 28,
+    "question": "Can we expense a team lunch, and how do we get it approved?",
+    "required": [
+      "2.4",
+      "IT3.2"
+    ],
+    "also_relevant": [
+      "FAQ-21",
+      "IT3.5"
+    ],
+    "traps": []
+  },
+  {
+    "number": 29,
+    "question": "I bought a EUR 450 chair for my home office. What do I need to claim it?",
+    "required": [
+      "4.1",
+      "IT4.3"
+    ],
+    "also_relevant": [
+      "FAQ-36",
+      "IT3.5"
+    ],
+    "traps": []
+  },
+  {
+    "number": 30,
+    "question": "My receipt has a phone charger and some toothpaste on it. What happens to the claim?",
+    "required": [
+      "7.4",
+      "6.2"
+    ],
+    "also_relevant": [
+      "FAQ-46",
+      "FAQ-51"
+    ],
+    "traps": []
+  },
+  {
+    "number": 31,
+    "question": "I'm going to a conference. Do I need approval for the ticket, and can I fly business?",
+    "required": [
+      "5.2",
+      "3.1"
+    ],
+    "also_relevant": [
+      "FAQ-41",
+      "FAQ-42"
+    ],
+    "traps": []
+  },
+  {
+    "number": 32,
+    "question": "The restaurant only gave me a card slip for a EUR 40 dinner. What happens now?",
+    "required": [
+      "1.3",
+      "7.2"
+    ],
+    "also_relevant": [
+      "FAQ-9",
+      "FAQ-48"
+    ],
+    "traps": []
+  },
+  {
+    "number": 33,
+    "question": "My room was EUR 140 a night and breakfast was EUR 15 extra on the bill. Is the room within the limit, and can I claim the breakfast as a meal?",
+    "required": [
+      "3.5",
+      "2.1"
+    ],
+    "also_relevant": [
+      "FAQ-33"
+    ],
+    "traps": []
+  },
+  {
+    "number": 34,
+    "question": "I'm in Zurich for two weeks. What's my hotel limit there?",
+    "required": [
+      "3.5",
+      "0.4"
+    ],
+    "also_relevant": [
+      "FAQ-32"
+    ],
+    "traps": []
+  },
+  {
+    "number": 35,
+    "question": "My claim says \"needs info\" because I didn't say who came to the dinner. What do I add?",
+    "required": [
+      "7.2",
+      "2.2"
+    ],
+    "also_relevant": [
+      "FAQ-16",
+      "FAQ-48"
+    ],
+    "traps": []
+  },
+  {
+    "number": 36,
+    "question": "What's the limit for a taxi from Zurich airport?",
+    "required": [
+      "3.3",
+      "0.4"
+    ],
+    "also_relevant": [
+      "FAQ-25"
+    ],
+    "traps": [
+      "C3.3"
+    ]
+  },
+  {
+    "number": 37,
+    "question": "What can I spend per person when entertaining clients?",
+    "required": [
+      "2.2"
+    ],
+    "also_relevant": [
+      "FAQ-15"
+    ],
+    "traps": [
+      "C2.2"
+    ]
+  },
+  {
+    "number": 38,
+    "question": "Is a 10% tip okay?",
+    "required": [
+      "2.5"
+    ],
+    "also_relevant": [
+      "FAQ-22"
+    ],
+    "traps": [
+      "C2.5"
+    ]
+  },
+  {
+    "number": 39,
+    "question": "How much per kilometre do I get for using my own car?",
+    "required": [
+      "3.4"
+    ],
+    "also_relevant": [
+      "FAQ-30"
+    ],
+    "traps": [
+      "C3.4"
+    ]
+  },
+  {
+    "number": 40,
+    "question": "How many days do I have to send in a receipt?",
+    "required": [
+      "1.2"
+    ],
+    "also_relevant": [
+      "FAQ-3"
+    ],
+    "traps": [
+      "C1.2"
+    ]
+  }
+]

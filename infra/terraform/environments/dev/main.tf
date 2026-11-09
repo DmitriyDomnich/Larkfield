@@ -64,3 +64,24 @@ module "extraction" {
   documents_bucket_arn         = module.documents.bucket_arn
   bedrock_inference_profile_id = var.bedrock_inference_profile_id
 }
+
+module "knowledge_base" {
+  source       = "../../modules/knowledge_base"
+  project_name = var.project_name
+  source_dir   = "${path.root}/../../../../inputs/kb"
+  clause_source_dir = "${path.root}/../../../../build/kb-clauses"
+  chunking_strategies = {
+    fixed = {
+      fixed_size = { max_tokens = 300, overlap_percentage = 50 }
+    }
+    semantic = {
+      semantic = { max_tokens = 400, buffer_size = 0, breakpoint_percentile_threshold = 95 }
+    }
+    hierarchical = {
+      hierarchical = { parent_max_tokens = 600, child_max_tokens = 150, overlap_tokens = 30 }
+    }
+    clause = {
+      source = "clauses"
+    }
+  }
+}

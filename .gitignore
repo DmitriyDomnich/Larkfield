@@ -25,3 +25,5 @@ htmlcov/
 infra/terraform/environments/*/backend.hcl
 infra/terraform/environments/*/terraform.tfvars
 infra/terraform/environments/*/build/
+
+/build/

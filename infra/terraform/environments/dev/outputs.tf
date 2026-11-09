@@ -25,3 +25,15 @@ output "extraction_queue_url" {
 output "extraction_worker_policy_arn" {
   value = module.extraction.worker_policy_arn
 }
+
+output "policies_bucket" {
+  value = module.knowledge_base.bucket_name
+}
+
+output "policy_knowledge_base_ids" {
+  value = module.knowledge_base.knowledge_base_ids
+}
+
+output "policy_data_source_ids" {
+  value = module.knowledge_base.data_source_ids
+}
