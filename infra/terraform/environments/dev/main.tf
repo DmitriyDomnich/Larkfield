@@ -66,9 +66,9 @@ module "extraction" {
 }
 
 module "knowledge_base" {
-  source       = "../../modules/knowledge_base"
-  project_name = var.project_name
-  source_dir   = "${path.root}/../../../../inputs/kb"
+  source            = "../../modules/knowledge_base"
+  project_name      = var.project_name
+  source_dir        = "${path.root}/../../../../inputs/kb"
   clause_source_dir = "${path.root}/../../../../build/kb-clauses"
   chunking_strategies = {
     fixed = {
