@@ -37,3 +37,11 @@ output "policy_knowledge_base_ids" {
 output "policy_data_source_ids" {
   value = module.knowledge_base.data_source_ids
 }
+
+output "review_queue_url" {
+  value = module.review.queue_url
+}
+
+output "review_worker_policy_arn" {
+  value = module.review.worker_policy_arn
+}

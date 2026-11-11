@@ -50,10 +50,11 @@ async def process_upload(
     receive_count: int,
     max_receives: int,
     max_pages: int,
-) -> None:
-    document = await _start_extraction(session, storage, uploaded, redelivered=receive_count > 1)
-    if document is None:
-        return
+) -> uuid.UUID | None:
+    started = await _start_extraction(session, storage, uploaded, redelivered=receive_count > 1)
+    if not isinstance(started, Document):
+        return started
+    document = started
     claim_id = document.claim_id
     try:
         data = await storage.read(document.s3_key, document.version_id)
@@ -61,19 +62,20 @@ async def process_upload(
         result = await _extract_expense(extractor, document, data, max_pages)
         if isinstance(result, ValidExtraction):
             await _store_extraction(session, document, result, today)
-        else:
-            await _fail_claim(session, claim_id, result)
+            return claim_id
+        await _fail_claim(session, claim_id, result)
     except Exception:
         await session.rollback()
         if receive_count < max_receives:
             raise
         logger.exception("extraction of claim %s failed on the last delivery", claim_id)
         await _fail_claim(session, claim_id, TECHNICAL_FAILURE_REASON)
+    return None
 
 
 async def _start_extraction(
     session: AsyncSession, storage: ObjectStorage, uploaded: UploadedObject, *, redelivered: bool
-) -> Document | None:
+) -> Document | uuid.UUID | None:
     claim = await session.scalar(
         select(Claim)
         .join(Claim.document)
@@ -104,6 +106,9 @@ async def _start_extraction(
                 uploaded.version_id,
                 claim.document.version_id,
             )
+        elif status is ClaimStatus.EXTRACTED and redelivered:
+            await session.commit()
+            return claim.id
         else:
             logger.info("claim %s is %s; nothing to extract", claim.id, status)
         await session.commit()

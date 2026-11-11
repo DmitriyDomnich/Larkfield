@@ -47,6 +47,7 @@ class Proposal(CreatedAtMixin, Base):
     duplicate_of: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("claims.id"))
     # Bedrock model name
     ai_model: Mapped[str] = mapped_column(String(255))
+    retrieved_clauses: Mapped[list[str]] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
 
     claim: Mapped[Claim] = relationship(foreign_keys=[claim_id], lazy="raise")
     reviewer_decision: Mapped["ReviewerDecision | None"] = relationship(

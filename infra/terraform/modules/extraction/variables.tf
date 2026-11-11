@@ -21,3 +21,8 @@ variable "max_receives" {
   type        = number
   default     = 3
 }
+
+variable "review_queue_arn" {
+  description = "The review queue the worker sends a request to once a claim is extracted."
+  type        = string
+}

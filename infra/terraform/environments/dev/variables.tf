@@ -16,3 +16,8 @@ variable "bedrock_inference_profile_id" {
   description = "Inference profile the extraction worker calls (BEDROCK_MODEL_ID)."
   type        = string
 }
+
+variable "review_inference_profile_id" {
+  description = "Inference profile the review worker calls (REVIEW_MODEL_ID)."
+  type        = string
+}

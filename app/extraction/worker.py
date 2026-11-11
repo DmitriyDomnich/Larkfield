@@ -1,22 +1,17 @@
 import asyncio
 import logging
 import signal
-from collections.abc import Callable
-from contextlib import AbstractAsyncContextManager
 from datetime import UTC, datetime
 
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.claims.storage import ObjectStorage, S3ObjectStorage
-from app.core.db import build_engine, build_session_factory
+from app.core.db import SessionFactory, build_engine, build_session_factory
 from app.extraction.extractor import BedrockExtractor, ExpenseExtractor
 from app.extraction.queue import SqsUploadQueue, UploadMessage, UploadQueue
 from app.extraction.service import process_upload
 from app.extraction.settings import WorkerSettings
+from app.review.queue import ReviewRequests, SqsReviewQueue
 
 logger = logging.getLogger(__name__)
-
-SessionFactory = Callable[[], AbstractAsyncContextManager[AsyncSession]]
 
 
 class ExtractionWorker:
@@ -27,12 +22,14 @@ class ExtractionWorker:
         sessions: SessionFactory,
         storage: ObjectStorage,
         extractor: ExpenseExtractor,
+        reviews: ReviewRequests,
     ) -> None:
         self._settings = settings
         self._queue = queue
         self._sessions = sessions
         self._storage = storage
         self._extractor = extractor
+        self._reviews = reviews
 
     async def run(self, stop: asyncio.Event) -> None:
         logger.info("extraction worker started")
@@ -51,7 +48,7 @@ class ExtractionWorker:
         try:
             for uploaded in message.objects:
                 async with self._sessions() as session:
-                    await process_upload(
+                    extracted_claim = await process_upload(
                         session,
                         self._storage,
                         self._extractor,
@@ -61,6 +58,9 @@ class ExtractionWorker:
                         max_receives=self._settings.extraction_max_receives,
                         max_pages=self._settings.extraction_max_pages,
                     )
+                # if this fails -> the redelivery requests it again
+                if extracted_claim is not None:
+                    await self._reviews.request_review(extracted_claim)
         except Exception:
             logger.exception(
                 "processing an upload failed (delivery %d of %d)",
@@ -81,6 +81,7 @@ async def run_worker() -> None:
         build_session_factory(engine),
         S3ObjectStorage(settings),
         BedrockExtractor(settings),
+        SqsReviewQueue(settings),
     )
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()

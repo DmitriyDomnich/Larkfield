@@ -1,6 +1,7 @@
 """Database engine and session wiring (async SQLAlchemy on psycopg 3)."""
 
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Callable
+from contextlib import AbstractAsyncContextManager
 from typing import Annotated
 
 from fastapi import Depends, Request
@@ -12,6 +13,8 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from app.core.config import Settings
+
+SessionFactory = Callable[[], AbstractAsyncContextManager[AsyncSession]]
 
 
 def build_engine(settings: Settings) -> AsyncEngine:
