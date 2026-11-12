@@ -5,9 +5,10 @@ from typing import Any
 import pytest
 
 from app.claims.schemas import ClaimCreate
-from evals.generator.build import DOCUMENTS_DIR, load_label
+from evals.extraction.documents import CONTENT_TYPES
+from evals.generator.build import load_label
 from evals.generator.render import PEOPLE
-from tests.evals.docs import review_cases
+from tests.evals.docs import document_path, review_cases
 
 EXPECTED: dict[str, tuple[int, str, list[str]]] = {
     "D01": (3, "approve", ["2.1"]),
@@ -30,19 +31,23 @@ EXPECTED: dict[str, tuple[int, str, list[str]]] = {
     "D18": (75, "reject", ["1.2"]),
     "D19": (4, "reject", ["3.6", "7.4"]),
     "D20": (9, "approve", ["5.1"]),
+    "E01": (5, "approve", ["1.1"]),
+    "E02": (5, "reject", ["4.3", "7.1"]),
+    "E06": (2, "reject", ["2.1", "7.1"]),
+    "E05": (4, "approve", ["0.7", "2.1"]),
 }
 
 CASES = review_cases()
 
 
-def test_the_20_cases_in_order() -> None:
+def test_the_cases_in_order() -> None:
     assert [case["id"] for case in CASES] == list(EXPECTED)
 
 
 def test_decision_totals() -> None:
     totals = Counter(case["expected"]["decision"] for case in CASES)
 
-    assert totals == {"approve": 8, "reject": 9, "needs_info": 3}
+    assert totals == {"approve": 10, "reject": 11, "needs_info": 3}
 
 
 @pytest.mark.parametrize("case", CASES, ids=lambda case: case["id"])
@@ -51,7 +56,7 @@ def test_case_matches_eval_cases_and_its_label(case: dict[str, Any]) -> None:
     label = load_label(case["id"])
 
     assert label is not None
-    assert case["document"] == f"{case['id']}.pdf"
+    assert case["document"] == document_path(case["id"]).name
     assert date.fromisoformat(case["document_date"]) == label.document_date
     submitted = date.fromisoformat(case["submitted_at"])
     assert submitted - label.document_date == timedelta(days=days)
@@ -62,10 +67,10 @@ def test_case_matches_eval_cases_and_its_label(case: dict[str, Any]) -> None:
 
 @pytest.mark.parametrize("case", CASES, ids=lambda case: case["id"])
 def test_claim_is_what_the_api_accepts(case: dict[str, Any]) -> None:
-    path = DOCUMENTS_DIR / case["document"]
+    path = document_path(case["id"])
     file = {
         "filename": path.name,
-        "content_type": "application/pdf",
+        "content_type": CONTENT_TYPES[path.suffix],
         "size_bytes": path.stat().st_size,
     }
 
