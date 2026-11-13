@@ -1,4 +1,4 @@
-.PHONY: up down logs extraction-worker review-worker migrate revision lint fmt typecheck test test-unit check eval-docs eval-extraction eval-retrieval kb-build
+.PHONY: up down logs extraction-worker review-worker migrate revision lint fmt typecheck test test-unit check eval-docs eval-extraction eval-retrieval eval-review kb-build
 
 up:          ## start backend + db
 	docker compose up --build -d
@@ -51,6 +51,9 @@ eval-extraction:
 
 eval-retrieval:
 	uv run python -m evals.retrieval $(args)
+
+eval-review: ## live run, e.g. args="--cases 5" or args="--set holdout"; args="--results evals/reports/review-….json" scores a saved run
+	uv run python -m evals.review $(args)
 
 kb-build:
 	uv run python -m evals.retrieval.clause_files

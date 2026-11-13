@@ -1,0 +1,22 @@
+{
+  "document_type": "receipt",
+  "vendor_name": "Mainblick Taxi GmbH",
+  "vendor_tax_id": "DE322650148",
+  "document_number": "MT-1007-2291",
+  "document_date": "2026-10-07",
+  "document_time": "23:40",
+  "currency": "EUR",
+  "line_items": [
+    {
+      "description": "Fahrt Mainzer Landstraße 50 - Hotel Westend, Feuerbachstraße 23, 4,6 km",
+      "quantity": "1",
+      "unit_price": "31.50",
+      "amount": "31.50"
+    }
+  ],
+  "subtotal": "29.44",
+  "tax_amount": "2.06",
+  "tip_amount": null,
+  "total": "31.50",
+  "category": "taxi"
+}

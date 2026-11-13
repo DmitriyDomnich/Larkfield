@@ -1,0 +1,22 @@
+{
+  "document_type": "receipt",
+  "vendor_name": "Papeterie Hafenlicht",
+  "vendor_tax_id": "DE289446913",
+  "document_number": "PH-26-10930",
+  "document_date": "2026-10-30",
+  "document_time": "11:41",
+  "currency": "EUR",
+  "line_items": [
+    {
+      "description": "Geschenkkarte, Wert 25 EUR",
+      "quantity": "4",
+      "unit_price": "25.00",
+      "amount": "100.00"
+    }
+  ],
+  "subtotal": "100.00",
+  "tax_amount": "0.00",
+  "tip_amount": null,
+  "total": "100.00",
+  "category": "other"
+}

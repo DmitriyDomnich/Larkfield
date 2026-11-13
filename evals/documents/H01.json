@@ -1,0 +1,34 @@
+{
+  "document_type": "receipt",
+  "vendor_name": "Trattoria Lindengarten",
+  "vendor_tax_id": "DE318554072",
+  "document_number": "R-2026-10-4471",
+  "document_date": "2026-10-16",
+  "document_time": "21:52",
+  "currency": "EUR",
+  "line_items": [
+    {
+      "description": "Menu del giorno",
+      "quantity": "7",
+      "unit_price": "38.00",
+      "amount": "266.00"
+    },
+    {
+      "description": "Acqua minerale 0,75 l",
+      "quantity": "4",
+      "unit_price": "6.50",
+      "amount": "26.00"
+    },
+    {
+      "description": "Espresso",
+      "quantity": "7",
+      "unit_price": "2.80",
+      "amount": "19.60"
+    }
+  ],
+  "subtotal": "261.85",
+  "tax_amount": "49.75",
+  "tip_amount": null,
+  "total": "311.60",
+  "category": "team_meal"
+}

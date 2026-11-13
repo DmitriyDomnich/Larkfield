@@ -1,0 +1,396 @@
+{
+  "started_at": "2026-11-13T15:48:21.353440Z",
+  "model": "eu.anthropic.claude-sonnet-4-6",
+  "case_set": "holdout",
+  "cases": [
+    {
+      "case_id": "H01",
+      "proposal": {
+        "decision": "approve",
+        "reasons": [
+          {
+            "clause_id": "2.4",
+            "quote": "A meal for a Larkfield team (no clients) is reimbursed only with a pre-approval reference. Team meals are usually celebrations or offsites that managers plan in advance; the reference confirms the budget was agreed.",
+            "explanation": "All 7 attendees are Larkfield Analytics employees (no clients), making this a team meal under 2.4. The required pre-approval reference PA-2026-207 has been provided."
+          },
+          {
+            "clause_id": "1.1",
+            "quote": "Larkfield reimburses reasonable costs that an employee pays personally while doing their job. An expense is reasonable when a colleague in the same role would have spent a similar amount for the same business purpose.",
+            "explanation": "The total of EUR 311.60 for 7 people works out to EUR 44.51 per person for a dinner with set menu, water and coffee, which is a reasonable amount for a team celebration dinner."
+          }
+        ],
+        "missing_information": [],
+        "duplicate_of": null
+      },
+      "retrieved_clauses": [
+        "1.5",
+        "1.1",
+        "2.4",
+        "FAQ-21",
+        "2.2",
+        "1.4",
+        "1.3",
+        "1.2",
+        "FAQ-15",
+        "7.2",
+        "2.1",
+        "7.1"
+      ],
+      "failure": null
+    },
+    {
+      "case_id": "H02",
+      "proposal": {
+        "decision": "needs_info",
+        "reasons": [
+          {
+            "clause_id": "5.2",
+            "quote": "Conference tickets need a pre-approval reference.",
+            "explanation": "This claim is for a conference pass (NordData Summit 2026, EUR 499.80) but no pre-approval reference (of the form PA-YYYY-NNN) has been provided, as required by clause 5.2."
+          },
+          {
+            "clause_id": "7.2",
+            "quote": "When a claim is missing information the employee can provide (attendee list, business purpose, pre-approval reference, an itemised receipt), the reviewer asks for it instead of rejecting.",
+            "explanation": "The missing pre-approval reference is information the employee can supply, so the claim should be held pending that information rather than rejected outright."
+          }
+        ],
+        "missing_information": [
+          "Please provide the pre-approval reference (format PA-YYYY-NNN) issued by Finance for the NordData Summit 2026 conference ticket."
+        ],
+        "duplicate_of": null
+      },
+      "retrieved_clauses": [
+        "IT3.3",
+        "IT3.1",
+        "5.2",
+        "FAQ-41",
+        "FAQ-42",
+        "7.2",
+        "1.1",
+        "1.2"
+      ],
+      "failure": null
+    },
+    {
+      "case_id": "H03",
+      "proposal": {
+        "decision": "approve",
+        "reasons": [
+          {
+            "clause_id": "3.2",
+            "quote": "Rail travel is booked in second class. First class is allowed for a single journey longer than 4 hours.",
+            "explanation": "The ticket is a single ICE journey from Hamburg Hbf to München Hbf lasting 5 hours 47 minutes, which exceeds the 4-hour threshold; first class is therefore permitted under this clause."
+          },
+          {
+            "clause_id": "1.1",
+            "quote": "Larkfield reimburses reasonable costs that an employee pays personally while doing their job.",
+            "explanation": "EUR 179.90 for a long-distance first-class ICE ticket is a reasonable cost for business travel to a client workshop, consistent with what a colleague in the same role would spend."
+          }
+        ],
+        "missing_information": [],
+        "duplicate_of": null
+      },
+      "retrieved_clauses": [
+        "0.3",
+        "FAQ-13",
+        "FAQ-24",
+        "3.2",
+        "FAQ-29",
+        "3.3",
+        "1.3",
+        "1.5",
+        "1.2",
+        "1.1"
+      ],
+      "failure": null
+    },
+    {
+      "case_id": "H04",
+      "proposal": {
+        "decision": "reject",
+        "reasons": [
+          {
+            "clause_id": "3.4",
+            "quote": "Fuel receipts are not reimbursed separately when mileage is claimed.",
+            "explanation": "The employee's own purpose states that the 236 km mileage for the Hamburg–Bremen round trip is claimed separately. Clause 3.4 explicitly prohibits reimbursing a fuel receipt on top of a mileage claim for the same journey; this EUR 83.34 receipt therefore cannot be reimbursed."
+          }
+        ],
+        "missing_information": [],
+        "duplicate_of": null
+      },
+      "retrieved_clauses": [
+        "0.3",
+        "FAQ-30",
+        "FAQ-13",
+        "3.4",
+        "6.4",
+        "1.3",
+        "1.4",
+        "1.1",
+        "1.2",
+        "1.5",
+        "7.1"
+      ],
+      "failure": null
+    },
+    {
+      "case_id": "H05",
+      "proposal": {
+        "decision": "approve",
+        "reasons": [
+          {
+            "clause_id": "3.5",
+            "quote": "Hotel rooms are reimbursed up to EUR 150 per night, or EUR 220 per night in a high-cost city. The limit covers the room and breakfast when breakfast is included in the rate. City taxes are reimbursed in addition to the limit.",
+            "explanation": "Zurich is a high-cost city (clause 0.4), so the EUR 220/night limit applies. Each of the three nights is billed at exactly EUR 220 inclusive of breakfast, meeting the limit. The city tax of EUR 13.50 (3 × EUR 4.50) is reimbursed on top, bringing the correctly claimable total to EUR 673.50, which matches the invoice total."
+          },
+          {
+            "clause_id": "0.4",
+            "quote": "High-cost city. London, Paris, Zurich, Geneva, New York, Oslo.",
+            "explanation": "The hotel is in Zurich, which is explicitly listed as a high-cost city, entitling the employee to the EUR 220 per night rate under clause 3.5."
+          }
+        ],
+        "missing_information": [],
+        "duplicate_of": null
+      },
+      "retrieved_clauses": [
+        "1.3",
+        "1.2",
+        "1.5",
+        "FAQ-33",
+        "FAQ-32",
+        "0.3",
+        "1.1",
+        "0.4",
+        "3.5",
+        "1.4"
+      ],
+      "failure": null
+    },
+    {
+      "case_id": "H06",
+      "proposal": {
+        "decision": "approve",
+        "reasons": [
+          {
+            "clause_id": "3.3",
+            "quote": "A taxi or ride-hailing trip is reimbursed when public transport is not a reasonable option: when carrying equipment, when no public transport runs, or when the trip starts between 22:00 and 06:00. The limit is EUR 60 per trip. Airport transfers in a high-cost city may exceed this limit when the receipt shows the airport as start or end of the trip.",
+            "explanation": "The employee was carrying two demo hardware cases, satisfying the 'carrying equipment' condition for reimbursement. The fare of EUR 74.00 exceeds the EUR 60 base limit, but the receipt shows CDG airport as the start of the trip in Paris — a high-cost city — so the airport transfer exception applies and the higher amount is permitted."
+          },
+          {
+            "clause_id": "0.4",
+            "quote": "High-cost city. London, Paris, Zurich, Geneva, New York, Oslo.",
+            "explanation": "Paris is explicitly listed as a high-cost city, confirming that the airport transfer exception in clause 3.3 applies to this trip."
+          }
+        ],
+        "missing_information": [],
+        "duplicate_of": null
+      },
+      "retrieved_clauses": [
+        "1.1",
+        "3.3",
+        "FAQ-25",
+        "IT8.4",
+        "1.2",
+        "3.4",
+        "FAQ-23",
+        "7.1",
+        "0.4",
+        "FAQ-32",
+        "FAQ-42"
+      ],
+      "failure": null
+    },
+    {
+      "case_id": "H07",
+      "proposal": {
+        "decision": "approve",
+        "reasons": [
+          {
+            "clause_id": "2.1",
+            "quote": "During a business trip, Larkfield reimburses meals at their actual cost up to these limits per meal: breakfast EUR 15, lunch EUR 25, dinner EUR 45. Limits apply to the employee's own meal.",
+            "explanation": "This is a solo dinner on a business trip to Lyon. The total of EUR 44.00 (food + tax + tip) is within the EUR 45 dinner limit."
+          },
+          {
+            "clause_id": "2.5",
+            "quote": "Tips are reimbursed up to 10% of the bill before the tip. Any tip above 10% is a personal expense.",
+            "explanation": "The bill before tip is EUR 40.00; 10% of that is EUR 4.00. The claimed tip is exactly EUR 4.00, so it is fully within the reimbursable limit."
+          }
+        ],
+        "missing_information": [],
+        "duplicate_of": null
+      },
+      "retrieved_clauses": [
+        "FAQ-22",
+        "2.5",
+        "2.3",
+        "FAQ-13",
+        "2.1",
+        "2.2",
+        "FAQ-17",
+        "FAQ-15",
+        "1.2",
+        "7.1",
+        "1.1"
+      ],
+      "failure": null
+    },
+    {
+      "case_id": "H08",
+      "proposal": {
+        "decision": "reject",
+        "reasons": [
+          {
+            "clause_id": "7.4",
+            "quote": "When a receipt mixes business and personal items, the claim is rejected under clause 7.1, and the employee submits it again without the personal items.",
+            "explanation": "The receipt includes a T-Shirt (EUR 19.95), which is a personal item mixed with the business equipment purchases (chair EUR 249.00, keyboard EUR 69.90). This triggers rejection under clause 7.4."
+          },
+          {
+            "clause_id": "7.1",
+            "quote": "Finance does not part-approve claims, so that every booked amount matches a document.",
+            "explanation": "Because the receipt contains a personal item, the claim cannot be part-approved; the employee must resubmit a claim covering only the business items (chair and keyboard), with a document that matches the claimed amount."
+          },
+          {
+            "clause_id": "4.1",
+            "quote": "Office equipment (monitors, keyboards, headsets, chairs) up to EUR 300 per item is reimbursed without pre-approval.",
+            "explanation": "For reference: both the ErgoSit Pro chair (EUR 249.00) and the KB-200 keyboard (EUR 69.90) are individually within the EUR 300 per-item limit and would not require pre-approval on a corrected resubmission."
+          }
+        ],
+        "missing_information": [],
+        "duplicate_of": null
+      },
+      "retrieved_clauses": [
+        "7.4",
+        "FAQ-51",
+        "1.3",
+        "IT4.1",
+        "IT4.5",
+        "FAQ-36",
+        "4.1",
+        "7.1"
+      ],
+      "failure": null
+    },
+    {
+      "case_id": "H09",
+      "proposal": {
+        "decision": "reject",
+        "reasons": [
+          {
+            "clause_id": "6.3",
+            "quote": "Gift cards, vouchers and prepaid cards are not reimbursed, because they cannot be matched to a business expense.",
+            "explanation": "The four line items on the receipt are each a 'Geschenkkarte' (gift card) with a face value of EUR 25, totalling EUR 100. Clause 6.3 categorically excludes gift cards from reimbursement regardless of the recipient or business purpose."
+          }
+        ],
+        "missing_information": [],
+        "duplicate_of": null
+      },
+      "retrieved_clauses": [
+        "1.1",
+        "FAQ-44",
+        "2.2",
+        "FAQ-20",
+        "IT9.1",
+        "IT9.6",
+        "1.2",
+        "1.5",
+        "6.3",
+        "6.2",
+        "7.1"
+      ],
+      "failure": null
+    },
+    {
+      "case_id": "H10",
+      "proposal": {
+        "decision": "reject",
+        "reasons": [
+          {
+            "clause_id": "3.5",
+            "quote": "Hotel rooms are reimbursed up to EUR 150 per night, or EUR 220 per night in a high-cost city. The limit covers the room and breakfast when breakfast is included in the rate. City taxes are reimbursed in addition to the limit.",
+            "explanation": "The invoice shows 2 nights at EUR 152 per night (breakfast included), giving a room total of EUR 304. Milan is not a high-cost city, so the limit is EUR 150 per night; the rate of EUR 152 exceeds that limit by EUR 2 per night."
+          },
+          {
+            "clause_id": "7.1",
+            "quote": "A claim that exceeds a limit in this policy is rejected as a whole. The employee may submit it again with the amount within the limit, explaining the difference in the business purpose.",
+            "explanation": "Because the nightly rate of EUR 152 exceeds the EUR 150 per-night limit under clause 3.5, the entire claim is rejected. The employee may resubmit claiming EUR 150 per night (EUR 300 for 2 nights) plus the EUR 10 city tax, explaining the difference in the business purpose."
+          }
+        ],
+        "missing_information": [],
+        "duplicate_of": null
+      },
+      "retrieved_clauses": [
+        "1.5",
+        "3.5",
+        "FAQ-33",
+        "3.6",
+        "1.2",
+        "1.1",
+        "1.4",
+        "1.3",
+        "FAQ-32",
+        "0.3",
+        "7.4",
+        "7.1"
+      ],
+      "failure": null
+    },
+    {
+      "case_id": "H11",
+      "proposal": {
+        "decision": "reject",
+        "reasons": [
+          {
+            "clause_id": "4.1",
+            "quote": "Office equipment (monitors, keyboards, headsets, chairs) up to EUR 300 per item is reimbursed without pre-approval. An item above EUR 300 needs a pre-approval reference.",
+            "explanation": "The Tonwerk ANC Pro headset was invoiced at EUR 309.00, which is EUR 9.00 above the EUR 300 per-item limit. No pre-approval reference (PA-YYYY-NNN) was provided, so neither the without-pre-approval path nor the above-limit path is satisfied."
+          },
+          {
+            "clause_id": "7.1",
+            "quote": "A claim that exceeds a limit in this policy is rejected as a whole. The employee may submit it again with the amount within the limit, explaining the difference in the business purpose.",
+            "explanation": "Because the EUR 309.00 total exceeds the EUR 300 limit set by clause 4.1, the claim must be rejected in full. The employee may resubmit if they can either obtain a pre-approval reference or source the headset at or below EUR 300."
+          }
+        ],
+        "missing_information": [],
+        "duplicate_of": null
+      },
+      "retrieved_clauses": [
+        "4.1",
+        "4.3",
+        "FAQ-36",
+        "IT4.3",
+        "IT4.2",
+        "1.1",
+        "7.1"
+      ],
+      "failure": null
+    },
+    {
+      "case_id": "H12",
+      "proposal": {
+        "decision": "needs_info",
+        "reasons": [
+          {
+            "clause_id": "1.5",
+            "quote": "Every claim states its business purpose in a sentence: what the expense was for and which project, client or trip it belongs to. \"Work\" or \"business\" alone is not a business purpose.",
+            "explanation": "The stated purpose is \"Taxi for work\", which uses \"work\" alone without identifying the project, client or trip the journey related to, and therefore does not meet the requirement of clause 1.5."
+          }
+        ],
+        "missing_information": [
+          "Please provide a full business purpose: describe what the taxi journey was for and which project, client or trip it relates to (e.g. \"Return from client meeting with [Client Name] re [Project]\" or \"Travel home after [event/trip name]\")."
+        ],
+        "duplicate_of": null
+      },
+      "retrieved_clauses": [
+        "3.3",
+        "3.4",
+        "FAQ-23",
+        "FAQ-24",
+        "1.5",
+        "1.1",
+        "1.2",
+        "1.3"
+      ],
+      "failure": null
+    }
+  ]
+}

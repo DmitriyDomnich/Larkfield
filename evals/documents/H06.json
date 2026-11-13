@@ -1,0 +1,28 @@
+{
+  "document_type": "receipt",
+  "vendor_name": "Taxis Étoile Paris SAS",
+  "vendor_tax_id": "FR47842115309",
+  "document_number": "TE-20261021-0388",
+  "document_date": "2026-10-21",
+  "document_time": "15:05",
+  "currency": "EUR",
+  "line_items": [
+    {
+      "description": "Trip Aéroport Paris-CDG Terminal 2F - 18 Rue de Clichy, 75009 Paris, 31.4 km",
+      "quantity": "1",
+      "unit_price": "74.00",
+      "amount": "74.00"
+    },
+    {
+      "description": "Large luggage items (included in fare)",
+      "quantity": "2",
+      "unit_price": "0.00",
+      "amount": "0.00"
+    }
+  ],
+  "subtotal": "67.27",
+  "tax_amount": "6.73",
+  "tip_amount": null,
+  "total": "74.00",
+  "category": "taxi"
+}
