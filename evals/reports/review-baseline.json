@@ -1,0 +1,978 @@
+{
+  "started_at": "2026-11-13T09:51:57.457622Z",
+  "model": "eu.anthropic.claude-sonnet-4-6",
+  "cases": [
+    {
+      "case_id": "D01",
+      "proposal": {
+        "decision": "approve",
+        "reasons": [
+          {
+            "clause_id": "1.5",
+            "quote": "Every claim states its business purpose in a sentence: what the expense was for and which project, client or trip it belongs to.",
+            "explanation": "The employee states 'Lunch during client workshop trip to Hamburg, project Orion', which clearly identifies the trip and project — satisfying the business purpose requirement."
+          },
+          {
+            "clause_id": "1.3",
+            "quote": "Every claim needs an itemised receipt or invoice that shows the vendor name, the document date, each item purchased, the total, and the tax amount where tax was charged.",
+            "explanation": "The receipt from Brauhaus am Markt shows the vendor name, date (2026-09-03), three itemised line items, a total of EUR 18.50, and a tax amount of EUR 2.95 — all requirements are met."
+          },
+          {
+            "clause_id": "1.2",
+            "quote": "A claim must be submitted within 60 days of the document date.",
+            "explanation": "The claim was submitted 3 days after the document date, well within the 60-day deadline."
+          },
+          {
+            "clause_id": "2.1",
+            "quote": "During a business trip, Larkfield reimburses meals at their actual cost up to these limits per meal: breakfast EUR 15, lunch EUR 25, dinner EUR 45.",
+            "explanation": "This is a solo lunch claimed at EUR 18.50 during a business trip to Hamburg, which is below the EUR 25 lunch limit."
+          }
+        ],
+        "missing_information": [],
+        "duplicate_of": null
+      },
+      "retrieved_clauses": [
+        "FAQ-13",
+        "FAQ-14",
+        "2.1",
+        "2.2",
+        "FAQ-20",
+        "FAQ-15",
+        "1.5",
+        "1.3",
+        "7.2",
+        "1.2",
+        "1.1",
+        "7.1"
+      ],
+      "failure": null
+    },
+    {
+      "case_id": "D02",
+      "proposal": {
+        "decision": "reject",
+        "reasons": [
+          {
+            "clause_id": "2.1",
+            "quote": "During a business trip, Larkfield reimburses meals at their actual cost up to these limits per meal: breakfast EUR 15, lunch EUR 25, dinner EUR 45. Limits apply to the employee's own meal.",
+            "explanation": "This is a solo dinner on a business trip (no clients listed). The receipt total is EUR 62.00, which exceeds the EUR 45 dinner limit by EUR 17.00."
+          },
+          {
+            "clause_id": "7.1",
+            "quote": "A claim that exceeds a limit in this policy is rejected as a whole. The employee may submit it again with the amount within the limit, explaining the difference in the business purpose.",
+            "explanation": "Because the EUR 62.00 total exceeds the EUR 45 dinner cap under clause 2.1, the claim must be rejected in full. The employee may resubmit for EUR 45 and explain the difference in the business purpose field."
+          }
+        ],
+        "missing_information": [],
+        "duplicate_of": null
+      },
+      "retrieved_clauses": [
+        "2.2",
+        "2.4",
+        "FAQ-53",
+        "FAQ-13",
+        "2.1",
+        "2.3",
+        "1.1",
+        "7.1",
+        "1.2",
+        "1.3"
+      ],
+      "failure": null
+    },
+    {
+      "case_id": "D03",
+      "proposal": {
+        "decision": "approve",
+        "reasons": [
+          {
+            "clause_id": "2.2",
+            "quote": "A meal with clients or partners is reimbursed up to EUR 80 per attendee, counting every attendee including Larkfield employees.",
+            "explanation": "The dinner totalled EUR 240.00 for 3 attendees (1 Larkfield, 2 Meridian Health), giving exactly EUR 80.00 per attendee — at but not over the limit. The attendee list and business purpose (Q4 renewal with Meridian Health) are both provided."
+          },
+          {
+            "clause_id": "2.3",
+            "quote": "Alcohol is reimbursed only as part of client entertainment under clause 2.2, and within its per-attendee limit.",
+            "explanation": "Two bottles of Barolo (EUR 84.00) appear on the receipt. This is client entertainment under 2.2, and the full bill including alcohol stays within the EUR 80 per-attendee limit, so the alcohol is reimbursable."
+          },
+          {
+            "clause_id": "1.2",
+            "quote": "A claim must be submitted within 60 days of the document date.",
+            "explanation": "The receipt is dated 2026-08-20 and was submitted on 2026-08-25, just 5 days later — well within the 60-day deadline."
+          },
+          {
+            "clause_id": "1.3",
+            "quote": "Every claim needs an itemised receipt or invoice that shows the vendor name, the document date, each item purchased, the total, and the tax amount where tax was charged.",
+            "explanation": "The receipt from Trattoria Lungolago is fully itemised with vendor name, date (2026-08-20), all line items, total (EUR 240.00) and tax amount (EUR 38.32), satisfying all receipt requirements."
+          }
+        ],
+        "missing_information": [],
+        "duplicate_of": null
+      },
+      "retrieved_clauses": [
+        "FAQ-20",
+        "2.2",
+        "FAQ-16",
+        "2.3",
+        "FAQ-19",
+        "1.2",
+        "1.1",
+        "1.3",
+        "7.1"
+      ],
+      "failure": null
+    },
+    {
+      "case_id": "D04",
+      "proposal": {
+        "decision": "needs_info",
+        "reasons": [
+          {
+            "clause_id": "2.2",
+            "quote": "The claim must list the names and companies of all attendees and the business purpose of the meeting. A client entertainment claim without the attendee list cannot be assessed against the limit.",
+            "explanation": "This is a client entertainment claim for EUR 190.00, but no attendees have been listed. Without the names and companies of all attendees, it is impossible to verify compliance with the EUR 80 per attendee limit."
+          },
+          {
+            "clause_id": "7.2",
+            "quote": "When a claim is missing information the employee can provide (attendee list, business purpose, pre-approval reference, an itemised receipt), the reviewer asks for it instead of rejecting.",
+            "explanation": "The missing attendee list is information the employee can supply, so the claim is held pending that information rather than rejected outright."
+          }
+        ],
+        "missing_information": [
+          "Please provide the full names and companies of all attendees at the dinner on 2026-08-25 at Steakhaus Mainufer (including yourself and any other Larkfield employees present)."
+        ],
+        "duplicate_of": null
+      },
+      "retrieved_clauses": [
+        "1.3",
+        "FAQ-10",
+        "FAQ-9",
+        "1.5",
+        "FAQ-16",
+        "2.2",
+        "FAQ-15",
+        "1.1",
+        "1.2",
+        "FAQ-20",
+        "2.3",
+        "7.2"
+      ],
+      "failure": null
+    },
+    {
+      "case_id": "D05",
+      "proposal": {
+        "decision": "approve",
+        "reasons": [
+          {
+            "clause_id": "1.2",
+            "quote": "A claim must be submitted within 60 days of the document date.",
+            "explanation": "The claim was submitted 6 days after the invoice date of 2026-07-16, well within the 60-day deadline."
+          },
+          {
+            "clause_id": "1.3",
+            "quote": "Every claim needs an itemised receipt or invoice that shows the vendor name, the document date, each item purchased, the total, and the tax amount where tax was charged.",
+            "explanation": "The invoice from Hotel Spreebogen Mitte shows the vendor name, date (2026-07-16), two itemised room-night lines, the total (EUR 290.00), and the tax amount (EUR 18.97) — all requirements are met."
+          },
+          {
+            "clause_id": "1.5",
+            "quote": "Every claim states its business purpose in a sentence: what the expense was for and which project, client or trip it belongs to.",
+            "explanation": "The employee states \"Berlin trip for the Polaris kickoff\", identifying both the trip and the project, which satisfies the business purpose requirement."
+          },
+          {
+            "clause_id": "1.4",
+            "quote": "The same expense may be claimed only once. Two claims with the same vendor, the same total and the same document date are treated as duplicates, and the later claim is rejected.",
+            "explanation": "No duplicate claims were found with the same vendor, date, and total."
+          },
+          {
+            "clause_id": "3.5",
+            "quote": "Hotel rooms are reimbursed up to EUR 150 per night, or EUR 220 per night in a high-cost city.",
+            "explanation": "The two nights are billed at EUR 145 each. Berlin is not a high-cost city under clause 0.4, so the standard EUR 150/night limit applies; EUR 145 is within that limit on both nights."
+          },
+          {
+            "clause_id": "0.4",
+            "quote": "High-cost city. London, Paris, Zurich, Geneva, New York, Oslo.",
+            "explanation": "Berlin does not appear in the high-cost city list, confirming the standard EUR 150/night cap applies rather than the EUR 220 rate."
+          }
+        ],
+        "missing_information": [],
+        "duplicate_of": null
+      },
+      "retrieved_clauses": [
+        "1.2",
+        "FAQ-32",
+        "3.5",
+        "FAQ-33",
+        "0.4",
+        "1.3",
+        "1.4",
+        "1.1",
+        "7.1",
+        "1.5"
+      ],
+      "failure": null
+    },
+    {
+      "case_id": "D06",
+      "proposal": {
+        "decision": "needs_info",
+        "reasons": [
+          {
+            "clause_id": "1.3",
+            "quote": "A payment card slip that shows only a total is accepted for amounts up to EUR 25. Above EUR 25 the employee must provide the itemised receipt.",
+            "explanation": "The claim is supported only by a card slip showing a total of EUR 40.00, which exceeds the EUR 25 threshold. An itemised receipt showing the vendor name, date, each item purchased, the total, and the tax amount is required."
+          },
+          {
+            "clause_id": "7.2",
+            "quote": "When a claim is missing information the employee can provide (attendee list, business purpose, pre-approval reference, an itemised receipt), the reviewer asks for it instead of rejecting.",
+            "explanation": "The missing itemised receipt is information the employee can obtain from the restaurant, so the claim should be held pending that document rather than rejected outright."
+          }
+        ],
+        "missing_information": [
+          "Please provide the itemised receipt from Restaurant Hafenkante for the dinner on 2026-09-04 (EUR 40.00). The receipt must show the vendor name, date, each item ordered, the total, and the tax amount. A card slip showing only the total is not sufficient for amounts above EUR 25."
+        ],
+        "duplicate_of": null
+      },
+      "retrieved_clauses": [
+        "FAQ-13",
+        "2.1",
+        "2.3",
+        "FAQ-9",
+        "1.3",
+        "FAQ-8",
+        "1.5",
+        "IT4.4",
+        "FAQ-2",
+        "1.1",
+        "7.2",
+        "1.2"
+      ],
+      "failure": null
+    },
+    {
+      "case_id": "D07",
+      "proposal": {
+        "decision": "approve",
+        "reasons": [
+          {
+            "clause_id": "3.3",
+            "quote": "A taxi or ride-hailing trip is reimbursed when public transport is not a reasonable option: when carrying equipment, when no public transport runs, or when the trip starts between 22:00 and 06:00. The limit is EUR 60 per trip.",
+            "explanation": "The trip started at 23:30, which falls within the 22:00–06:00 window, making public transport not a reasonable option. The total of EUR 38.00 is within the EUR 60 per trip limit."
+          },
+          {
+            "clause_id": "1.3",
+            "quote": "Every claim needs an itemised receipt or invoice that shows the vendor name, the document date, each item purchased, the total, and the tax amount where tax was charged.",
+            "explanation": "The receipt from Taxi Donaustadt Funk GmbH shows the vendor name, document date (2026-07-08), an itemised line with the route and distance, the total (EUR 38.00), and the tax amount (EUR 3.45), satisfying all receipt requirements."
+          },
+          {
+            "clause_id": "1.2",
+            "quote": "A claim must be submitted within 60 days of the document date.",
+            "explanation": "The claim was submitted 4 days after the document date, well within the 60-day deadline."
+          },
+          {
+            "clause_id": "1.5",
+            "quote": "Every claim states its business purpose in a sentence: what the expense was for and which project, client or trip it belongs to.",
+            "explanation": "The employee states the purpose as a taxi from the client office to the hotel after an evening workshop in Vienna, which adequately identifies the trip and context."
+          }
+        ],
+        "missing_information": [],
+        "duplicate_of": null
+      },
+      "retrieved_clauses": [
+        "1.3",
+        "FAQ-10",
+        "FAQ-9",
+        "FAQ-23",
+        "FAQ-24",
+        "3.3",
+        "1.5",
+        "7.1",
+        "1.4",
+        "1.1",
+        "1.2"
+      ],
+      "failure": null
+    },
+    {
+      "case_id": "D08",
+      "proposal": {
+        "decision": "reject",
+        "reasons": [
+          {
+            "clause_id": "3.3",
+            "quote": "A taxi or ride-hailing trip is reimbursed when public transport is not a reasonable option: when carrying equipment, when no public transport runs, or when the trip starts between 22:00 and 06:00. The limit is EUR 60 per trip.",
+            "explanation": "The trip started at 14:00, which is outside the 22:00–06:00 window. There is no indication that equipment was being carried or that public transport was unavailable, so none of the three conditions for reimbursement are met. Additionally, the EUR 75.00 fare exceeds the EUR 60 per trip limit."
+          },
+          {
+            "clause_id": "7.1",
+            "quote": "A claim that exceeds a limit in this policy is rejected as a whole. The employee may submit it again with the amount within the limit, explaining the difference in the business purpose.",
+            "explanation": "Because the EUR 75.00 fare exceeds the EUR 60 limit in clause 3.3, the claim must be rejected in full; Finance does not part-approve claims."
+          }
+        ],
+        "missing_information": [],
+        "duplicate_of": null
+      },
+      "retrieved_clauses": [
+        "3.3",
+        "3.4",
+        "FAQ-25",
+        "FAQ-24",
+        "FAQ-23",
+        "FAQ-30",
+        "1.2",
+        "1.5",
+        "1.1",
+        "7.1"
+      ],
+      "failure": null
+    },
+    {
+      "case_id": "D09",
+      "proposal": {
+        "decision": "approve",
+        "reasons": [
+          {
+            "clause_id": "1.5",
+            "quote": "Every claim states its business purpose in a sentence: what the expense was for and which project, client or trip it belongs to.",
+            "explanation": "The purpose field clearly states 'Flight to Lisbon for the Atlas client workshop', identifying both the nature of the trip and the client/project it belongs to."
+          },
+          {
+            "clause_id": "1.3",
+            "quote": "Every claim needs an itemised receipt or invoice that shows the vendor name, the document date, each item purchased, the total, and the tax amount where tax was charged.",
+            "explanation": "The invoice from SkyBridge Airways (SBA-INV-2026-061044) shows the vendor name, document date (2026-06-10), itemised line items (flight and taxes/fees), and a total of EUR 210.00, satisfying all receipt requirements."
+          },
+          {
+            "clause_id": "1.2",
+            "quote": "A claim must be submitted within 60 days of the document date. Claims submitted later are rejected.",
+            "explanation": "The claim was submitted 1 day after the document date (2026-06-10 → 2026-06-11), well within the 60-day deadline."
+          },
+          {
+            "clause_id": "1.4",
+            "quote": "The same expense may be claimed only once. Two claims with the same vendor, the same total and the same document date are treated as duplicates, and the later claim is rejected.",
+            "explanation": "No duplicate claims were found with the same vendor, total, and document date."
+          },
+          {
+            "clause_id": "3.1",
+            "quote": "Flights are booked in economy class. Premium economy is allowed for flights over 6 hours. Business and first class are not reimbursed. Flights should be booked at least 14 days before departure; a later booking is allowed when the trip itself was arranged at short notice, and the business purpose says so.",
+            "explanation": "The flight is booked in Economy class (fare code Y) and was booked on 2026-06-10 for a departure on 2026-07-02 — 22 days in advance, satisfying the 14-day advance booking requirement. The total of EUR 210.00 (including taxes) is reasonable for a Frankfurt–Lisbon economy fare."
+          }
+        ],
+        "missing_information": [],
+        "duplicate_of": null
+      },
+      "retrieved_clauses": [
+        "5.2",
+        "IT3.1",
+        "0.5",
+        "3.1",
+        "FAQ-26",
+        "FAQ-47",
+        "1.1",
+        "1.5",
+        "1.4",
+        "1.2",
+        "1.3"
+      ],
+      "failure": null
+    },
+    {
+      "case_id": "D10",
+      "proposal": {
+        "decision": "reject",
+        "reasons": [
+          {
+            "clause_id": "3.1",
+            "quote": "Flights are booked in economy class. Premium economy is allowed for flights over 6 hours. Business and first class are not reimbursed.",
+            "explanation": "The invoice shows a Business class (J) fare of EUR 812.00 on a 1h 20m flight from Frankfurt to Vienna. Business class is explicitly not reimbursed under any circumstances; premium economy is only permitted for flights over 6 hours, which this flight is not."
+          },
+          {
+            "clause_id": "7.1",
+            "quote": "A claim that exceeds a limit in this policy is rejected as a whole. The employee may submit it again with the amount within the limit, explaining the difference in the business purpose.",
+            "explanation": "Because the Business class fare violates the cabin-class rule in 3.1, the claim is rejected in full. The employee may re-submit with an economy-class fare for the same route and date, explaining the difference."
+          }
+        ],
+        "missing_information": [],
+        "duplicate_of": null
+      },
+      "retrieved_clauses": [
+        "1.5",
+        "1.2",
+        "FAQ-26",
+        "3.1",
+        "FAQ-47",
+        "1.3",
+        "1.1",
+        "5.2",
+        "0.5",
+        "FAQ-7",
+        "7.1",
+        "7.4"
+      ],
+      "failure": null
+    },
+    {
+      "case_id": "D11",
+      "proposal": {
+        "decision": "approve",
+        "reasons": [
+          {
+            "clause_id": "4.1",
+            "quote": "Office equipment (monitors, keyboards, headsets, chairs) up to EUR 300 per item is reimbursed without pre-approval.",
+            "explanation": "A 27\" QHD monitor is explicitly listed office equipment. At EUR 249.00 it is below the EUR 300 per-item limit, so no pre-approval reference is required."
+          },
+          {
+            "clause_id": "1.2",
+            "quote": "A claim must be submitted within 60 days of the document date.",
+            "explanation": "The receipt is dated 2026-06-22 and the claim was submitted on 2026-07-02, only 10 days later — well within the 60-day deadline."
+          },
+          {
+            "clause_id": "1.3",
+            "quote": "Every claim needs an itemised receipt or invoice that shows the vendor name, the document date, each item purchased, the total, and the tax amount where tax was charged.",
+            "explanation": "The receipt from Elektrohaus Nordlicht shows the vendor name, date (2026-06-22), the monitor as a line item, total EUR 249.00, and tax EUR 39.76 — all required fields are present."
+          },
+          {
+            "clause_id": "1.5",
+            "quote": "Every claim states its business purpose in a sentence: what the expense was for and which project, client or trip it belongs to.",
+            "explanation": "The stated purpose \"Second monitor for home office\" clearly describes what the item is for and satisfies the business purpose requirement."
+          }
+        ],
+        "missing_information": [],
+        "duplicate_of": null
+      },
+      "retrieved_clauses": [
+        "IT4.1",
+        "FAQ-36",
+        "IT4.4",
+        "IT4.3",
+        "IT3.2",
+        "IT2.2",
+        "1.5",
+        "4.1",
+        "7.1",
+        "1.2",
+        "1.3"
+      ],
+      "failure": null
+    },
+    {
+      "case_id": "D12",
+      "proposal": {
+        "decision": "reject",
+        "reasons": [
+          {
+            "clause_id": "4.1",
+            "quote": "Laptops and phones are supplied by IT and need a pre-approval reference at any price.",
+            "explanation": "The claim is for a laptop (EUR 1,450). Clause 4.1 requires a pre-approval reference for any laptop purchase at any price, and laptops are to be supplied by IT — not purchased directly by the employee. No pre-approval reference was provided, so the claim cannot be reimbursed."
+          },
+          {
+            "clause_id": "7.1",
+            "quote": "A claim that exceeds a limit in this policy is rejected as a whole.",
+            "explanation": "Because the mandatory pre-approval condition in clause 4.1 is not met, the claim must be rejected in full. Finance does not part-approve claims, and the missing pre-approval cannot be obtained retrospectively to remedy the breach."
+          }
+        ],
+        "missing_information": [],
+        "duplicate_of": null
+      },
+      "retrieved_clauses": [
+        "IT4.3",
+        "IT3.2",
+        "IT2.2",
+        "4.1",
+        "IT4.2",
+        "FAQ-36",
+        "1.2",
+        "1.3",
+        "7.1",
+        "1.5",
+        "1.1"
+      ],
+      "failure": null
+    },
+    {
+      "case_id": "D13",
+      "proposal": {
+        "decision": "reject",
+        "reasons": [
+          {
+            "clause_id": "4.1",
+            "quote": "Laptops and phones are supplied by IT and need a pre-approval reference at any price.",
+            "explanation": "The policy is explicit that laptops are supplied by IT, not purchased personally and reimbursed. The employee purchased a EUR 1,450 laptop directly from a retail vendor (Elektrohaus Nordlicht) rather than through the IT supply channel. Even though a pre-approval reference (PA-2026-114) was provided, clause 4.1 reserves laptops for IT procurement and does not create a reimbursement route for personal purchases of laptops."
+          },
+          {
+            "clause_id": "7.1",
+            "quote": "A claim that exceeds a limit in this policy is rejected as a whole.",
+            "explanation": "Because the purchase falls outside the permitted reimbursement route under 4.1, the claim cannot be approved and must be rejected in full. The employee should obtain a replacement laptop through the IT portal rather than by personal purchase."
+          }
+        ],
+        "missing_information": [],
+        "duplicate_of": null
+      },
+      "retrieved_clauses": [
+        "IT3.2",
+        "IT4.3",
+        "IT2.2",
+        "4.1",
+        "IT4.2",
+        "FAQ-36",
+        "1.2",
+        "7.1",
+        "1.1",
+        "1.5",
+        "1.3"
+      ],
+      "failure": null
+    },
+    {
+      "case_id": "D14",
+      "proposal": {
+        "decision": "reject",
+        "reasons": [
+          {
+            "clause_id": "4.2",
+            "quote": "Software and subscriptions are bought by IT through the company account so licences can be managed and cancelled. Software bought personally is not reimbursed, even when it is used for work.",
+            "explanation": "This claim is for a personal purchase of a Pixelform Pro monthly software subscription (EUR 29.00). Clause 4.2 categorically excludes personal software purchases from reimbursement, regardless of the stated business purpose."
+          },
+          {
+            "clause_id": "7.1",
+            "quote": "A claim that exceeds a limit in this policy is rejected as a whole.",
+            "explanation": "Because the expense falls into a category that is not reimbursable under clause 4.2, the claim is rejected in full under clause 7.1. The employee should ask IT to procure the tool through the company account instead."
+          }
+        ],
+        "missing_information": [],
+        "duplicate_of": null
+      },
+      "retrieved_clauses": [
+        "FAQ-38",
+        "IT5.2",
+        "4.2",
+        "IT4.4",
+        "0.2",
+        "7.4",
+        "7.1",
+        "1.2",
+        "1.1"
+      ],
+      "failure": null
+    },
+    {
+      "case_id": "D15",
+      "proposal": {
+        "decision": "reject",
+        "reasons": [
+          {
+            "clause_id": "6.1",
+            "quote": "Parking tickets, speeding fines, and other penalties are never reimbursed, even when incurred on a business trip.",
+            "explanation": "The claim is for a EUR 35.00 Verwarnungsgeld (parking fine) issued by Stadt Köln - Verkehrsüberwachung. This is explicitly a parking ticket and therefore falls squarely within the category of expenses that are never reimbursed under clause 6.1, regardless of the business context of the trip."
+          },
+          {
+            "clause_id": "7.1",
+            "quote": "A claim that exceeds a limit in this policy is rejected as a whole.",
+            "explanation": "Because the expense is categorically excluded under 6.1, the claim must be rejected in full; no partial approval or resubmission at a lower amount can make a parking fine reimbursable."
+          }
+        ],
+        "missing_information": [],
+        "duplicate_of": null
+      },
+      "retrieved_clauses": [
+        "1.1",
+        "6.1",
+        "FAQ-43",
+        "3.4",
+        "1.2",
+        "7.1"
+      ],
+      "failure": null
+    },
+    {
+      "case_id": "D16",
+      "proposal": {
+        "decision": "reject",
+        "reasons": [
+          {
+            "clause_id": "2.1",
+            "quote": "During a business trip, Larkfield reimburses meals at their actual cost up to these limits per meal: breakfast EUR 15, lunch EUR 25, dinner EUR 45. Limits apply to the employee's own meal.",
+            "explanation": "This is a solo dinner on a business trip with no attendees listed, so the EUR 45 dinner limit applies. The claim total is EUR 95.00, which exceeds that limit by EUR 50.00."
+          },
+          {
+            "clause_id": "7.1",
+            "quote": "A claim that exceeds a limit in this policy is rejected as a whole. The employee may submit it again with the amount within the limit, explaining the difference in the business purpose.",
+            "explanation": "Because the EUR 95.00 total exceeds the EUR 45 dinner limit under clause 2.1, the claim must be rejected in full. The employee may resubmit claiming EUR 45 and explaining the difference in the business purpose."
+          }
+        ],
+        "missing_information": [],
+        "duplicate_of": null
+      },
+      "retrieved_clauses": [
+        "1.3",
+        "FAQ-10",
+        "2.4",
+        "FAQ-13",
+        "2.1",
+        "2.3",
+        "FAQ-17",
+        "FAQ-18",
+        "FAQ-20",
+        "1.5",
+        "7.1",
+        "1.1",
+        "1.2",
+        "1.4"
+      ],
+      "failure": null
+    },
+    {
+      "case_id": "D17",
+      "proposal": {
+        "decision": "reject",
+        "reasons": [
+          {
+            "clause_id": "1.4",
+            "quote": "Two claims with the same vendor, the same total and the same document date are treated as duplicates, and the later claim is rejected. If the employee genuinely made two identical purchases on the same day, they explain this in the business purpose.",
+            "explanation": "An earlier claim from the same employee already exists for Brauhaus am Markt, EUR 18.50, dated 2026-09-03 (document R-20481). The business purpose 'Lunch Hamburg' does not explain two identical purchases on the same day, so this claim is treated as a duplicate and rejected."
+          }
+        ],
+        "missing_information": [],
+        "duplicate_of": "c27a7017-f3d3-51e8-8f2b-0c5e60f4d0c2"
+      },
+      "retrieved_clauses": [
+        "FAQ-13",
+        "FAQ-14",
+        "2.1",
+        "FAQ-53",
+        "1.3",
+        "FAQ-10",
+        "7.1",
+        "1.5",
+        "1.1",
+        "1.4",
+        "1.2"
+      ],
+      "failure": null
+    },
+    {
+      "case_id": "D18",
+      "proposal": {
+        "decision": "reject",
+        "reasons": [
+          {
+            "clause_id": "1.2",
+            "quote": "A claim must be submitted within 60 days of the document date. Claims submitted later are rejected.",
+            "explanation": "The document date is 2026-07-06 and the claim was submitted on 2026-09-19, which is 75 days later — 15 days beyond the 60-day deadline. The policy states no exceptions to this rule."
+          },
+          {
+            "clause_id": "3.3",
+            "quote": "A taxi or ride-hailing trip is reimbursed when public transport is not a reasonable option: when carrying equipment, when no public transport runs, or when the trip starts between 22:00 and 06:00.",
+            "explanation": "For completeness: the trip started at 23:10, which falls within the 22:00–06:00 window, and the EUR 20.00 total is within the EUR 60 limit, so the expense itself would have been reimbursable had it been submitted on time."
+          }
+        ],
+        "missing_information": [],
+        "duplicate_of": null
+      },
+      "retrieved_clauses": [
+        "FAQ-4",
+        "1.2",
+        "1.3",
+        "FAQ-23",
+        "FAQ-24",
+        "3.3",
+        "1.1",
+        "1.5",
+        "1.4",
+        "7.1"
+      ],
+      "failure": null
+    },
+    {
+      "case_id": "D19",
+      "proposal": {
+        "decision": "reject",
+        "reasons": [
+          {
+            "clause_id": "3.6",
+            "quote": "Minibar, in-room entertainment, spa and laundry are personal expenses.",
+            "explanation": "The invoice includes a EUR 12.00 minibar charge, which clause 3.6 explicitly classifies as a personal expense. This makes the hotel bill a mixed receipt containing both a reimbursable room cost and a non-reimbursable personal item."
+          },
+          {
+            "clause_id": "7.4",
+            "quote": "When a receipt mixes business and personal items, the claim is rejected under clause 7.1, and the employee submits it again without the personal items.",
+            "explanation": "Because the invoice mixes the reimbursable room nights (2 × EUR 140) with the personal minibar charge (EUR 12.00), the claim must be rejected in full. The employee may resubmit for EUR 280.00 (room nights only), excluding the minibar line."
+          },
+          {
+            "clause_id": "7.1",
+            "quote": "A claim that exceeds a limit in this policy is rejected as a whole. The employee may submit it again with the amount within the limit, explaining the difference in the business purpose.",
+            "explanation": "Finance does not part-approve claims, so the full EUR 292.00 invoice cannot be approved. The employee should resubmit for EUR 280.00, noting that the minibar charge has been excluded."
+          }
+        ],
+        "missing_information": [],
+        "duplicate_of": null
+      },
+      "retrieved_clauses": [
+        "FAQ-34",
+        "3.6",
+        "FAQ-46",
+        "FAQ-32",
+        "3.5",
+        "FAQ-33",
+        "1.1",
+        "7.1",
+        "1.3",
+        "1.5",
+        "1.2",
+        "7.4"
+      ],
+      "failure": null
+    },
+    {
+      "case_id": "D20",
+      "proposal": {
+        "decision": "approve",
+        "reasons": [
+          {
+            "clause_id": "5.1",
+            "quote": "Books, online courses and certification exams related to the employee's role are reimbursed up to EUR 500 per calendar year.",
+            "explanation": "The claim is for a technical book (EUR 45.00) related to the employee's role on the Atlas platform. No prior training spend has been recorded this calendar year, so the EUR 500 annual limit is not breached."
+          },
+          {
+            "clause_id": "1.2",
+            "quote": "A claim must be submitted within 60 days of the document date.",
+            "explanation": "The document date is 2026-08-18 and the claim was submitted on 2026-08-27, just 9 days later — well within the 60-day deadline."
+          },
+          {
+            "clause_id": "1.3",
+            "quote": "Every claim needs an itemised receipt or invoice that shows the vendor name, the document date, each item purchased, the total, and the tax amount where tax was charged.",
+            "explanation": "The receipt from Buchhandlung Seitenwind shows the vendor name, date, the book as a line item with its price, the total (EUR 45.00), and the tax amount (EUR 2.94) — all requirements are met."
+          },
+          {
+            "clause_id": "1.5",
+            "quote": "Every claim states its business purpose in a sentence: what the expense was for and which project, client or trip it belongs to.",
+            "explanation": "The stated purpose — \"Book on data-intensive system design for the Atlas platform work\" — clearly identifies what was purchased and the project it relates to."
+          }
+        ],
+        "missing_information": [],
+        "duplicate_of": null
+      },
+      "retrieved_clauses": [
+        "5.1",
+        "FAQ-40",
+        "5.2",
+        "1.5",
+        "IT4.4",
+        "FAQ-2",
+        "1.3",
+        "FAQ-10",
+        "FAQ-9",
+        "7.1",
+        "1.2",
+        "1.1"
+      ],
+      "failure": null
+    },
+    {
+      "case_id": "E01",
+      "proposal": {
+        "decision": "approve",
+        "reasons": [
+          {
+            "clause_id": "1.1",
+            "quote": "Larkfield reimburses reasonable costs that an employee pays personally while doing their job. An expense is reasonable when a colleague in the same role would have spent a similar amount for the same business purpose.",
+            "explanation": "All 44 line items are standard office consumables (paper, toner, folders, stationery, presentation materials) purchased in bulk for a Q3 office restock. The quantities and unit costs are consistent with a shared office restock, and no specific policy clause sets a cap on office supplies, so the claim is assessed as reasonable under 1.1."
+          },
+          {
+            "clause_id": "1.2",
+            "quote": "A claim must be submitted within 60 days of the document date. Claims submitted later are rejected.",
+            "explanation": "The invoice is dated 2026-06-03 and was submitted on 2026-06-08, just 5 days later — well within the 60-day deadline."
+          },
+          {
+            "clause_id": "1.3",
+            "quote": "Every claim needs an itemised receipt or invoice that shows the vendor name, the document date, each item purchased, the total, and the tax amount where tax was charged.",
+            "explanation": "The submitted document is a full itemised invoice from Bürobedarf Hansen & Kolb GmbH (RE-2026-004417) showing the vendor name, date (2026-06-03), all 44 line items, subtotal (EUR 1,431.19), tax (EUR 271.93) and total (EUR 1,703.12) — all requirements are met."
+          },
+          {
+            "clause_id": "1.4",
+            "quote": "The same expense may be claimed only once. Two claims with the same vendor, the same total and the same document date are treated as duplicates, and the later claim is rejected.",
+            "explanation": "A duplicate check returned no earlier claims matching this vendor, date or total, so no duplication issue arises."
+          },
+          {
+            "clause_id": "1.5",
+            "quote": "Every claim states its business purpose in a sentence: what the expense was for and which project, client or trip it belongs to.",
+            "explanation": "The employee states: \"Office supplies restock for the Hamburg office: paper, toner, folders and stationery for Q3\" — this clearly identifies what was purchased and for which office and period."
+          },
+          {
+            "clause_id": "4.1",
+            "quote": "Office equipment (monitors, keyboards, headsets, chairs) up to EUR 300 per item is reimbursed without pre-approval. An item above EUR 300 needs a pre-approval reference.",
+            "explanation": "The toner cartridges (EUR 194.70 and EUR 142.00) are consumables, not equipment in the sense of 4.1 (monitors, keyboards, headsets, chairs). No single line item on the invoice is office equipment above EUR 300, so no pre-approval is required."
+          }
+        ],
+        "missing_information": [],
+        "duplicate_of": null
+      },
+      "retrieved_clauses": [
+        "IT4.3",
+        "IT3.2",
+        "0.5",
+        "1.3",
+        "1.2",
+        "4.1",
+        "FAQ-36",
+        "IT4.1",
+        "1.5",
+        "1.4",
+        "1.1",
+        "7.1",
+        "FAQ-50",
+        "FAQ-49",
+        "7.2",
+        "IT9.1",
+        "IT9.2",
+        "7.4",
+        "4.3",
+        "4.2",
+        "IT9.5"
+      ],
+      "failure": null
+    },
+    {
+      "case_id": "E02",
+      "proposal": {
+        "decision": "reject",
+        "reasons": [
+          {
+            "clause_id": "4.3",
+            "quote": "Small accessories (cables, adapters, phone cases) are reimbursed up to EUR 50 per claim.",
+            "explanation": "The invoice includes multiple accessory lines that fall squarely within clause 4.3 — HDMI cables (EUR 82.80), DisplayPort cables (EUR 67.20), USB-C cables (EUR 147.00), network cables (EUR 64.00), USB-C-to-Ethernet adapters (EUR 119.40), USB-C chargers (EUR 216.00), and USB sticks (EUR 89.00) — totalling approximately EUR 785.40 in accessories on a single claim, which far exceeds the EUR 50 per claim ceiling."
+          },
+          {
+            "clause_id": "7.1",
+            "quote": "A claim that exceeds a limit in this policy is rejected as a whole. The employee may submit it again with the amount within the limit, explaining the difference in the business purpose.",
+            "explanation": "Because the accessory spend on this claim exceeds the EUR 50 limit set by clause 4.3, the entire claim must be rejected. The employee may resubmit with the accessory lines removed or reduced to within EUR 50, and should request the remaining accessories through the IT portal where they are available at no cost."
+          },
+          {
+            "clause_id": "1.2",
+            "quote": "A claim must be submitted within 60 days of the document date.",
+            "explanation": "The claim was submitted 5 days after the invoice date of 2026-06-17, which is well within the 60-day deadline — this general rule is satisfied."
+          },
+          {
+            "clause_id": "1.3",
+            "quote": "Every claim needs an itemised receipt or invoice that shows the vendor name, the document date, each item purchased, the total, and the tax amount where tax was charged.",
+            "explanation": "The invoice from Rechenwerk IT-Handel AG (RW-2026-17730) is fully itemised with vendor name, date, all line items with quantities and unit prices, subtotal, tax amount and total — this general rule is satisfied."
+          },
+          {
+            "clause_id": "4.1",
+            "quote": "Office equipment (monitors, keyboards, headsets, chairs) up to EUR 300 per item is reimbursed without pre-approval. An item above EUR 300 needs a pre-approval reference.",
+            "explanation": "All individual equipment items on the invoice (monitors at EUR 139 and EUR 279, docking stations at EUR 119, keyboards at EUR 39.90, headsets at EUR 74.50, etc.) are priced below EUR 300 per unit, so no pre-approval reference is required under this clause."
+          }
+        ],
+        "missing_information": [],
+        "duplicate_of": null
+      },
+      "retrieved_clauses": [
+        "IT4.3",
+        "IT3.2",
+        "IT9.3",
+        "IT4.1",
+        "IT2.4",
+        "IT2.5",
+        "1.5",
+        "4.1",
+        "7.1",
+        "1.2",
+        "1.3",
+        "4.3",
+        "1.1",
+        "7.2"
+      ],
+      "failure": null
+    },
+    {
+      "case_id": "E06",
+      "proposal": {
+        "decision": "reject",
+        "reasons": [
+          {
+            "clause_id": "2.1",
+            "quote": "During a business trip, Larkfield reimburses meals at their actual cost up to these limits per meal: breakfast EUR 15, lunch EUR 25, dinner EUR 45.",
+            "explanation": "The receipt is for a lunch totalling EUR 26.00, which exceeds the EUR 25 per-meal lunch limit by EUR 1.00. The claim cannot be approved at the submitted amount."
+          },
+          {
+            "clause_id": "7.1",
+            "quote": "A claim that exceeds a limit in this policy is rejected as a whole. The employee may submit it again with the amount within the limit, explaining the difference in the business purpose.",
+            "explanation": "Because the lunch total of EUR 26.00 exceeds the EUR 25 limit set in clause 2.1, the claim must be rejected in full; the employee may resubmit at EUR 25 with an explanation of the difference."
+          }
+        ],
+        "missing_information": [],
+        "duplicate_of": null
+      },
+      "retrieved_clauses": [
+        "1.3",
+        "FAQ-10",
+        "FAQ-9",
+        "FAQ-13",
+        "2.1",
+        "FAQ-14",
+        "1.5",
+        "1.2",
+        "0.3",
+        "FAQ-30",
+        "1.1",
+        "7.1"
+      ],
+      "failure": null
+    },
+    {
+      "case_id": "E05",
+      "proposal": {
+        "decision": "approve",
+        "reasons": [
+          {
+            "clause_id": "1.2",
+            "quote": "A claim must be submitted within 60 days of the document date.",
+            "explanation": "The claim was submitted 4 days after the document date of 2026-07-15, well within the 60-day deadline."
+          },
+          {
+            "clause_id": "1.3",
+            "quote": "Every claim needs an itemised receipt or invoice that shows the vendor name, the document date, each item purchased, the total, and the tax amount where tax was charged.",
+            "explanation": "The receipt from The Copper Kettle Café is fully itemised, showing the vendor name, date (2026-07-15), four individual line items, a total of GBP 20.40, and tax of GBP 3.40."
+          },
+          {
+            "clause_id": "1.5",
+            "quote": "Every claim states its business purpose in a sentence: what the expense was for and which project, client or trip it belongs to.",
+            "explanation": "The employee states \"Lunch during the London client visit trip, project Orion,\" which identifies the trip and project and satisfies the business purpose requirement."
+          },
+          {
+            "clause_id": "0.7",
+            "quote": "Where a receipt is in another currency, Finance converts it at the European Central Bank rate on the document date; limits apply to the converted amount.",
+            "explanation": "The receipt is in GBP 20.40; Finance will convert at the ECB rate on 2026-07-15 to confirm the amount falls within the EUR 25 lunch limit."
+          },
+          {
+            "clause_id": "2.1",
+            "quote": "During a business trip, Larkfield reimburses meals at their actual cost up to these limits per meal: breakfast EUR 15, lunch EUR 25, dinner EUR 45. Limits apply to the employee's own meal.",
+            "explanation": "The receipt covers a single person's lunch (one sandwich, one soup, one water, one coffee) on a London client visit trip; GBP 20.40 converts to approximately EUR 24, within the EUR 25 lunch limit."
+          }
+        ],
+        "missing_information": [],
+        "duplicate_of": null
+      },
+      "retrieved_clauses": [
+        "2.2",
+        "FAQ-16",
+        "2.4",
+        "FAQ-13",
+        "FAQ-14",
+        "2.1",
+        "1.5",
+        "1.2",
+        "7.2",
+        "1.1",
+        "1.3",
+        "7.1",
+        "FAQ-11",
+        "FAQ-25",
+        "0.7",
+        "FAQ-15",
+        "0.3",
+        "FAQ-24"
+      ],
+      "failure": null
+    }
+  ]
+}
