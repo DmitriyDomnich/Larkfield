@@ -9,7 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.claims.status import ClaimStatus as S
 from app.extraction.models import ExpenseCategory
-from app.review.claim_data import ClaimUnderReview, load_extracted_claim
+from app.review.claim_data import (
+    ClaimUnderReview,
+    load_claim_of_any_status,
+    load_extracted_claim,
+)
 from app.review.claims_history import DatabaseClaimsHistory
 from tests.review.db import extracted_claim
 
@@ -129,3 +133,14 @@ async def test_training_claims_of_the_employee_in_the_documents_year(
 
     assert {claim.claim_id for claim in claims} == {counted, pending}
     assert {claim.status for claim in claims} == {"approved", "in_review"}
+
+
+async def test_a_reviewed_claim_loads_in_any_status_but_not_as_extracted(
+    db_session: AsyncSession,
+) -> None:
+    claim_id = await extracted_claim(db_session, "D01", status=S.IN_REVIEW)
+
+    assert await load_extracted_claim(db_session, claim_id) is None
+    claim = await load_claim_of_any_status(db_session, claim_id)
+    assert claim is not None
+    assert claim.claim_id == claim_id

@@ -28,6 +28,7 @@ from app.review.proposal import ReviewProposal, checked_proposal_model
 logger = logging.getLogger(__name__)
 
 TOOL_UNAVAILABLE = "The tool is unavailable; the review stops here."
+CLAIM_TOOLS = frozenset({FIND_DUPLICATE_CLAIMS_TOOL, GET_TRAINING_SPEND_TOOL})
 
 
 @dataclass(frozen=True)
@@ -103,7 +104,7 @@ class ReviewRun:
 
     def __init__(
         self,
-        claim: ClaimUnderReview,
+        claim: ClaimUnderReview | None,
         retriever: PolicyRetriever,
         history: ClaimsHistory,
     ) -> None:
@@ -156,7 +157,7 @@ class ReviewRun:
             """Find earlier claims, from any employee, with the same document date, total and
             currency as this claim, or the same file (policy 1.4)."""
             found_claim_duplicates = await self._lookup_or_stop(
-                tool_context, self._history.find_possible_duplicates(self._claim)
+                tool_context, self._history.find_possible_duplicates(self._get_claim())
             )
             if found_claim_duplicates is None:
                 return TOOL_UNAVAILABLE
@@ -174,7 +175,7 @@ class ReviewRun:
             """List the employee's earlier training claims (books, courses, exams) in the calendar
             year of this claim's document date, with their total (policy 5.1)."""
             claims = await self._lookup_or_stop(
-                tool_context, self._history.list_training_claims(self._claim)
+                tool_context, self._history.list_training_claims(self._get_claim())
             )
             if claims is None:
                 return TOOL_UNAVAILABLE
@@ -195,15 +196,23 @@ class ReviewRun:
 
         return [search_policy, get_clause, find_duplicate_claims, get_training_spend]
 
+    def _get_claim(self) -> ClaimUnderReview:
+        if self._claim is None:
+            raise ValueError("this tool needs the claim under review")
+        return self._claim
+
+    def _get_claim_id(self) -> uuid.UUID | None:
+        return self._claim.claim_id if self._claim else None
+
     def _log_found(self, tool_call: str, found: object) -> None:
-        logger.info("claim %s: %s found %s", self._claim.claim_id, tool_call, found)
+        logger.info("claim %s: %s found %s", self._get_claim_id(), tool_call, found)
 
     async def _lookup_or_stop[T](self, tool_context: ToolContext, work: Awaitable[T]) -> T | None:
         """A failed lookup stops the run: deciding without the data would be guessing"""
         try:
             return await work
         except Exception as exc:
-            logger.exception("review tool failed for claim %s", self._claim.claim_id)
+            logger.exception("review tool failed for claim %s", self._get_claim_id())
             self.failure = exc
             tool_context.agent.cancel()
             return None
