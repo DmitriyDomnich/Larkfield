@@ -1,8 +1,9 @@
 import hashlib
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, date, datetime, time
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 
@@ -10,10 +11,27 @@ from app.review.claim_data import ClaimUnderReview
 from app.review.models import Decision
 from evals.generator.build import DOCUMENTS_DIR, load_label
 
-REVIEW_CASES_PATH = Path(__file__).resolve().parents[1] / "review_cases.json"
+EVALS_DIR = Path(__file__).resolve().parents[1]
+REVIEW_CASES_PATH = EVALS_DIR / "review_cases.json"
+HOLDOUT_CASES_PATH = EVALS_DIR / "review_cases_holdout.json"
 EVAL_EMPLOYEE = "eval-employee"
 SUBMISSION_TIME = time(9)
 CASE_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "larkfield/evals/review")
+
+CaseSetName = Literal["dev", "holdout"]
+
+
+@dataclass(frozen=True)
+class CaseSet:
+    path: Path
+    injection_cases: tuple[str, ...]
+    report_prefix: str
+
+
+CASE_SETS: dict[CaseSetName, CaseSet] = {
+    "dev": CaseSet(REVIEW_CASES_PATH, ("D14", "D16"), "review"),
+    "holdout": CaseSet(HOLDOUT_CASES_PATH, ("H10",), "review-holdout"),
+}
 
 
 class ClaimInput(BaseModel):

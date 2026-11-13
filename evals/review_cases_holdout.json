@@ -1,0 +1,268 @@
+[
+  {
+    "id": "H01",
+    "document": "H01.pdf",
+    "document_date": "2026-10-16",
+    "submitted_at": "2026-10-20",
+    "claim": {
+      "purpose": "Team dinner celebrating the Polaris release with the Hamburg data team",
+      "attendees": [
+        {
+          "name": "Lena Vogtmann",
+          "company": "Larkfield Analytics"
+        },
+        {
+          "name": "Mara Lindqvist",
+          "company": "Larkfield Analytics"
+        },
+        {
+          "name": "Tobias Rehm",
+          "company": "Larkfield Analytics"
+        },
+        {
+          "name": "Ines Kaltenbach",
+          "company": "Larkfield Analytics"
+        },
+        {
+          "name": "Jonas Feld",
+          "company": "Larkfield Analytics"
+        },
+        {
+          "name": "Priya Raman",
+          "company": "Larkfield Analytics"
+        },
+        {
+          "name": "Niklas Brandt",
+          "company": "Larkfield Analytics"
+        }
+      ],
+      "preapproval_ref": "PA-2026-207"
+    },
+    "expected": {
+      "decision": "approve",
+      "clauses": [
+        "2.4"
+      ],
+      "duplicate_of": null
+    },
+    "process_after": null
+  },
+  {
+    "id": "H02",
+    "document": "H02.pdf",
+    "document_date": "2026-10-28",
+    "submitted_at": "2026-11-02",
+    "claim": {
+      "purpose": "Ticket for NordData Summit Berlin, presenting the Atlas data platform architecture",
+      "attendees": [],
+      "preapproval_ref": null
+    },
+    "expected": {
+      "decision": "needs_info",
+      "clauses": [
+        "5.2",
+        "7.2"
+      ],
+      "duplicate_of": null
+    },
+    "process_after": null
+  },
+  {
+    "id": "H03",
+    "document": "H03.pdf",
+    "document_date": "2026-10-02",
+    "submitted_at": "2026-10-08",
+    "claim": {
+      "purpose": "Train to Munich for the Bavaria Mobil discovery workshop, project Polaris",
+      "attendees": [],
+      "preapproval_ref": null
+    },
+    "expected": {
+      "decision": "approve",
+      "clauses": [
+        "3.2"
+      ],
+      "duplicate_of": null
+    },
+    "process_after": null
+  },
+  {
+    "id": "H04",
+    "document": "H04.pdf",
+    "document_date": "2026-10-09",
+    "submitted_at": "2026-10-12",
+    "claim": {
+      "purpose": "Fuel for my own car Hamburg–Bremen and back for the Hanse Logistik audit; the 236 km mileage is claimed separately",
+      "attendees": [],
+      "preapproval_ref": null
+    },
+    "expected": {
+      "decision": "reject",
+      "clauses": [
+        "3.4"
+      ],
+      "duplicate_of": null
+    },
+    "process_after": null
+  },
+  {
+    "id": "H05",
+    "document": "H05.pdf",
+    "document_date": "2026-10-08",
+    "submitted_at": "2026-10-14",
+    "claim": {
+      "purpose": "Hotel in Zurich for the three-day Helvetia Re onboarding workshop, project Atlas",
+      "attendees": [],
+      "preapproval_ref": null
+    },
+    "expected": {
+      "decision": "approve",
+      "clauses": [
+        "0.4",
+        "3.5"
+      ],
+      "duplicate_of": null
+    },
+    "process_after": null
+  },
+  {
+    "id": "H06",
+    "document": "H06.pdf",
+    "document_date": "2026-10-21",
+    "submitted_at": "2026-10-24",
+    "claim": {
+      "purpose": "Taxi from CDG to the Lumen Retail office carrying two demo hardware cases, Paris trip, project Orion",
+      "attendees": [],
+      "preapproval_ref": null
+    },
+    "expected": {
+      "decision": "approve",
+      "clauses": [
+        "0.4",
+        "3.3"
+      ],
+      "duplicate_of": null
+    },
+    "process_after": null
+  },
+  {
+    "id": "H07",
+    "document": "H07.pdf",
+    "document_date": "2026-09-17",
+    "submitted_at": "2026-09-22",
+    "claim": {
+      "purpose": "Dinner on the Lyon trip for the Lumen Retail store rollout, project Orion",
+      "attendees": [],
+      "preapproval_ref": null
+    },
+    "expected": {
+      "decision": "approve",
+      "clauses": [
+        "2.1",
+        "2.5"
+      ],
+      "duplicate_of": null
+    },
+    "process_after": null
+  },
+  {
+    "id": "H08",
+    "document": "H08.pdf",
+    "document_date": "2026-10-23",
+    "submitted_at": "2026-10-27",
+    "claim": {
+      "purpose": "Home office setup: chair and keyboard for remote work on project Polaris",
+      "attendees": [],
+      "preapproval_ref": null
+    },
+    "expected": {
+      "decision": "reject",
+      "clauses": [
+        "6.2",
+        "7.4"
+      ],
+      "duplicate_of": null
+    },
+    "process_after": null
+  },
+  {
+    "id": "H09",
+    "document": "H09.pdf",
+    "document_date": "2026-10-30",
+    "submitted_at": "2026-11-04",
+    "claim": {
+      "purpose": "Thank-you gift cards for four Hanse Logistik staff who joined the user interviews, project Atlas",
+      "attendees": [],
+      "preapproval_ref": null
+    },
+    "expected": {
+      "decision": "reject",
+      "clauses": [
+        "6.3"
+      ],
+      "duplicate_of": null
+    },
+    "process_after": null
+  },
+  {
+    "id": "H10",
+    "document": "H10.pdf",
+    "document_date": "2026-10-14",
+    "submitted_at": "2026-10-19",
+    "claim": {
+      "purpose": "Hotel in Milan for the Ferraris Group pricing workshop, project Orion",
+      "attendees": [],
+      "preapproval_ref": null
+    },
+    "expected": {
+      "decision": "reject",
+      "clauses": [
+        "0.4",
+        "3.5",
+        "7.1"
+      ],
+      "duplicate_of": null
+    },
+    "process_after": null
+  },
+  {
+    "id": "H11",
+    "document": "H11.pdf",
+    "document_date": "2026-11-01",
+    "submitted_at": "2026-11-06",
+    "claim": {
+      "purpose": "Headset for daily client calls on the Atlas support rotation",
+      "attendees": [],
+      "preapproval_ref": null
+    },
+    "expected": {
+      "decision": "needs_info",
+      "clauses": [
+        "4.1",
+        "7.2"
+      ],
+      "duplicate_of": null
+    },
+    "process_after": null
+  },
+  {
+    "id": "H12",
+    "document": "H12.pdf",
+    "document_date": "2026-10-07",
+    "submitted_at": "2026-10-09",
+    "claim": {
+      "purpose": "Taxi for work",
+      "attendees": [],
+      "preapproval_ref": null
+    },
+    "expected": {
+      "decision": "needs_info",
+      "clauses": [
+        "1.5",
+        "7.2"
+      ],
+      "duplicate_of": null
+    },
+    "process_after": null
+  }
+]

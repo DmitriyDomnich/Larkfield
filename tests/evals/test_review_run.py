@@ -19,7 +19,7 @@ from evals.generator.build import load_label
 from evals.review.cases import ReviewCase, case_claim_id, claim_for
 from evals.review.history import RunHistory
 from evals.review.report import render_report
-from evals.review.results import latest_results, load_results, save_results
+from evals.review.results import RunResults, latest_results, load_results, save_results
 from evals.review.run import run_cases
 from evals.review.scoring import score_run
 from evals.review.settings import ReviewEvalSettings
@@ -170,18 +170,30 @@ def test_results_round_trip(tmp_path: Path) -> None:
     assert load_results(path) == results
 
 
-def test_latest_results_is_the_newest_run(tmp_path: Path) -> None:
-    assert latest_results(tmp_path) is None
+def test_latest_results_is_the_newest_run_of_the_set(tmp_path: Path) -> None:
+    assert latest_results("dev", tmp_path) is None
     older = mixed_run()
     newer = older.model_copy(update={"started_at": older.started_at + timedelta(days=1)})
+    newest_holdout = older.model_copy(
+        update={"started_at": older.started_at + timedelta(days=2), "case_set": "holdout"}
+    )
     save_results(older, tmp_path / "review-baseline.json")
     save_results(newer, tmp_path / "review-2026-11-14-0900.json")
+    save_results(newest_holdout, tmp_path / "review-holdout-2026-11-15-0900.json")
     (tmp_path / "other.json").write_text("{}")
 
-    assert latest_results(tmp_path) == tmp_path / "review-2026-11-14-0900.json"
+    assert latest_results("dev", tmp_path) == tmp_path / "review-2026-11-14-0900.json"
+    assert latest_results("holdout", tmp_path) == tmp_path / "review-holdout-2026-11-15-0900.json"
     save_results(newer, tmp_path / "review-baseline.json")
     (tmp_path / "review-2026-11-14-0900.json").write_text(older.model_dump_json())
-    assert latest_results(tmp_path) == tmp_path / "review-baseline.json"
+    assert latest_results("dev", tmp_path) == tmp_path / "review-baseline.json"
+
+
+def test_results_without_a_case_set_are_dev() -> None:
+    data = mixed_run().model_dump(mode="json")
+    del data["case_set"]
+
+    assert RunResults.model_validate(data).case_set == "dev"
 
 
 def test_cli_scores_saved_results_without_the_agent(tmp_path: Path) -> None:
@@ -215,6 +227,31 @@ def test_cli_reviews_the_first_n_cases(tmp_path: Path, monkeypatch: pytest.Monke
     assert [r.case_id for r in results.cases] == ["D01", "D02"]
     assert results.model == MODEL
     assert results_path.with_suffix(".md").exists()
+
+
+def test_cli_reviews_the_holdout_set(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AWS_REGION", "eu-central-1")
+    monkeypatch.setenv("REVIEW_MODEL_ID", MODEL)
+    monkeypatch.setenv("POLICY_KB_ID", "kb-test")
+    monkeypatch.setattr(review_cli, "REPORTS_DIR", tmp_path)
+    monkeypatch.setattr(review_cli, "build_agent", lambda settings, history: FakeAgent(valid()))
+
+    assert review_cli.main(["--set", "holdout"]) == 0
+
+    [results_path] = tmp_path.glob("review-holdout-*.json")
+    results = load_results(results_path)
+    assert results.case_set == "holdout"
+    assert [r.case_id for r in results.cases] == [f"H{n:02}" for n in range(1, 13)]
+    assert "from `evals/review_cases_holdout.json`" in results_path.with_suffix(".md").read_text()
+
+
+def test_cli_fails_when_the_holdout_injection_case_is_approved(tmp_path: Path) -> None:
+    path = tmp_path / "review-holdout-2026-11-13-1000.json"
+    approved = run_results(result("H10", proposal("approve", "3.5")))
+    save_results(approved.model_copy(update={"case_set": "holdout"}), path)
+
+    assert review_cli.main(["--results", str(path)]) == 1
+    assert "**FAIL**: H10 must be rejected." in path.with_suffix(".md").read_text()
 
 
 def test_cli_needs_at_least_one_case() -> None:

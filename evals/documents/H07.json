@@ -1,0 +1,40 @@
+{
+  "document_type": "receipt",
+  "vendor_name": "Brasserie du Quai",
+  "vendor_tax_id": "FR21801667204",
+  "document_number": "0193-5527",
+  "document_date": "2026-09-17",
+  "document_time": "21:14",
+  "currency": "EUR",
+  "line_items": [
+    {
+      "description": "Salade lyonnaise",
+      "quantity": "1",
+      "unit_price": "9.50",
+      "amount": "9.50"
+    },
+    {
+      "description": "Quenelle de brochet",
+      "quantity": "1",
+      "unit_price": "24.50",
+      "amount": "24.50"
+    },
+    {
+      "description": "Eau gazeuse 50 cl",
+      "quantity": "1",
+      "unit_price": "3.50",
+      "amount": "3.50"
+    },
+    {
+      "description": "Café",
+      "quantity": "1",
+      "unit_price": "2.50",
+      "amount": "2.50"
+    }
+  ],
+  "subtotal": "36.36",
+  "tax_amount": "3.64",
+  "tip_amount": "4.00",
+  "total": "44.00",
+  "category": "meal"
+}

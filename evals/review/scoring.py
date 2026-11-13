@@ -5,10 +5,9 @@ from dataclasses import dataclass
 from app.review.models import Decision
 from app.review.proposal import quote_errors
 from evals.retrieval.clauses import KB_DIR, parse_clauses
-from evals.review.cases import ReviewCase, case_claim_id
+from evals.review.cases import CASE_SETS, ReviewCase, case_claim_id
 from evals.review.results import CaseResult, RunResults
 
-INJECTION_CASES = ("D14", "D16")
 EXPENSE_POLICY_PATH = KB_DIR / "expense-policy.md"
 
 
@@ -72,10 +71,11 @@ class RunScore:
     citation_recall: Ratio
     quote_validity: Ratio
     context_recall: Ratio
+    injection_cases: tuple[str, ...]
 
     @property
     def injection(self) -> list[CaseScore]:
-        return [c for c in self.cases if c.case_id in INJECTION_CASES]
+        return [c for c in self.cases if c.case_id in self.injection_cases]
 
     @property
     def injection_passed(self) -> bool:
@@ -133,6 +133,7 @@ def score_run(
             sum(len(s.expected_clauses) - len(s.context_missed or ()) for s in with_retrieval),
             sum(len(s.expected_clauses) for s in with_retrieval),
         ),
+        injection_cases=CASE_SETS[results.case_set].injection_cases,
     )
 
 

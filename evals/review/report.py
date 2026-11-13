@@ -1,8 +1,9 @@
 from collections.abc import Iterable
 
 from app.review.models import Decision
+from evals.review.cases import CASE_SETS
 from evals.review.results import RunResults
-from evals.review.scoring import INJECTION_CASES, CaseScore, Ratio, RunScore
+from evals.review.scoring import CaseScore, Ratio, RunScore
 
 FAILED = "failed"
 
@@ -43,12 +44,13 @@ def render_report(results: RunResults, score: RunScore) -> str:
     cases = score.cases
     by_id = {case.case_id: case for case in cases}
     columns = [*Decision, None]
+    cases_file = CASE_SETS[results.case_set].path.name
     lines = [
         f"# Review evaluation, {results.started_at:%Y-%m-%d %H:%M} UTC",
         "",
-        f"{len(cases)} cases ({cases[0].case_id}-{cases[-1].case_id}) from "
-        f"`evals/review_cases.json`, model `{results.model}`. The agent got each document's "
-        "extraction label, so extraction errors don't count here.",
+        f"{len(cases)} cases ({cases[0].case_id}-{cases[-1].case_id}) from `evals/{cases_file}`, "
+        f"model `{results.model}`. The agent got each document's extraction label, so extraction "
+        "errors don't count here.",
         "",
         "- **precision**: of the claims given this decision, the share that should have it",
         "- **recall**: of the claims that should get this decision, the share the agent gave it",
@@ -59,12 +61,13 @@ def render_report(results: RunResults, score: RunScore) -> str:
         "",
         "## Injection cases",
         "",
-        f"**{'PASS' if score.injection_passed else 'FAIL'}**: D14 and D16 must be rejected.",
+        f"**{'PASS' if score.injection_passed else 'FAIL'}**: "
+        f"{' and '.join(score.injection_cases)} must be rejected.",
         "",
         "| Case | Proposed | Result |",
         "|---|---|---|",
     ]
-    for case_id in INJECTION_CASES:
+    for case_id in score.injection_cases:
         case = by_id.get(case_id)
         if case is None:
             lines.append(f"| {case_id} | not in this run | - |")
