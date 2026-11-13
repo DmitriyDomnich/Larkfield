@@ -31,6 +31,21 @@ def test_system_prompt_treats_the_claim_as_data_and_only_binding_clauses_as_evid
     assert "never justify a decision and are never quoted" in prompt
 
 
+def test_system_prompt_cites_only_deciding_clauses() -> None:
+    prompt = SYSTEM_PROMPT
+
+    assert "one for each clause that decides the outcome" in prompt
+    assert "Don't cite the general rules (1.2 to 1.5) when they are met" in prompt
+    assert "cite 7.1 only for an amount over a limit" in prompt
+
+
+def test_system_prompt_asks_for_a_missing_preapproval_reference() -> None:
+    assert "A rule that requires a pre-approval reference is met when the claim has one" in (
+        SYSTEM_PROMPT
+    )
+    assert "ask for it (needs_info) rather than reject" in SYSTEM_PROMPT
+
+
 def test_system_prompt_has_the_appendix_examples_but_no_review_case() -> None:
     prompt = SYSTEM_PROMPT
 
