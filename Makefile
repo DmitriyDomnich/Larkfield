@@ -52,7 +52,7 @@ eval-extraction:
 eval-retrieval:
 	uv run python -m evals.retrieval $(args)
 
-eval-review: ## live run, e.g. args="--cases 5"; args="--results evals/reports/review-….json" scores a saved run
+eval-review: ## live run, e.g. args="--cases 5" or args="--set holdout"; args="--results evals/reports/review-….json" scores a saved run
 	uv run python -m evals.review $(args)
 
 kb-build:

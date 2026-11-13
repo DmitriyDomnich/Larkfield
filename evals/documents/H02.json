@@ -1,0 +1,22 @@
+{
+  "document_type": "invoice",
+  "vendor_name": "Nordlicht Events GmbH",
+  "vendor_tax_id": "DE297140638",
+  "document_number": "NE-26-08812",
+  "document_date": "2026-10-28",
+  "document_time": null,
+  "currency": "EUR",
+  "line_items": [
+    {
+      "description": "NordData Summit 2026 - Conference pass, 2 days (24-25 Nov 2026), attendee: Lena Vogtmann",
+      "quantity": "1",
+      "unit_price": "420.00",
+      "amount": "420.00"
+    }
+  ],
+  "subtotal": "420.00",
+  "tax_amount": "79.80",
+  "tip_amount": null,
+  "total": "499.80",
+  "category": "conference"
+}

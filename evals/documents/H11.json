@@ -1,0 +1,28 @@
+{
+  "document_type": "invoice",
+  "vendor_name": "Tonwerk Audio GmbH",
+  "vendor_tax_id": "DE314702589",
+  "document_number": "TA-2026-118540",
+  "document_date": "2026-11-01",
+  "document_time": null,
+  "currency": "EUR",
+  "line_items": [
+    {
+      "description": "Tonwerk ANC Pro Wireless-Headset, Noise-Cancelling",
+      "quantity": "1",
+      "unit_price": "309.00",
+      "amount": "309.00"
+    },
+    {
+      "description": "Versand",
+      "quantity": "1",
+      "unit_price": "0.00",
+      "amount": "0.00"
+    }
+  ],
+  "subtotal": "259.66",
+  "tax_amount": "49.34",
+  "tip_amount": null,
+  "total": "309.00",
+  "category": "equipment"
+}

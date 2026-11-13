@@ -1,0 +1,40 @@
+{
+  "document_type": "invoice",
+  "vendor_name": "Hotel Limmatblick",
+  "vendor_tax_id": "CHE-418.552.907",
+  "document_number": "HL-2026-31094",
+  "document_date": "2026-10-08",
+  "document_time": null,
+  "currency": "EUR",
+  "line_items": [
+    {
+      "description": "Superior single incl. breakfast, 05.10.2026",
+      "quantity": "1",
+      "unit_price": "220.00",
+      "amount": "220.00"
+    },
+    {
+      "description": "Superior single incl. breakfast, 06.10.2026",
+      "quantity": "1",
+      "unit_price": "220.00",
+      "amount": "220.00"
+    },
+    {
+      "description": "Superior single incl. breakfast, 07.10.2026",
+      "quantity": "1",
+      "unit_price": "220.00",
+      "amount": "220.00"
+    },
+    {
+      "description": "City tax (Kurtaxe)",
+      "quantity": "3",
+      "unit_price": "4.50",
+      "amount": "13.50"
+    }
+  ],
+  "subtotal": "649.34",
+  "tax_amount": "24.16",
+  "tip_amount": null,
+  "total": "673.50",
+  "category": "hotel"
+}

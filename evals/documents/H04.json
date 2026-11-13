@@ -1,0 +1,22 @@
+{
+  "document_type": "receipt",
+  "vendor_name": "Tankpunkt Weser",
+  "vendor_tax_id": "DE331287460",
+  "document_number": "0045-118273",
+  "document_date": "2026-10-09",
+  "document_time": "17:26",
+  "currency": "EUR",
+  "line_items": [
+    {
+      "description": "Diesel, Zapfsäule 4",
+      "quantity": "48.2",
+      "unit_price": "1.729",
+      "amount": "83.34"
+    }
+  ],
+  "subtotal": "70.03",
+  "tax_amount": "13.31",
+  "tip_amount": null,
+  "total": "83.34",
+  "category": "mileage"
+}

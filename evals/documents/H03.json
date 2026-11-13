@@ -1,0 +1,22 @@
+{
+  "document_type": "receipt",
+  "vendor_name": "Nordbahn Fernverkehr AG",
+  "vendor_tax_id": "DE276903115",
+  "document_number": "NB-7Q4K2M",
+  "document_date": "2026-10-02",
+  "document_time": null,
+  "currency": "EUR",
+  "line_items": [
+    {
+      "description": "ICE 581 Hamburg Hbf 06:01 - München Hbf 11:48 (5 h 47 min), 06.10.2026, 1. Klasse, einfache Fahrt",
+      "quantity": "1",
+      "unit_price": "179.90",
+      "amount": "179.90"
+    }
+  ],
+  "subtotal": "168.13",
+  "tax_amount": "11.77",
+  "tip_amount": null,
+  "total": "179.90",
+  "category": "rail_travel"
+}

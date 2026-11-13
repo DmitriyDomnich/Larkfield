@@ -11,7 +11,7 @@ from strands.models.bedrock import BedrockModel
 from app.review.agent import ReviewAgent, StrandsReviewAgent
 from app.review.policy import BedrockPolicyRetriever
 from app.review.worker import MAX_OUTPUT_TOKENS
-from evals.review.cases import load_cases
+from evals.review.cases import CASE_SETS, load_cases
 from evals.review.history import RunHistory
 from evals.review.report import render_report
 from evals.review.results import REPORTS_DIR, load_results, save_results
@@ -44,18 +44,24 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m evals.review")
     source = parser.add_mutually_exclusive_group()
     source.add_argument(
-        "--cases", type=int, help="review the first N cases of review_cases.json (default: all)"
+        "--cases", type=int, help="review the first N cases of the set (default: all)"
     )
     source.add_argument("--results", type=Path, help="score a saved review-*.json, no model calls")
+    parser.add_argument(
+        "--set", choices=list(CASE_SETS), default="dev", help="the cases to review (default: dev)"
+    )
     args = parser.parse_args(argv)
     if args.cases is not None and args.cases < 1:
         parser.error("--cases must be at least 1")
 
-    cases = load_cases()
     if args.results:
         results_path = args.results
         results = load_results(results_path)
+        case_set = CASE_SETS[results.case_set]
+        cases = load_cases(case_set.path)
     else:
+        case_set = CASE_SETS[args.set]
+        cases = load_cases(case_set.path)
         logging.basicConfig(level=logging.WARNING, format="%(message)s")
         for name in ("app.review", "evals.review"):
             logging.getLogger(name).setLevel(logging.INFO)
@@ -63,9 +69,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         history = RunHistory()
         agent = build_agent(settings, history)
         selected_cases = cases[: args.cases]
-        results = asyncio.run(run_cases(agent, history, selected_cases, settings.review_model_id))
+        results = asyncio.run(
+            run_cases(agent, history, selected_cases, settings.review_model_id, args.set)
+        )
         REPORTS_DIR.mkdir(exist_ok=True)
-        results_path = REPORTS_DIR / f"review-{results.started_at:%Y-%m-%d-%H%M}.json"
+        stamp = f"{results.started_at:%Y-%m-%d-%H%M}"
+        results_path = REPORTS_DIR / f"{case_set.report_prefix}-{stamp}.json"
         save_results(results, results_path)
         print(f"Wrote {results_path}")
 
@@ -74,7 +83,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     report_path.write_text(render_report(results, score), "utf-8")
     print(f"Wrote {report_path}")
     if not score.injection_passed:
-        print("FAIL: an injection case (D14, D16) was not rejected")
+        print(f"FAIL: an injection case ({', '.join(case_set.injection_cases)}) was not rejected")
         return 1
     return 0
 

@@ -4,6 +4,7 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict
 
 from app.review.proposal import ReviewProposal
+from evals.review.cases import CaseSetName
 
 REPORTS_DIR = Path(__file__).resolve().parents[1] / "reports"
 
@@ -22,6 +23,7 @@ class RunResults(BaseModel):
 
     started_at: datetime
     model: str
+    case_set: CaseSetName = "dev"
     cases: list[CaseResult]
 
 
@@ -33,7 +35,11 @@ def load_results(path: Path) -> RunResults:
     return RunResults.model_validate_json(path.read_text("utf-8"))
 
 
-def latest_results(reports_dir: Path = REPORTS_DIR) -> Path | None:
-    """The run that started last, whatever its file is called (e.g. review-baseline.json)"""
-    runs = reports_dir.glob("review-*.json")
-    return max(runs, key=lambda path: load_results(path).started_at, default=None)
+def latest_results(case_set: CaseSetName, reports_dir: Path = REPORTS_DIR) -> Path | None:
+    """The set's run that started last, whatever its file is called (e.g. review-baseline.json)"""
+    started: dict[Path, datetime] = {}
+    for path in reports_dir.glob("review-*.json"):
+        run = load_results(path)
+        if run.case_set == case_set:
+            started[path] = run.started_at
+    return max(started, key=started.__getitem__, default=None)
