@@ -4,7 +4,7 @@ from pydantic import ValidationError
 from app.extraction.settings import WorkerSettings
 
 
-@pytest.mark.parametrize("name", ["EXTRACTION_QUEUE_URL", "BEDROCK_MODEL_ID"])
+@pytest.mark.parametrize("name", ["EXTRACTION_QUEUE_URL", "BEDROCK_MODEL_ID", "REVIEW_QUEUE_URL"])
 def test_worker_refuses_an_empty_queue_or_model(monkeypatch: pytest.MonkeyPatch, name: str) -> None:
     # docker compose passes an unset variable as an empty string
     monkeypatch.setenv(name, "")

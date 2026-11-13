@@ -63,6 +63,7 @@ module "extraction" {
   documents_bucket_name        = module.documents.bucket_name
   documents_bucket_arn         = module.documents.bucket_arn
   bedrock_inference_profile_id = var.bedrock_inference_profile_id
+  review_queue_arn             = module.review.queue_arn
 }
 
 module "knowledge_base" {
@@ -84,4 +85,11 @@ module "knowledge_base" {
       source = "clauses"
     }
   }
+}
+
+module "review" {
+  source                       = "../../modules/review"
+  project_name                 = var.project_name
+  policy_knowledge_base_id     = module.knowledge_base.knowledge_base_ids["clause"]
+  bedrock_inference_profile_id = var.review_inference_profile_id
 }

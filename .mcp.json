@@ -11,6 +11,10 @@
         "FASTMCP_LOG_LEVEL": "ERROR",
         "AWS_DOCUMENTATION_PARTITION": "aws"
       }
+    },
+    "strands-docs": {
+      "command": "uvx",
+      "args": ["strands-agents-mcp-server"]
     }
   }
 }

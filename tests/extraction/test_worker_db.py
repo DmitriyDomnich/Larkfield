@@ -32,6 +32,7 @@ from app.extraction.settings import WorkerSettings
 from app.extraction.worker import ExtractionWorker
 from tests.claims.fakes import EXE, FakeStorage
 from tests.extraction.fakes import FakeExtractor, FakeQueue, document_bytes, expense
+from tests.review.fakes import FakeReviewQueue
 
 pytestmark = pytest.mark.integration
 
@@ -59,13 +60,15 @@ def make_worker(
     queue: FakeQueue,
     storage: FakeStorage,
     *outcomes: ExtractionOutcome | Exception,
+    reviews: FakeReviewQueue | None = None,
 ) -> tuple[ExtractionWorker, FakeExtractor]:
     @asynccontextmanager
     async def sessions() -> AsyncIterator[AsyncSession]:
         yield db_session  # the test's session, rolled back after the test
 
     extractor = FakeExtractor(*outcomes)
-    return ExtractionWorker(settings, queue, sessions, storage, extractor), extractor
+    reviews = reviews or FakeReviewQueue()
+    return ExtractionWorker(settings, queue, sessions, storage, extractor, reviews), extractor
 
 
 @dataclass(frozen=True)
@@ -504,3 +507,107 @@ async def test_event_for_an_unknown_object_is_dropped(
 
     assert extractor.calls == []
     assert queue.deleted == ["handle-1", "test-event"]
+
+
+async def test_an_extracted_claim_is_sent_for_review(
+    db_session: AsyncSession,
+    storage: FakeStorage,
+    queue: FakeQueue,
+    worker_settings: WorkerSettings,
+) -> None:
+    document = await uploaded_file(db_session, storage, document_bytes("D01.pdf"))
+    reviews = FakeReviewQueue()
+    worker, _ = make_worker(
+        db_session,
+        worker_settings,
+        queue,
+        storage,
+        ValidExtraction(expense("D01"), MODEL),
+        reviews=reviews,
+    )
+
+    await worker.handle_message(event(document))
+
+    assert reviews.requested == [document.claim_id]
+    assert queue.deleted == ["handle-1"]
+
+
+async def test_a_failed_claim_is_not_sent_for_review(
+    db_session: AsyncSession,
+    storage: FakeStorage,
+    queue: FakeQueue,
+    worker_settings: WorkerSettings,
+) -> None:
+    document = await uploaded_file(db_session, storage, document_bytes("E10.jpg"), "image/jpeg")
+    reviews = FakeReviewQueue()
+    worker, _ = make_worker(
+        db_session,
+        worker_settings,
+        queue,
+        storage,
+        UnreadableDocument("the total is cut off"),
+        reviews=reviews,
+    )
+
+    await worker.handle_message(event(document))
+
+    assert reviews.requested == []
+    assert queue.deleted == ["handle-1"]
+
+
+async def test_a_failed_review_request_is_sent_again_by_the_redelivery(
+    db_session: AsyncSession,
+    storage: FakeStorage,
+    queue: FakeQueue,
+    worker_settings: WorkerSettings,
+) -> None:
+    """The upload message is deleted only after the review was requested, so an extracted claim
+    is never left without a review request"""
+    document = await uploaded_file(db_session, storage, document_bytes("D01.pdf"))
+    reviews = FakeReviewQueue()
+    reviews.request_error = RuntimeError("SQS unavailable")
+    worker, extractor = make_worker(
+        db_session,
+        worker_settings,
+        queue,
+        storage,
+        ValidExtraction(expense("D01"), MODEL),
+        reviews=reviews,
+    )
+
+    await worker.handle_message(event(document, receive_count=1))
+
+    assert (await claim_of(db_session, document)).status is ClaimStatus.EXTRACTED
+    assert queue.deleted == []
+
+    reviews.request_error = None
+    await worker.handle_message(event(document, receive_count=2))
+
+    assert reviews.requested == [document.claim_id]
+    assert queue.deleted == ["handle-2"]
+    assert len(extractor.calls) == 1  # not extracted again
+
+
+async def test_a_duplicate_upload_event_requests_no_second_review(
+    db_session: AsyncSession,
+    storage: FakeStorage,
+    queue: FakeQueue,
+    worker_settings: WorkerSettings,
+) -> None:
+    document = await uploaded_file(db_session, storage, document_bytes("D01.pdf"))
+    reviews = FakeReviewQueue()
+    worker, _ = make_worker(
+        db_session,
+        worker_settings,
+        queue,
+        storage,
+        ValidExtraction(expense("D01"), MODEL),
+        reviews=reviews,
+    )
+    uploaded = UploadedObject(document.s3_key, document.version_id)
+
+    await worker.handle_message(UploadMessage("first", [uploaded], 1))
+    await worker.handle_message(UploadMessage("duplicate", [uploaded], 1))
+
+    assert reviews.requested == [document.claim_id]
+    assert queue.deleted == ["first", "duplicate"]

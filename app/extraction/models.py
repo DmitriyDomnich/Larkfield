@@ -8,6 +8,7 @@ from sqlalchemy import (
     CheckConstraint,
     Date,
     ForeignKey,
+    Index,
     Numeric,
     SmallInteger,
     String,
@@ -59,6 +60,8 @@ class Extraction(CreatedAtMixin, Base):
         CheckConstraint("btrim(vendor_name) <> ''", name="vendor_name_not_empty"),
         CheckConstraint("currency ~ '^[A-Z]{3}$'", name="currency_format"),
         CheckConstraint("total > 0", name="total_positive"),
+        # duplicate lookup (policy 1.4)
+        Index("ix_extractions_document_date_total", "document_date", "total"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, server_default=func.gen_random_uuid())

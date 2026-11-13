@@ -61,6 +61,12 @@ resource "aws_iam_policy" "worker" {
         Resource = "${var.documents_bucket_arn}/claims/*"
       },
       {
+        Sid      = "RequestReviews"
+        Effect   = "Allow"
+        Action   = "sqs:SendMessage"
+        Resource = var.review_queue_arn
+      },
+      {
         Sid      = "InvokeInferenceProfile"
         Effect   = "Allow"
         Action   = "bedrock:InvokeModel"
