@@ -15,6 +15,7 @@ from mcp.types import (
     TextContent,
     Tool,
 )
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from strands.middleware import ToolResultEvent
 from strands.types.tools import ToolUse
 
@@ -152,11 +153,15 @@ def _build_error_result(message: str) -> CallToolResult:
     return CallToolResult(content=[TextContent(type="text", text=message)], is_error=True)
 
 
+def build_readonly_sessions(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
+    return build_session_factory(engine.execution_options(postgresql_readonly=True))
+
+
 async def serve() -> None:
     settings = ReviewToolsSettings()
     logging.basicConfig(level=settings.log_level)
     engine = build_engine(settings)
-    sessions = build_session_factory(engine.execution_options(postgresql_readonly=True))
+    sessions = build_readonly_sessions(engine)
 
     async def load_claim(claim_id: uuid.UUID) -> ClaimUnderReview | None:
         async with sessions() as session:

@@ -8,7 +8,7 @@
 | Criterion | How | Tested by |
 |---|---|---|
 | MCP server exposes the T09 tools; a tool change applies to agent and server together | `app/review/mcp_server.py` lists and calls `ReviewRun.tools()` itself | `tests/review/test_mcp_server.py` |
-| Read-only access to data | The tools only read (KB `Retrieve`, `SELECT`s); the server's DB sessions are read-only (`postgresql_readonly`) | Manual: an `UPDATE` fails with `ReadOnlySqlTransaction` |
+| Read-only access to data | The tools only read (KB `Retrieve`, `SELECT`s); the server's DB sessions are read-only (`postgresql_readonly`) | `tests/review/test_mcp_server_db.py` |
 | Connected to Claude Code; README shows how | `larkfield-review` in `.mcp.json`; README "Review tools in Claude Code (MCP)" | Manual |
 | Investigate a wrong proposal with the server | E02, see Results | Manual |
 | Slash command for a repeated task | `/add-eval-case <doc_id>` (`.claude/skills/add-eval-case/`) | Manual: E01, E02 added |
