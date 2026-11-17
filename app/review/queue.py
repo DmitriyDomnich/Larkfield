@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
 
 import boto3
+from fastapi import Request
 
 if TYPE_CHECKING:
     from mypy_boto3_sqs import SQSClient
@@ -80,3 +81,15 @@ def requested_claim(body: str) -> uuid.UUID | None:
     except (ValueError, KeyError, TypeError, AttributeError):
         logger.warning("ignoring a message that is not a review request")
         return None
+
+
+async def send_review_request(review_requests: ReviewRequests, claim_id: uuid.UUID) -> None:
+    try:
+        await review_requests.request_review(claim_id)
+    except Exception:
+        logger.exception("the review request for claim %s could not be queued", claim_id)
+
+
+def get_review_requests(request: Request) -> ReviewRequests:
+    review_requests: ReviewRequests = request.app.state.review_requests
+    return review_requests

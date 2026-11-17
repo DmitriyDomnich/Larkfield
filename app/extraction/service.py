@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import uuid
+from dataclasses import dataclass
 from datetime import date
 
 from sqlalchemy import select
@@ -40,6 +41,13 @@ TECHNICAL_FAILURE_REASON = (
 )
 
 
+@dataclass(frozen=True)
+class FinishedClaim:
+
+    claim_id: uuid.UUID
+    status: ClaimStatus
+
+
 async def process_upload(
     session: AsyncSession,
     storage: ObjectStorage,
@@ -50,7 +58,7 @@ async def process_upload(
     receive_count: int,
     max_receives: int,
     max_pages: int,
-) -> uuid.UUID | None:
+) -> FinishedClaim | None:
     started = await _start_extraction(session, storage, uploaded, redelivered=receive_count > 1)
     if not isinstance(started, Document):
         return started
@@ -62,20 +70,19 @@ async def process_upload(
         result = await _extract_expense(extractor, document, data, max_pages)
         if isinstance(result, ValidExtraction):
             await _store_extraction(session, document, result, today)
-            return claim_id
-        await _fail_claim(session, claim_id, result)
+            return FinishedClaim(claim_id, ClaimStatus.EXTRACTED)
+        return await _fail_claim(session, claim_id, result)
     except Exception:
         await session.rollback()
         if receive_count < max_receives:
             raise
         logger.exception("extraction of claim %s failed on the last delivery", claim_id)
-        await _fail_claim(session, claim_id, TECHNICAL_FAILURE_REASON)
-    return None
+        return await _fail_claim(session, claim_id, TECHNICAL_FAILURE_REASON)
 
 
 async def _start_extraction(
     session: AsyncSession, storage: ObjectStorage, uploaded: UploadedObject, *, redelivered: bool
-) -> Document | uuid.UUID | None:
+) -> Document | FinishedClaim | None:
     claim = await session.scalar(
         select(Claim)
         .join(Claim.document)
@@ -93,7 +100,7 @@ async def _start_extraction(
         claim.document.version_id = uploaded.version_id
         if not await verify_upload(session, storage, claim.document):
             await session.commit()
-            return None
+            return FinishedClaim(claim.id, ClaimStatus.FAILED)
         status = ClaimStatus.UPLOADED
     if status is ClaimStatus.UPLOADED:
         await transition(session, claim.id, ClaimStatus.EXTRACTING)
@@ -108,7 +115,7 @@ async def _start_extraction(
             )
         elif status is ClaimStatus.EXTRACTED and redelivered:
             await session.commit()
-            return claim.id
+            return FinishedClaim(claim.id, ClaimStatus.EXTRACTED)
         else:
             logger.info("claim %s is %s; nothing to extract", claim.id, status)
         await session.commit()
@@ -160,8 +167,12 @@ async def _store_extraction(
     await _finish_claim(session, document.claim_id, ClaimStatus.EXTRACTED)
 
 
-async def _fail_claim(session: AsyncSession, claim_id: uuid.UUID, reason: str) -> None:
-    await _finish_claim(session, claim_id, ClaimStatus.FAILED, reason)
+async def _fail_claim(
+    session: AsyncSession, claim_id: uuid.UUID, reason: str
+) -> FinishedClaim | None:
+    if await _finish_claim(session, claim_id, ClaimStatus.FAILED, reason):
+        return FinishedClaim(claim_id, ClaimStatus.FAILED)
+    return None
 
 
 async def _finish_claim(
@@ -169,12 +180,13 @@ async def _finish_claim(
     claim_id: uuid.UUID,
     target: ClaimStatus,
     failure_reason: str | None = None,
-) -> None:
+) -> bool:
     try:
         await transition(session, claim_id, target, failure_reason=failure_reason)
     except (ConcurrentTransitionError, InvalidTransitionError):
         # another delivery finished this claim first
         logger.info("claim %s already left extracting", claim_id)
         await session.rollback()
-        return
+        return False
     await session.commit()
+    return True

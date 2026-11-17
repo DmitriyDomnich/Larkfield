@@ -5,7 +5,13 @@ import signal
 from botocore.config import Config
 from strands.models.bedrock import BedrockModel
 
+from app.claims.status import ClaimStatus
 from app.core.db import SessionFactory, build_engine, build_session_factory
+from app.notifications.queue import (
+    NotificationService,
+    SqsNotificationService,
+    notify_claim_failed,
+)
 from app.review.agent import ReviewAgent, StrandsReviewAgent
 from app.review.claims_history import DatabaseClaimsHistory
 from app.review.policy import BedrockPolicyRetriever
@@ -25,11 +31,13 @@ class ReviewWorker:
         queue: ReviewQueue,
         sessions: SessionFactory,
         agent: ReviewAgent,
+        notification_service: NotificationService,
     ) -> None:
         self._settings = settings
         self._queue = queue
         self._sessions = sessions
         self._agent = agent
+        self._notification_service = notification_service
 
     async def run(self, stop: asyncio.Event) -> None:
         logger.info("review worker started")
@@ -47,7 +55,7 @@ class ReviewWorker:
     async def handle_message(self, message: ReviewMessage) -> None:
         if message.claim_id is not None:
             try:
-                await review_claim(
+                finished_claim_status = await review_claim(
                     self._sessions,
                     self._agent,
                     message.claim_id,
@@ -62,6 +70,10 @@ class ReviewWorker:
                     self._settings.review_max_receives,
                 )
                 return
+            if finished_claim_status is ClaimStatus.FAILED:
+                await notify_claim_failed(
+                    self._sessions, self._notification_service, message.claim_id
+                )
         await self._queue.delete_message(message.receipt_handle)
 
 
@@ -90,6 +102,7 @@ async def run_worker() -> None:
             SqsReviewQueue(settings),
             sessions,
             agent,
+            SqsNotificationService(settings),
         )
         stop = asyncio.Event()
         loop = asyncio.get_running_loop()

@@ -93,3 +93,12 @@ module "review" {
   policy_knowledge_base_id     = module.knowledge_base.knowledge_base_ids["clause"]
   bedrock_inference_profile_id = var.review_inference_profile_id
 }
+
+module "notifications" {
+  source           = "../../modules/notifications"
+  project_name     = var.project_name
+  user_pool_id     = module.cognito.user_pool_id
+  user_pool_arn    = module.cognito.user_pool_arn
+  sender_email     = var.ses_sender_email
+  recipient_emails = var.ses_recipient_emails
+}

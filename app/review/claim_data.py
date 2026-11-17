@@ -11,6 +11,15 @@ from app.claims.models import Claim
 from app.claims.status import ClaimStatus
 from app.extraction.models import Extraction
 from app.extraction.schemas import ExtractedExpense, LineItem
+from app.review.models import ClaimAnswer, Decision, Proposal, ReviewerDecision
+
+
+@dataclass(frozen=True)
+class AnsweredRequest:
+
+    missing_information: list[str]
+    reviewer_comment: str | None
+    employee_answer: str
 
 
 @dataclass(frozen=True)
@@ -24,6 +33,7 @@ class ClaimUnderReview:
     attendees: list[dict[str, Any]] = field(default_factory=list)
     warnings: list[dict[str, Any]] = field(default_factory=list)
     document_sha256: str | None = None
+    answered_requests: list[AnsweredRequest] = field(default_factory=list)
 
     @property
     def days_to_submission(self) -> int:
@@ -74,7 +84,24 @@ async def _load_claim(
         attendees=claim.attendees,
         warnings=extraction.warnings,
         document_sha256=claim.document.sha256,
+        answered_requests=await _load_answered_requests(session, claim.id),
     )
+
+
+async def _load_answered_requests(
+    session: AsyncSession, claim_id: uuid.UUID
+) -> list[AnsweredRequest]:
+    rows = await session.execute(
+        select(Proposal.missing_information, ReviewerDecision.comment, ClaimAnswer.message)
+        .join(ReviewerDecision, ReviewerDecision.proposal_id == Proposal.id)
+        .join(ClaimAnswer, ClaimAnswer.reviewer_decision_id == ReviewerDecision.id)
+        .where(Proposal.claim_id == claim_id, ReviewerDecision.decision == Decision.NEEDS_INFO)
+        .order_by(Proposal.created_at, Proposal.id)
+    )
+    return [
+        AnsweredRequest(list(missing_information), comment, message)
+        for missing_information, comment, message in rows
+    ]
 
 
 def map_expense(extraction: Extraction) -> ExtractedExpense:

@@ -77,3 +77,26 @@ class ReviewerDecision(CreatedAtMixin, Base):
     corrected_fields: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     proposal: Mapped[Proposal] = relationship(back_populates="reviewer_decision", lazy="raise")
+    answer: Mapped["ClaimAnswer | None"] = relationship(
+        back_populates="reviewer_decision", lazy="raise"
+    )
+
+
+class ClaimAnswer(CreatedAtMixin, Base):
+
+    __tablename__ = "claim_answers"
+    __table_args__ = (CheckConstraint("btrim(message) <> ''", name="message_not_blank"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, server_default=func.gen_random_uuid())
+    reviewer_decision_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("reviewer_decisions.id"), unique=True
+    )
+    message: Mapped[str] = mapped_column(Text)
+    # {field: value before the answer}, only for purpose, attendees, preapproval_ref
+    changed_fields: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, server_default=text("'{}'::jsonb")
+    )
+
+    reviewer_decision: Mapped[ReviewerDecision] = relationship(
+        back_populates="answer", lazy="raise"
+    )

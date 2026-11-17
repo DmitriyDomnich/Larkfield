@@ -44,7 +44,7 @@ SettingsDep = Annotated[Settings, Depends(get_settings)]
 router = APIRouter(prefix="/claims", tags=["claims"], responses=_errors(401, 403))
 
 
-def not_found() -> HTTPException:
+def claim_not_found() -> HTTPException:
     return HTTPException(status.HTTP_404_NOT_FOUND, "Claim not found")
 
 
@@ -105,7 +105,7 @@ async def get_claim(claim_id: uuid.UUID, user: ClaimsUser, session: SessionDep) 
     try:
         claim = await service.get_claim(session, user, claim_id)
     except ClaimNotFoundError:
-        raise not_found() from None
+        raise claim_not_found() from None
     return ClaimRead.model_validate(claim)
 
 
@@ -126,7 +126,7 @@ async def get_file_link(
     try:
         return await service.file_link(session, storage, settings, user, claim_id)
     except ClaimNotFoundError:
-        raise not_found() from None
+        raise claim_not_found() from None
     except FileNotAvailableError:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "The claim has no file yet") from None
 
