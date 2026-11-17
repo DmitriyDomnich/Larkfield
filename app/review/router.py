@@ -49,7 +49,7 @@ router = APIRouter(prefix="/claims", tags=["review"], responses=_errors(401, 403
     response_model=ReviewerDecisionRead,
     summary="Decide a claim in review",
     description=(
-        "Reviewers only, never on their own claim. Decides the claim's latest proposal: the "
+        "Reviewers only, never on their own claim. Decides the claim's undecided proposal: the "
         "claim moves to `approved`, `rejected` or `needs_info` and the employee is emailed. "
         "`comment` is required when the decision differs from the proposal or is `needs_info`."
     ),

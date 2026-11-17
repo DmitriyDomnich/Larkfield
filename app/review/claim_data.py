@@ -16,7 +16,6 @@ from app.review.models import ClaimAnswer, Decision, Proposal, ReviewerDecision
 
 @dataclass(frozen=True)
 class AnsweredRequest:
-
     missing_information: list[str]
     reviewer_comment: str | None
     employee_answer: str

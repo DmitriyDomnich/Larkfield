@@ -1,4 +1,5 @@
 import json
+import logging
 import uuid
 from collections.abc import Iterator
 
@@ -7,8 +8,16 @@ import pytest
 from botocore.stub import Stubber
 
 from app.extraction.settings import WorkerSettings
-from app.review.queue import RECEIVE_WAIT_SECONDS, ReviewMessage, SqsReviewQueue, requested_claim
+from app.review.queue import (
+    RECEIVE_WAIT_SECONDS,
+    REVIEW_REQUEST_ATTEMPTS,
+    ReviewMessage,
+    SqsReviewQueue,
+    requested_claim,
+    send_review_request,
+)
 from app.review.settings import ReviewWorkerSettings
+from tests.review.fakes import FakeReviewQueue
 
 QUEUE_URL = ReviewWorkerSettings().review_queue_url
 
@@ -94,3 +103,49 @@ async def test_delete_message(stubbed: tuple[SqsReviewQueue, Stubber]) -> None:
 @pytest.mark.parametrize("body", ["not json", "[]", '{"claim": "x"}', '{"claim_id": "nope"}'])
 def test_a_body_that_is_not_a_review_request_has_no_claim(body: str) -> None:
     assert requested_claim(body) is None
+
+
+class FlakyReviewQueue(FakeReviewQueue):
+    def __init__(self, failures: int) -> None:
+        super().__init__()
+        self.failures = failures
+        self.attempts = 0
+
+    async def request_review(self, claim_id: uuid.UUID) -> None:
+        self.attempts += 1
+        if self.attempts <= self.failures:
+            raise RuntimeError("SQS unavailable")
+        await super().request_review(claim_id)
+
+
+@pytest.fixture
+def _no_backoff(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.review.queue.REVIEW_REQUEST_BACKOFF_SECONDS", 0)
+
+
+@pytest.mark.usefixtures("_no_backoff")
+async def test_a_review_request_that_fails_once_is_sent_on_the_next_attempt(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    queue, claim_id = FlakyReviewQueue(failures=1), uuid.uuid4()
+
+    with caplog.at_level(logging.ERROR, logger="app.review.queue"):
+        await send_review_request(queue, claim_id)
+
+    assert queue.requested == [claim_id]
+    assert queue.attempts == 2
+    assert caplog.messages == []
+
+
+@pytest.mark.usefixtures("_no_backoff")
+async def test_a_review_request_that_keeps_failing_is_logged_after_the_last_attempt(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    queue, claim_id = FlakyReviewQueue(failures=99), uuid.uuid4()
+
+    with caplog.at_level(logging.ERROR, logger="app.review.queue"):
+        await send_review_request(queue, claim_id)
+
+    assert queue.requested == []
+    assert queue.attempts == REVIEW_REQUEST_ATTEMPTS
+    assert caplog.messages == [f"the review request for claim {claim_id} could not be queued"]

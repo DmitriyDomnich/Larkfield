@@ -83,13 +83,18 @@ async def send_notification(
             notification.claim_id,
         )
 
+
 async def notify_claim_failed(
     sessions: SessionFactory, notification_service: NotificationService, claim_id: uuid.UUID
 ) -> None:
-    async with sessions() as session:
-        claim = await session.scalar(
-            select(Claim).where(Claim.id == claim_id).execution_options(populate_existing=True)
-        )
+    try:
+        async with sessions() as session:
+            claim = await session.scalar(
+                select(Claim).where(Claim.id == claim_id).execution_options(populate_existing=True)
+            )
+    except Exception:
+        logger.exception("loading failed claim %s for its notification failed", claim_id)
+        return
     if claim is None or claim.status is not ClaimStatus.FAILED:
         return
     await send_notification(notification_service, build_notification(claim, ClaimStatus.FAILED))

@@ -1,11 +1,13 @@
 import logging
 import uuid
-from collections.abc import Iterator
+from collections.abc import AsyncIterator, Iterator
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 
 import boto3
 import pytest
 from botocore.stub import Stubber
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.claims.models import Claim
 from app.claims.status import ClaimStatus
@@ -14,6 +16,7 @@ from app.notifications.queue import (
     ClaimNotification,
     SqsNotificationService,
     build_notification,
+    notify_claim_failed,
     send_notification,
 )
 from tests.notifications.fakes import FakeNotificationService
@@ -95,3 +98,20 @@ async def test_send_notification_logs_a_failed_send_instead_of_raising(
     assert f"the needs_info notification for claim {sent.claim_id} could not be queued" in (
         caplog.messages
     )
+
+
+async def test_a_database_error_while_notifying_a_failed_claim_is_logged_not_raised(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    @asynccontextmanager
+    async def broken_sessions() -> AsyncIterator[AsyncSession]:
+        raise ConnectionError("database restarted")
+        yield  # pragma: no cover
+
+    notification_service, claim_id = FakeNotificationService(), uuid.uuid4()
+
+    with caplog.at_level(logging.ERROR, logger="app.notifications.queue"):
+        await notify_claim_failed(broken_sessions, notification_service, claim_id)
+
+    assert notification_service.sent == []
+    assert f"loading failed claim {claim_id} for its notification failed" in caplog.messages

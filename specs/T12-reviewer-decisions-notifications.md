@@ -21,7 +21,8 @@ reviewer  POST /decision: lock claim; own → 403; not in_review → 409; commen
 employee  POST /answer: lock own claim (else 404); not needs_info → 409
           store answer, update fields, claim → extracted; commit → 201 → review request to SQS
 workers   claim → failed (commit) → notification to SQS
-Lambda    AdminGetUser(sub) → email → SES; failure → redelivered, after 5 receives → DLQ (14 days)
+Lambda    batches of 2, at most 2 at once (sandbox 1 email/s): AdminGetUser(sub) → email → SES
+          failure → redelivered, after 5 receives → DLQ (14 days)
 ```
 
 ## Design decisions
@@ -41,14 +42,15 @@ Lambda    AdminGetUser(sub) → email → SES; failure → redelivered, after 5 
   values the answer replaced). *Rejected:* a column on the reviewer's decision, appending to `purpose`.
 - **Re-review:** `answered_requests` (asked, reviewer comment, employee answer) in `<claim_data>` as
   untrusted data, with a note. First reviews and the eval set see the prompt unchanged.
-- **History:** `GET /claims/{id}/review` lists rounds newest first; the owner gets `proposal: null`.
+- **History:** `GET /claims/{id}/review` lists rounds newest first; the claim's owner gets
+  `proposal: null`, a reviewer's own claim included.
 
 ## Questions
 
 - **SES sandbox: who can you send to, and what does it mean for the demo?** Only verified addresses
   or domains, sender included; 200 emails/day, 1/s. Every demo employee verifies their address
-  first. An unverified recipient fails with `MessageRejected` and ends in the DLQ; the decision is
-  unaffected. Real employees need production access (reviewed in about a day):
+  first. An unverified recipient makes the send fail (`MessageRejected`, or AccessDenied since the
+  Lambda may only send to listed identities) and ends in the DLQ; the decision is unaffected. Real employees need production access (reviewed in about a day):
   https://docs.aws.amazon.com/ses/latest/dg/request-production-access.html
 - **What do `corrected_fields` change?** Nothing yet: stored for audit, shown in the history.
 
@@ -62,8 +64,10 @@ workers) and `api_review_policy_arn` (API).
 
 ## Known gaps
 
-- A crash or SQS failure between the commit and the send loses that email or re-review request;
-  the status stays right. An outbox closes this.
+- A crash or SQS failure between the commit and the send loses that email; the status stays right.
+  The re-review request is sent 3 times before giving up, but if it's lost the claim stays
+  `extracted` with no review. Recovery: find such claims (`extracted` with an answer newer than the
+  last proposal) and send `{"claim_id": "<id>"}` to the review queue. An outbox closes both.
 - At-least-once: a Lambda timing out after SES accepted the email sends it twice.
 - No DLQ alarm yet.
 

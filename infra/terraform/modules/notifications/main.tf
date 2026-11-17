@@ -37,7 +37,7 @@ data "archive_file" "send_notification" {
   source_dir  = "${path.module}/../../../../lambdas/send_notification"
   output_path = "${path.root}/build/send_notification.zip"
   # `make test-unit` writes bytecode when the unit tests import the handler;
-  # it would change the hash on every run and lambda would resource would always be recreated
+  # it would change the hash on every run and the lambda resource would always be recreated
   excludes = ["__pycache__", "__pycache__/**"]
 }
 
@@ -104,10 +104,14 @@ resource "aws_lambda_function" "send_notification" {
 }
 
 resource "aws_lambda_event_source_mapping" "notifications" {
-  event_source_arn        = aws_sqs_queue.notifications.arn
-  function_name           = aws_lambda_function.send_notification.arn
-  batch_size              = 10
+  event_source_arn = aws_sqs_queue.notifications.arn
+  function_name    = aws_lambda_function.send_notification.arn
+
+  batch_size              = 2
   function_response_types = ["ReportBatchItemFailures"]
+  scaling_config {
+    maximum_concurrency = 2
+  }
 
   depends_on = [aws_iam_role_policy.send_notification]
 }

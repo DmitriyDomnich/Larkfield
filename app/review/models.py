@@ -83,7 +83,6 @@ class ReviewerDecision(CreatedAtMixin, Base):
 
 
 class ClaimAnswer(CreatedAtMixin, Base):
-
     __tablename__ = "claim_answers"
     __table_args__ = (CheckConstraint("btrim(message) <> ''", name="message_not_blank"),)
 

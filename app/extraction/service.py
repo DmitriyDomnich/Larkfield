@@ -43,7 +43,6 @@ TECHNICAL_FAILURE_REASON = (
 
 @dataclass(frozen=True)
 class FinishedClaim:
-
     claim_id: uuid.UUID
     status: ClaimStatus
 

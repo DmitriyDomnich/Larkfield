@@ -482,7 +482,9 @@ async def test_an_answer_succeeds_when_the_review_request_cannot_be_queued(
     as_: Any,
     review_requests: FakeReviewQueue,
     caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setattr("app.review.queue.REVIEW_REQUEST_BACKOFF_SECONDS", 0)
     claim_id = await create_needs_info_claim(db_session, api, reviewer)
     review_requests.request_error = RuntimeError("SQS unavailable")
 
@@ -577,3 +579,15 @@ async def test_the_employee_sees_decisions_and_answers_but_not_the_proposals(
     assert round_["proposal"] is None
     assert round_["decision"]["comment"] == "Please list the attendees."
     assert other.status_code == 404
+
+
+async def test_a_reviewer_does_not_see_the_proposals_on_their_own_claim(
+    api: AsyncClient, db_session: AsyncSession, reviewer: dict[str, str]
+) -> None:
+    claim_id = await create_claim_in_review(db_session, employee_sub=REVIEWER)
+
+    response = await api.get(f"/claims/{claim_id}/review", headers=reviewer)
+
+    assert response.status_code == 200
+    [round_] = response.json()["rounds"]
+    assert round_["proposal"] is None

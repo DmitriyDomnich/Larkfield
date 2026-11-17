@@ -86,7 +86,6 @@ class ReviewerDecisionRead(BaseModel):
 
 
 class AnswerCreate(BaseModel):
-
     model_config = ConfigDict(extra="forbid")
 
     message: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=1000)]
@@ -131,7 +130,6 @@ class ProposalRead(BaseModel):
 
 
 class ReviewRound(BaseModel):
-
     proposal_id: uuid.UUID
     proposal: ProposalRead | None
     decision: ReviewerDecisionRead | None

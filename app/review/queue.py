@@ -14,6 +14,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 RECEIVE_WAIT_SECONDS = 20
+REVIEW_REQUEST_ATTEMPTS = 3
+REVIEW_REQUEST_BACKOFF_SECONDS = 1.0
 
 
 @dataclass(frozen=True)
@@ -84,10 +86,15 @@ def requested_claim(body: str) -> uuid.UUID | None:
 
 
 async def send_review_request(review_requests: ReviewRequests, claim_id: uuid.UUID) -> None:
-    try:
-        await review_requests.request_review(claim_id)
-    except Exception:
-        logger.exception("the review request for claim %s could not be queued", claim_id)
+    for attempt in range(1, REVIEW_REQUEST_ATTEMPTS + 1):
+        try:
+            await review_requests.request_review(claim_id)
+            return
+        except Exception:
+            if attempt == REVIEW_REQUEST_ATTEMPTS:
+                logger.exception("the review request for claim %s could not be queued", claim_id)
+                return
+            await asyncio.sleep(REVIEW_REQUEST_BACKOFF_SECONDS * attempt)
 
 
 def get_review_requests(request: Request) -> ReviewRequests:

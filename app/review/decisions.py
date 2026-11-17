@@ -88,7 +88,7 @@ async def answer_claim(
     answer = ClaimAnswer(
         reviewer_decision_id=reviewer_decision.id,
         message=data.message,
-        changed_fields=earlier_values
+        changed_fields=earlier_values,
     )
     session.add(answer)
     await session.flush()
@@ -100,14 +100,14 @@ async def answer_claim(
 async def get_claim_review(
     session: AsyncSession, user: CurrentUser, claim_id: uuid.UUID
 ) -> ClaimReview:
-    await get_claim(session, user, claim_id)  # 404 unless the user may see the claim
+    claim = await get_claim(session, user, claim_id)  # 404 unless the user may see the claim
     proposals = await session.scalars(
         select(Proposal)
         .where(Proposal.claim_id == claim_id)
         .options(selectinload(Proposal.reviewer_decision).selectinload(ReviewerDecision.answer))
         .order_by(Proposal.created_at.desc(), Proposal.id.desc())
     )
-    shows_proposals = user.role is Role.REVIEWER
+    shows_proposals = user.role is Role.REVIEWER and claim.employee_sub != user.sub
     rounds = []
     for proposal in proposals:
         decision = proposal.reviewer_decision
