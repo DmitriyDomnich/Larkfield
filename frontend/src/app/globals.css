@@ -128,3 +128,23 @@
     @apply font-sans;
   }
 }
+[data-amplify-authenticator] {
+  --amplify-fonts-default-variable: var(--font-sans);
+  --amplify-fonts-default-static: var(--font-sans);
+  --amplify-radii-small: calc(var(--radius) - 4px);
+  --amplify-radii-medium: var(--radius);
+  --amplify-colors-border-primary: var(--border);
+  --amplify-components-authenticator-router-border-color: var(--border);
+  --amplify-components-authenticator-router-box-shadow: none;
+  --amplify-components-button-primary-background-color: var(--primary);
+  --amplify-components-button-primary-color: var(--primary-foreground);
+  --amplify-components-button-primary-hover-background-color: color-mix(in oklch, var(--primary) 85%, white);
+  --amplify-components-button-primary-focus-background-color: var(--primary);
+  --amplify-components-button-primary-active-background-color: var(--primary);
+  --amplify-components-button-link-color: var(--foreground);
+  --amplify-components-fieldcontrol-focus-border-color: var(--ring);
+  --amplify-components-tabs-item-active-color: var(--foreground);
+  --amplify-components-tabs-item-active-border-color: var(--primary);
+  --amplify-components-tabs-item-color: var(--muted-foreground);
+  --amplify-components-tabs-item-hover-color: var(--foreground);
+}

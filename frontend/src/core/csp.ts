@@ -1,4 +1,4 @@
-import { apiUrl, cognito, documentsOrigin } from "@/config";
+import { apiUrl, cognito, documentsOrigin } from "@/core/config";
 
 // 'unsafe-inline': the static export's inline hydration scripts need it (nonces need a server).
 // 'unsafe-eval' only in development, where React uses eval for debugging.

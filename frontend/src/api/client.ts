@@ -1,7 +1,7 @@
 import { fetchAuthSession, signOut } from "aws-amplify/auth";
 import createClient, { type Middleware } from "openapi-fetch";
 
-import { apiUrl } from "@/config";
+import { apiUrl } from "@/core/config";
 
 import type { paths } from "./schema";
 
