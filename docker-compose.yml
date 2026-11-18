@@ -29,6 +29,7 @@ services:
       DOCUMENTS_BUCKET: ${DOCUMENTS_BUCKET:?set DOCUMENTS_BUCKET in .env}
       REVIEW_QUEUE_URL: ${REVIEW_QUEUE_URL:?set REVIEW_QUEUE_URL in .env}
       NOTIFICATION_QUEUE_URL: ${NOTIFICATION_QUEUE_URL:?set NOTIFICATION_QUEUE_URL in .env}
+      FRONTEND_ORIGINS: ${FRONTEND_ORIGINS:-[]}
       AWS_PROFILE: ${AWS_PROFILE:?set AWS_PROFILE in .env}  # needed locally for user role changes and S3 documents
     ports:
       - "8000:8000"

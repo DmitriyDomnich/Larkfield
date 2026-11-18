@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     upload_url_ttl_seconds: int = 600
     file_url_ttl_seconds: int = 300
 
+    frontend_origins: list[str] = []
+
     @property
     def cognito_issuer(self) -> str:
         return (

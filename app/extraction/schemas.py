@@ -1,4 +1,4 @@
-from datetime import date, time
+from datetime import date, datetime, time
 from decimal import Decimal
 from typing import Annotated, Literal, Self
 
@@ -62,6 +62,12 @@ class ExpenseWarning(BaseModel):
 
     code: Literal["sum_mismatch", "future_date", "unknown_currency"]
     message: str
+
+
+class ExtractionRead(ExtractedExpense):
+    warnings: list[ExpenseWarning]
+    ai_model: str
+    created_at: datetime
 
 
 def items_include_tax(expense: ExtractedExpense) -> bool:

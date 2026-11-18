@@ -4,10 +4,8 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.dependencies import CurrentUser, require_roles
-from app.auth.roles import Role
+from app.auth.dependencies import ClaimsUser
 from app.claims import service
 from app.claims.schemas import ClaimCreate, ClaimCreated, ClaimPage, ClaimRead, FileLink
 from app.claims.service import (
@@ -18,7 +16,7 @@ from app.claims.service import (
 from app.claims.status import ClaimStatus
 from app.claims.storage import ObjectStorage, get_storage
 from app.core.config import Settings, get_settings
-from app.core.db import get_session
+from app.core.db import SessionDep
 
 
 class ErrorDetail(BaseModel):
@@ -36,8 +34,6 @@ def _errors(*codes: int) -> dict[int | str, dict[str, Any]]:
     return {code: {"model": ErrorDetail, "description": descriptions[code]} for code in codes}
 
 
-ClaimsUser = Annotated[CurrentUser, Depends(require_roles(Role.EMPLOYEE, Role.REVIEWER))]
-SessionDep = Annotated[AsyncSession, Depends(get_session)]
 StorageDep = Annotated[ObjectStorage, Depends(get_storage)]
 SettingsDep = Annotated[Settings, Depends(get_settings)]
 

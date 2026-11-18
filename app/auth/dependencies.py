@@ -82,3 +82,7 @@ def require_roles(*roles: Role) -> Callable[[CurrentUser], Awaitable[CurrentUser
         return user
 
     return check_role
+
+
+ClaimsUser = Annotated[CurrentUser, Depends(require_roles(Role.EMPLOYEE, Role.REVIEWER))]
+ReviewerUser = Annotated[CurrentUser, Depends(require_roles(Role.REVIEWER))]
