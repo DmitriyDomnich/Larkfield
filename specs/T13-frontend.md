@@ -183,3 +183,27 @@ every request: fetchAuthSession() (Amplify refreshes) → Authorization: Bearer 
   employee, answer, and the claim is reviewed again. As the reviewer, approve. The employee sees
   `approved`. Then: an admin sees the notice; a reviewer's own claim has no form; `npm run build`
   produces `out/`, and `npx serve out` works with no CSP errors in the console.
+
+## Commit plan
+
+- [x] 1. API side: `GET /claims/{id}/extraction` (`app/extraction/router.py`, `ExtractionRead`,
+  `service.get_extraction`), `FRONTEND_ORIGINS` + `CORSMiddleware`, `python -m app.openapi`,
+  committed `frontend/openapi.json`, `make openapi` (dump step), Terraform refresh token 8 hours —
+  reviewer (extraction API rows), API shape (snapshot test) —
+  `add extraction endpoint, cors for the frontend origins, openapi dump + snapshot test, 8 hour refresh token, tests`
+- [ ] 2. Frontend foundation: Next.js static export, Tailwind + shadcn/ui components, ESLint
+  (`react/no-danger`), Vitest + RTL + MSW (`openapi-msw`), `gen:api` → `schema.d.ts`, `client.ts`
+  (Bearer, 401 → signOut), `QueryState`, `StatusBadge`, CSP `<meta>`, env check at build,
+  `make openapi` runs `gen:api`, CI `frontend` job — loading/error (`QueryState`), API shape (CI) —
+  `add next.js frontend scaffold, generated api types and client, query state, csp, frontend ci job, tests`
+- [ ] 3. Auth: Amplify config, `AuthGate`, `useMe`, `RoleGate`, `AppShell` nav by role, `/` redirect,
+  admin notice — login + roles —
+  `add amplify authenticator gate, role gates, app shell nav and role redirect, tests`
+- [ ] 4. Employee pages: `ClaimList`, `NewClaimForm` + `uploadToS3`, `ClaimDetail` (polling, file
+  link, reviewer comments), `AnswerForm`, routes `/claims`, `/claims/new`, `/claims/view` — employee,
+  loading/error for these views —
+  `add employee claim list, new claim form with s3 upload, claim detail with polling and needs_info answer, tests`
+- [ ] 5. Reviewer pages + demo: `ReviewQueue`, `ReviewClaim`, `DocumentViewer`, `ExtractionPanel`,
+  `ProposalPanel`, `DecisionForm`, routes `/review`, `/review/claim`; README "Run the frontend" —
+  reviewer, loading/error for these views —
+  `add review queue, review claim page with document, extraction, proposal panels and decision form, readme, tests`

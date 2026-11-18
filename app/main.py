@@ -3,6 +3,7 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import configure_mappers
 
 from app.auth.cognito import CognitoUserDirectory
@@ -13,6 +14,7 @@ from app.claims.service import ConcurrentTransitionError, InvalidTransitionError
 from app.claims.storage import S3ObjectStorage
 from app.core.config import get_settings
 from app.core.db import build_engine, build_session_factory
+from app.extraction.router import router as extraction_router
 from app.health.router import router as health_router
 from app.notifications.queue import SqsNotificationService
 from app.review.queue import SqsReviewQueue
@@ -49,9 +51,16 @@ def create_app() -> FastAPI:
             ConcurrentTransitionError: transition_refused,
         },
     )
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.frontend_origins,
+        allow_methods=["GET", "POST"],
+        allow_headers=["Authorization", "Content-Type"],
+    )
     app.include_router(health_router)
     app.include_router(users_router)
     app.include_router(claims_router)
+    app.include_router(extraction_router)
     app.include_router(review_router)
     return app
 
