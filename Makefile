@@ -17,6 +17,7 @@ review-worker:
 
 openapi:
 	uv run python -m app.openapi > frontend/openapi.json
+	npm --prefix frontend run gen:api
 
 migrate:
 	uv run alembic upgrade head

@@ -191,7 +191,7 @@ every request: fetchAuthSession() (Amplify refreshes) → Authorization: Bearer 
   committed `frontend/openapi.json`, `make openapi` (dump step), Terraform refresh token 8 hours —
   reviewer (extraction API rows), API shape (snapshot test) —
   `add extraction endpoint, cors for the frontend origins, openapi dump + snapshot test, 8 hour refresh token, tests`
-- [ ] 2. Frontend foundation: Next.js static export, Tailwind + shadcn/ui components, ESLint
+- [x] 2. Frontend foundation: Next.js static export, Tailwind + shadcn/ui components, ESLint
   (`react/no-danger`), Vitest + RTL + MSW (`openapi-msw`), `gen:api` → `schema.d.ts`, `client.ts`
   (Bearer, 401 → signOut), `QueryState`, `StatusBadge`, CSP `<meta>`, env check at build,
   `make openapi` runs `gen:api`, CI `frontend` job — loading/error (`QueryState`), API shape (CI) —
