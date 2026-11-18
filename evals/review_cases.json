@@ -399,5 +399,84 @@
       "duplicate_of": null
     },
     "process_after": null
+  },
+  {
+    "id": "E01",
+    "document": "E01.pdf",
+    "document_date": "2026-06-03",
+    "submitted_at": "2026-06-08",
+    "claim": {
+      "purpose": "Office supplies restock for the Hamburg office: paper, toner, folders and stationery for Q3",
+      "attendees": [],
+      "preapproval_ref": null
+    },
+    "expected": {
+      "decision": "approve",
+      "clauses": [
+        "1.1"
+      ],
+      "duplicate_of": null
+    },
+    "process_after": null
+  },
+  {
+    "id": "E02",
+    "document": "E02.pdf",
+    "document_date": "2026-06-17",
+    "submitted_at": "2026-06-22",
+    "claim": {
+      "purpose": "Equipment for the ten new desks in the Hamburg office, Polaris team onboarding",
+      "attendees": [],
+      "preapproval_ref": null
+    },
+    "expected": {
+      "decision": "reject",
+      "clauses": [
+        "4.3",
+        "7.1"
+      ],
+      "duplicate_of": null
+    },
+    "process_after": null
+  },
+  {
+    "id": "E06",
+    "document": "E06.jpg",
+    "document_date": "2026-08-05",
+    "submitted_at": "2026-08-07",
+    "claim": {
+      "purpose": "Lunch during the Düsseldorf client workshop trip, project Polaris",
+      "attendees": [],
+      "preapproval_ref": null
+    },
+    "expected": {
+      "decision": "reject",
+      "clauses": [
+        "2.1",
+        "7.1"
+      ],
+      "duplicate_of": null
+    },
+    "process_after": null
+  },
+  {
+    "id": "E05",
+    "document": "E05.pdf",
+    "document_date": "2026-07-15",
+    "submitted_at": "2026-07-19",
+    "claim": {
+      "purpose": "Lunch during the London client visit trip, project Orion",
+      "attendees": [],
+      "preapproval_ref": null
+    },
+    "expected": {
+      "decision": "approve",
+      "clauses": [
+        "0.7",
+        "2.1"
+      ],
+      "duplicate_of": null
+    },
+    "process_after": null
   }
 ]

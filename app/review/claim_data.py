@@ -34,13 +34,28 @@ class ClaimUnderReview:
 async def load_extracted_claim(
     session: AsyncSession, claim_id: uuid.UUID
 ) -> ClaimUnderReview | None:
+    return await _load_claim(session, claim_id, extracted_only=True)
+
+
+async def load_claim_of_any_status(
+    session: AsyncSession, claim_id: uuid.UUID
+) -> ClaimUnderReview | None:
+    """A claim with an extraction in any status, e.g. one already reviewed"""
+    return await _load_claim(session, claim_id, extracted_only=False)
+
+
+async def _load_claim(
+    session: AsyncSession, claim_id: uuid.UUID, *, extracted_only: bool
+) -> ClaimUnderReview | None:
     claim = await session.scalar(
         select(Claim)
         .where(Claim.id == claim_id)
         .options(selectinload(Claim.document))
         .execution_options(populate_existing=True)
     )
-    if claim is None or claim.status is not ClaimStatus.EXTRACTED or claim.document is None:
+    if claim is None or claim.document is None:
+        return None
+    if extracted_only and claim.status is not ClaimStatus.EXTRACTED:
         return None
     extraction = await session.scalar(
         select(Extraction)

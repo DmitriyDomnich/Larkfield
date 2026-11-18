@@ -15,6 +15,10 @@
     "strands-docs": {
       "command": "uvx",
       "args": ["strands-agents-mcp-server"]
+    },
+    "larkfield-review": {
+      "command": "uv",
+      "args": ["run", "--env-file", ".env", "python", "-m", "app.review.mcp_server"]
     }
   }
 }

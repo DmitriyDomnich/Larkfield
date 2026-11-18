@@ -6,6 +6,7 @@ import pytest
 
 from app.claims.files import content_matches_type
 from app.extraction.schemas import expense_warnings
+from evals.extraction.documents import CONTENT_TYPES
 from evals.generator.build import DOCUMENTS_DIR, load_label
 from evals.generator.render import RENDER
 from tests.evals.docs import DOC_IDS, EVALS_DIR, PHOTO_IDS, document_path
@@ -30,9 +31,7 @@ def test_every_document_has_render_settings() -> None:
 @pytest.mark.parametrize("doc_id", DOC_IDS)
 def test_document_is_the_type_its_suffix_says(doc_id: str) -> None:
     path = document_path(doc_id)
-    content_type = "image/jpeg" if path.suffix == ".jpg" else "application/pdf"
-
-    assert content_matches_type(path.read_bytes()[:16], content_type)
+    assert content_matches_type(path.read_bytes()[:16], CONTENT_TYPES[path.suffix])
 
 
 @pytest.mark.parametrize("doc_id", [doc_id for doc_id in DOC_IDS if doc_id != "E10"])
