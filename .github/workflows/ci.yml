@@ -76,3 +76,29 @@ jobs:
           enable-cache: true
       - run: uv sync --frozen
       - run: uv run pytest --cov --cov-report=term-missing
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    env: # placeholders
+      NEXT_PUBLIC_API_URL: https://api.invalid
+      NEXT_PUBLIC_COGNITO_REGION: eu-central-1
+      NEXT_PUBLIC_COGNITO_USER_POOL_ID: eu-central-1_placeholder
+      NEXT_PUBLIC_COGNITO_APP_CLIENT_ID: placeholder
+      NEXT_PUBLIC_DOCUMENTS_ORIGIN: https://documents.invalid
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - name: generated API types match openapi.json
+        run: npm run gen:api && git diff --exit-code src/api/schema.d.ts
+      - run: npm run build
