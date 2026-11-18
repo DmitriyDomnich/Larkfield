@@ -12,5 +12,7 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
     env: TEST_ENV,
+    // needed for vi.mock("aws-amplify/auth") to reach Amplify UI's own imports
+    server: { deps: { inline: [/@aws-amplify\//] } },
   },
 });

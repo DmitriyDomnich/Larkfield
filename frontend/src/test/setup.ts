@@ -5,10 +5,13 @@ import { afterAll, afterEach, beforeAll, vi } from "vitest";
 import { TEST_ACCESS_TOKEN } from "./env";
 import { server } from "./server";
 
-vi.mock("aws-amplify/auth", () => ({
+// Signed in by default; a test signs out with vi.mocked(getCurrentUser).mockRejectedValue(...)
+vi.mock("aws-amplify/auth", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("aws-amplify/auth")>()),
   fetchAuthSession: vi.fn(async () => ({
     tokens: { accessToken: { toString: () => TEST_ACCESS_TOKEN } },
   })),
+  getCurrentUser: vi.fn(async () => ({ username: "user-1", userId: "user-1" })),
   signOut: vi.fn(async () => undefined),
 }));
 
@@ -16,6 +19,6 @@ beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
 afterEach(() => {
   server.resetHandlers();
   cleanup();
-  vi.clearAllMocks();
+  vi.resetAllMocks();
 });
 afterAll(() => server.close());

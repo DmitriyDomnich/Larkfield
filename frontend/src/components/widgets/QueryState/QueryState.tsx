@@ -1,10 +1,10 @@
 "use client";
 
 import type { UseQueryResult } from "@tanstack/react-query";
-import { Loader2Icon } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { getErrorMessage } from "@/api/errors";
+import { LoadingSpinner } from "@/components/widgets/LoadingSpinner/LoadingSpinner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 
@@ -15,12 +15,7 @@ type QueryStateProps<T> = {
 
 export function QueryState<T>({ query, children }: QueryStateProps<T>) {
   if (query.isPending) {
-    return (
-      <div role="status" className="text-muted-foreground flex items-center gap-2 p-4 text-sm">
-        <Loader2Icon className="size-4 animate-spin" aria-hidden />
-        Loading…
-      </div>
-    );
+    return <LoadingSpinner />;
   }
   if (query.isError) {
     return (

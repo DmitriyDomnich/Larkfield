@@ -2,12 +2,15 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import type { ReactNode } from "react";
 
-import { getContentSecurityPolicy } from "./csp";
+import { AppShell } from "@/components/widgets/AppShell/AppShell";
+import { getContentSecurityPolicy } from "@/core/csp";
+import { Providers } from "@/core/providers";
+import { AuthGate } from "@/features/auth/AuthGate/AuthGate";
+
 import "./globals.css";
-import { Providers } from "./providers";
 
 const geistSans = Geist({
-  variable: "--font-geist-sans",
+  variable: "--font-sans",
   subsets: ["latin"],
 });
 
@@ -31,7 +34,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         />
       </head>
       <body className="flex min-h-full flex-col">
-        <Providers>{children}</Providers>
+        <Providers>
+          <AuthGate>
+            <AppShell>{children}</AppShell>
+          </AuthGate>
+        </Providers>
       </body>
     </html>
   );

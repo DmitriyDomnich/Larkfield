@@ -1,3 +1,5 @@
-export default function Home() {
-  return <main className="p-8">Larkfield</main>;
+import { HomeRedirect } from "@/features/auth/HomeRedirect/HomeRedirect";
+
+export default function HomePage() {
+  return <HomeRedirect />;
 }
