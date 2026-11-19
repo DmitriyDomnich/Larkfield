@@ -44,7 +44,7 @@ function AnswerFields({ claim }: { claim: ClaimRead }) {
   }
 
   return (
-    <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-4 rounded-lg border p-4">
+    <form noValidate onSubmit={handleSubmit} className="mt-4 flex flex-col gap-4 border-t pt-4">
       <h2 className="font-medium">Answer the reviewer</h2>
       <div className="flex flex-col gap-1">
         <Label htmlFor="answer-message">Your answer</Label>

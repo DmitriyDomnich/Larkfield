@@ -74,6 +74,7 @@ describe("ProposalPanel", () => {
     await userEvent.click(trigger);
 
     expect(screen.getByText(/Both attendees were from Meridian Health/)).toBeInTheDocument();
+    expect(screen.getByText("Round 1")).toBeInTheDocument();
   });
 
   it("shows a spinner while loading, and an error when the history fails", async () => {

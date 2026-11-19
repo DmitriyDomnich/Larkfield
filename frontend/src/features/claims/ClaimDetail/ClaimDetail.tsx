@@ -65,14 +65,15 @@ function ClaimSummary({ claim }: { claim: ClaimRead }) {
           <dt className="text-muted-foreground">Attendees</dt>
           <dd>
             {claim.attendees.length === 0
-              ? "None"
+              ? "—"
               : claim.attendees.map(({ name, company }) => `${name} (${company})`).join(", ")}
           </dd>
           <dt className="text-muted-foreground">Pre-approval</dt>
-          <dd>{claim.preapproval_ref ?? "None"}</dd>
+          <dd>{claim.preapproval_ref ?? "—"}</dd>
         </dl>
-        <ReviewerComments claim={claim} />
-        <AnswerForm claim={claim} />
+        <ReviewerComments claim={claim}>
+          <AnswerForm claim={claim} />
+        </ReviewerComments>
       </CardContent>
     </Card>
   );
