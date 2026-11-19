@@ -76,6 +76,19 @@ describe("DecisionForm", () => {
     expect(bodies).toEqual([]);
   });
 
+  it("refuses a comment over 2000 characters before sending", async () => {
+    const bodies = mockDecision();
+    const user = userEvent.setup();
+    renderForm("approve");
+
+    await user.click(screen.getByLabelText(/Comment to the employee/));
+    await user.paste("x".repeat(2001));
+    await user.click(screen.getByRole("button", { name: "Save decision" }));
+
+    expect(screen.getByText("Keep the comment to 2000 characters.")).toBeInTheDocument();
+    expect(bodies).toEqual([]);
+  });
+
   it("shows the server's 422 detail", async () => {
     const detail = "A comment is required for reject and needs_info, and when the decision differs from the proposal";
     server.use(http.post("/claims/{claim_id}/decision", ({ response }) => response(422).json({ detail })));

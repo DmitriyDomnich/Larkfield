@@ -14,6 +14,7 @@ export function useDecideClaim(claimId: string) {
       unwrap(
         api.POST("/claims/{claim_id}/decision", { params: { path: { claim_id: claimId } }, body }),
       ),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: claimQueryKeys.claim(claimId) }),
     onError: (error) => {
       if (error instanceof ApiError && error.status === 409) {
         void queryClient.invalidateQueries({ queryKey: claimQueryKeys.claim(claimId) });

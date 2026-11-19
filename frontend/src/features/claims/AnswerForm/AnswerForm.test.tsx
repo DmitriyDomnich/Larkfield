@@ -1,10 +1,10 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { delay } from "msw";
 import { describe, expect, it } from "vitest";
 
 import type { ClaimStatus } from "@/api/types";
-import { makeClaim } from "@/test/fixtures";
+import { makeClaim, mockMe } from "@/test/fixtures";
 import { renderWithClient } from "@/test/render";
 import { http, server } from "@/test/server";
 
@@ -28,6 +28,17 @@ describe("AnswerForm", () => {
     },
   );
 
+  it("is hidden on someone else's needs_info claim (answering is owner-only)", async () => {
+    mockMe("reviewer");
+
+    const { queryClient } = renderWithClient(
+      <AnswerForm claim={makeClaim({ status: "needs_info" })} />,
+    );
+
+    await waitFor(() => expect(queryClient.getQueryState(["me"])?.status).toBe("success"));
+    expect(screen.queryByRole("button", { name: "Send answer" })).not.toBeInTheDocument();
+  });
+
   it("posts the message with the corrected attendees and pre-approval reference", async () => {
     const bodies: unknown[] = [];
     server.use(
@@ -37,9 +48,10 @@ describe("AnswerForm", () => {
       }),
     );
     const user = userEvent.setup();
+    mockMe("employee");
     renderWithClient(<AnswerForm claim={makeClaim({ status: "needs_info" })} />);
 
-    await user.type(screen.getByLabelText("Your answer"), ANSWER.message);
+    await user.type(await screen.findByLabelText("Your answer"), ANSWER.message);
     await user.click(screen.getByRole("button", { name: "Add attendee" }));
     await user.type(screen.getByLabelText("Attendee 2 name"), "A. Novak");
     await user.type(screen.getByLabelText("Attendee 2 company"), "Meridian Health");
@@ -59,9 +71,10 @@ describe("AnswerForm", () => {
   });
 
   it("asks for a message before sending", async () => {
+    mockMe("employee");
     renderWithClient(<AnswerForm claim={makeClaim({ status: "needs_info" })} />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Send answer" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Send answer" }));
 
     expect(screen.getByText(/Write your answer/)).toBeInTheDocument();
   });
@@ -75,9 +88,10 @@ describe("AnswerForm", () => {
       }),
     );
     const user = userEvent.setup();
+    mockMe("employee");
     renderWithClient(<AnswerForm claim={makeClaim({ status: "needs_info" })} />);
 
-    await user.type(screen.getByLabelText("Your answer"), "Here it is");
+    await user.type(await screen.findByLabelText("Your answer"), "Here it is");
     await user.click(screen.getByRole("button", { name: "Send answer" }));
 
     expect(screen.getByRole("button", { name: "Sending…" })).toBeDisabled();

@@ -19,9 +19,16 @@ export async function unwrap<T>(request: Promise<ApiResult<T>>): Promise<T> {
   return data as T;
 }
 
+// `detail` is a string, or for a request-validation 422 a list of { msg, loc, ... }
 function getErrorDetail(error: unknown): string | undefined {
-  if (typeof error === "object" && error !== null && "detail" in error) {
-    return typeof error.detail === "string" ? error.detail : undefined;
+  if (typeof error !== "object" || error === null || !("detail" in error)) return undefined;
+  const { detail } = error;
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    const [first] = detail as unknown[];
+    if (typeof first === "object" && first !== null && "msg" in first) {
+      return typeof first.msg === "string" ? first.msg : undefined;
+    }
   }
   return undefined;
 }

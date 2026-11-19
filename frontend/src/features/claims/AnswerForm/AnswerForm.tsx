@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { FormError } from "@/components/widgets/FormError/FormError";
 
+import { useMe } from "@/features/auth/hooks/useMe";
+
 import { AttendeesFields } from "../AttendeesFields/AttendeesFields";
 import {
   getAnswerProblem,
@@ -21,6 +23,12 @@ import { useAnswerClaim } from "../hooks/useAnswerClaim";
 
 export function AnswerForm({ claim }: { claim: ClaimRead }) {
   if (claim.status !== "needs_info") return null;
+  return <OwnerOnly claim={claim} />;
+}
+
+function OwnerOnly({ claim }: { claim: ClaimRead }) {
+  const me = useMe();
+  if (me.data?.sub !== claim.employee_sub) return null;
   return <AnswerFields claim={claim} />;
 }
 

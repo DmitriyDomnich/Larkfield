@@ -16,7 +16,7 @@ review-worker:
 	uv run python -m app.review
 
 openapi:
-	uv run python -m app.openapi > frontend/openapi.json
+	uv run python -m app.openapi frontend/openapi.json
 	npm --prefix frontend run gen:api
 
 migrate:

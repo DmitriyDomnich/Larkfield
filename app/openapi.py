@@ -1,4 +1,6 @@
 import json
+import sys
+from pathlib import Path
 
 from app.main import create_app
 
@@ -8,4 +10,5 @@ def openapi_document() -> str:
 
 
 if __name__ == "__main__":
-    print(openapi_document(), end="")
+    document = openapi_document()
+    Path(sys.argv[1]).write_text(document, encoding="utf-8")
