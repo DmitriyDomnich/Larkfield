@@ -17,6 +17,8 @@ import { useDecideClaim } from "../hooks/useDecideClaim";
 const DECISIONS: Decision[] = ["approve", "reject", "needs_info"];
 // the employee never sees the agent's proposal, so these always need the reviewer's reason
 const COMMENT_REQUIRED_DECISIONS: Decision[] = ["reject", "needs_info"];
+const MAX_COMMENT_LENGTH = 2000;
+const COMMENT_TOO_LONG = `Keep the comment to ${MAX_COMMENT_LENGTH} characters.`;
 const COMMENT_MISSING =
   "Add a comment for the employee: it is required to reject, to request information, or to differ from the proposal.";
 const ALREADY_DECIDED = "This claim has already been decided. The page now shows its current state.";
@@ -33,7 +35,13 @@ export function DecisionForm({ claimId, proposedDecision }: DecisionFormProps) {
 
   function handleSubmit(event: SubmitEvent) {
     event.preventDefault();
-    const problem = commentRequired && !comment.trim() ? COMMENT_MISSING : null;
+    const trimmed = comment.trim();
+    const problem =
+      commentRequired && !trimmed
+        ? COMMENT_MISSING
+        : trimmed.length > MAX_COMMENT_LENGTH
+          ? COMMENT_TOO_LONG
+          : null;
     setCommentProblem(problem);
     if (problem) return;
     decideClaim.mutate(

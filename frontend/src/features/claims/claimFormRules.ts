@@ -5,6 +5,7 @@ const ALLOWED_FILE_TYPES: readonly string[] = ["application/pdf", "image/jpeg", 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const MAX_FILENAME_LENGTH = 255;
 const MAX_NAME_LENGTH = 200;
+const MAX_ATTENDEES = 50;
 const PURPOSE_LENGTH = { min: 10, max: 500 };
 const PREAPPROVAL_REF = /^PA-\d{4}-\d{3}$/;
 export const MAX_ANSWER_LENGTH = 1000;
@@ -31,6 +32,7 @@ export function getPurposeProblem(purpose: string): string | null {
 }
 
 export function getAttendeesProblem(attendees: Attendee[]): string | null {
+  if (attendees.length > MAX_ATTENDEES) return `List at most ${MAX_ATTENDEES} attendees.`;
   const complete = attendees.every(
     ({ name, company }) =>
       [name, company].every((value) => value.trim() && value.trim().length <= MAX_NAME_LENGTH),

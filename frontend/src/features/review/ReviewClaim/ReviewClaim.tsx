@@ -2,7 +2,7 @@
 
 import { useSearchParams } from "next/navigation";
 
-import type { ClaimRead } from "@/api/types";
+import type { ClaimRead, ClaimStatus } from "@/api/types";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { BackLink } from "@/components/widgets/BackLink/BackLink";
 import { NotFoundNotice } from "@/components/widgets/NotFoundNotice/NotFoundNotice";
@@ -67,10 +67,21 @@ function ClaimPanel({ claim }: { claim: ClaimRead }) {
   );
 }
 
+const DECIDED_STATUSES: readonly ClaimStatus[] = ["approved", "rejected", "needs_info"];
+
 function DecisionSection({ claim }: { claim: ClaimRead }) {
   const me = useMe();
   const review = useClaimReview(claim.id, claim.status);
 
+  if (DECIDED_STATUSES.includes(claim.status)) {
+    return (
+      <Alert>
+        <AlertDescription className="flex items-center gap-2">
+          This claim has already been decided: <StatusBadge status={claim.status} />
+        </AlertDescription>
+      </Alert>
+    );
+  }
   if (claim.status !== "in_review") return null;
   if (me.data?.sub === claim.employee_sub) {
     return (
@@ -82,7 +93,11 @@ function DecisionSection({ claim }: { claim: ClaimRead }) {
   return (
     <QueryState query={review}>
       {({ rounds }) => (
-        <DecisionForm claimId={claim.id} proposedDecision={rounds[0]?.proposal?.decision ?? null} />
+        <DecisionForm
+          key={`${claim.id}-${rounds[0]?.proposal_id}`}
+          claimId={claim.id}
+          proposedDecision={rounds[0]?.proposal?.decision ?? null}
+        />
       )}
     </QueryState>
   );

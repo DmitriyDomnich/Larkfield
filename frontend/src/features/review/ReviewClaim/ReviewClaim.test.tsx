@@ -1,7 +1,7 @@
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse } from "msw";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { GENERIC_ERROR } from "@/api/errors";
 import {
@@ -18,8 +18,9 @@ import { http, server } from "@/test/server";
 
 import { ReviewClaim } from "./ReviewClaim";
 
+const navigation = vi.hoisted(() => ({ id: "11111111-1111-4111-8111-111111111111" }));
 vi.mock("next/navigation", () => ({
-  useSearchParams: () => new URLSearchParams({ id: "11111111-1111-4111-8111-111111111111" }),
+  useSearchParams: () => new URLSearchParams({ id: navigation.id }),
   useRouter: () => ({ push: vi.fn() }),
 }));
 
@@ -34,6 +35,37 @@ function mockAllPanels() {
 }
 
 describe("ReviewClaim", () => {
+  afterEach(() => {
+    navigation.id = "11111111-1111-4111-8111-111111111111";
+  });
+
+  it("starts a fresh decision form when another claim opens", async () => {
+    mockAllPanels();
+    const otherId = "88888888-8888-4888-8888-888888888888";
+    server.use(
+      http.get("/claims/{claim_id}", ({ params, response }) =>
+        response(200).json(makeClaim({ id: params.claim_id, purpose: `Claim ${params.claim_id}` })),
+      ),
+    );
+    const user = userEvent.setup();
+    const { rerender, queryClient } = renderWithClient(<ReviewClaim />);
+    await user.click(await screen.findByRole("radio", { name: /Reject/ }));
+    await user.type(screen.getByLabelText(/Comment to the employee/), "Alcohol is not covered.");
+    // already cached (opened before), so the page switches without unmounting the form
+    queryClient.setQueryData(["claims", otherId], makeClaim({ id: otherId, purpose: `Claim ${otherId}` }));
+    queryClient.setQueryData(["claims", otherId, "review", "in_review"], {
+      claim_id: otherId,
+      rounds: [makeRound({ proposal_id: "99999999-9999-4999-8999-999999999999" })],
+    });
+
+    navigation.id = otherId;
+    rerender(<ReviewClaim />);
+
+    expect(await screen.findByRole("heading", { name: `Claim ${otherId}` })).toBeInTheDocument();
+    expect(await screen.findByRole("radio", { name: /Approve/ })).toBeChecked();
+    expect(screen.getByLabelText(/Comment to the employee/)).toHaveValue("");
+  });
+
   it("renders the claim, the document, the extraction, the proposal and the decision form", async () => {
     mockAllPanels();
 
@@ -97,13 +129,29 @@ describe("ReviewClaim", () => {
     expect(screen.queryByRole("button", { name: "Save decision" })).not.toBeInTheDocument();
   });
 
-  it("shows no form once the claim is decided", async () => {
+  it("shows that the claim is decided instead of the form", async () => {
     mockAllPanels();
     mockClaim(makeClaim({ status: "approved" }));
 
     renderWithClient(<ReviewClaim />);
 
-    expect(await screen.findByText("Approved")).toBeInTheDocument();
+    expect(await screen.findByText(/This claim has already been decided/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save decision" })).not.toBeInTheDocument();
+  });
+
+  it("keeps saying the claim is decided after a 409 reloads it", async () => {
+    mockAllPanels();
+    mockClaim(makeClaim({ status: "in_review" }), makeClaim({ status: "approved" }));
+    server.use(
+      http.post("/claims/{claim_id}/decision", ({ response }) =>
+        response(409).json({ detail: "The claim cannot move from approved to approved" }),
+      ),
+    );
+    renderWithClient(<ReviewClaim />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Save decision" }));
+
+    expect(await screen.findByText(/This claim has already been decided/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Save decision" })).not.toBeInTheDocument();
   });
 

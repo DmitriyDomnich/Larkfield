@@ -7,7 +7,7 @@ import { useFileLink } from "../hooks/useFileLink";
 
 export function ClaimFileLink({ claim }: { claim: ClaimRead }) {
   const fileVerified = claim.document?.size_bytes != null;
-  const fileLink = useFileLink(claim.id, fileVerified);
+  const fileLink = useFileLink(claim.id, fileVerified, { refetchOnWindowFocus: true });
 
   if (!claim.document) return null;
   if (!fileVerified) {

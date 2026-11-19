@@ -9,9 +9,9 @@ API; S3 + CloudFront later), a new document in answer to `needs_info` (T12).
 | Criterion | How | Tested by |
 |---|---|---|
 | Login through Cognito; pages limited by role | `<AuthGate>` shows Amplify's `<Authenticator>` until signed in. The role comes from `GET /me`, never from decoding the token. One page → roles map (`pageAccess.ts`): employee → `/claims*`, reviewer → `/claims*` and `/review*`. The nav shows only the pages the role may open; `<PageGate>` around every page redirects to `/` at once when a page is opened by URL without access. `/` redirects by role; admin → an "administrator pages are coming soon" notice with sign-out. An unknown URL shows a "Page not found" page (`out/404.html`) with a link to `/`. Signing out clears the query cache. The API still enforces every rule; the map is navigation only | `src/features/auth/AuthGate.test.tsx`: signed out → Authenticator, signed in → app, sign-out clears the cache. `PageGate.test.tsx`: each role × each page. `HomeRedirect.test.tsx`: redirect by role, admin notice. `NotFoundNotice.test.tsx`. `AppShell.test.tsx`: nav links per role |
-| Employee: create a claim and upload its file; list of own claims with status | `/claims/new`: purpose, attendees, pre-approval ref, file (type and size checked before sending, to mirror T04) → `POST /claims` → `uploadToS3` posts the form fields then the file to `upload.url` → `/claims/view?id=`, which polls until `extracted`/`failed`. `/claims`: `GET /claims`, newest first, status badge, failure reason, 20 per page. `/claims/view`: status, file link, failure reason, the reviewer's comments from `/review`, and an answer form when `needs_info` (a message, plus the attendees and pre-approval reference to correct) → `POST /claims/{id}/answer` | `NewClaimForm.test.tsx`: validation, the S3 form's field order (file last), S3 failure → error and no redirect. `ClaimList.test.tsx`: rows, statuses, paging. `ClaimDetail.test.tsx`: polling stops at a waiting status. `AnswerForm.test.tsx`: shown only for `needs_info`, posts the body, 409 message |
-| Reviewer: claims in review; one page with the document, its extracted fields and warnings, and the proposal with its quoted clauses; approve, reject or request information with a comment | `/review`: `GET /claims?status=in_review`. `/review/claim?id=` has 4 panels, each with its own query: the claim, `DocumentViewer` (`GET /file`: PDF in an `<iframe>`, image in an `<img>`), `ExtractionPanel` (new `GET /claims/{id}/extraction`: fields, line items, warnings highlighted), `ProposalPanel` (the newest round of `GET /review`: decision, each reason's clause id, quote and explanation, missing information, duplicate link; earlier rounds collapsed). `DecisionForm`: approve / reject / needs_info, preset to the proposal; the comment is required for `reject` and `needs_info`, and when the decision differs from the proposal (the same rule as the API, and a 422 from the server is shown); 409 → "already decided" and a refetch; hidden on the reviewer's own claim | `ReviewQueue.test.tsx`, `ReviewClaim.test.tsx` (all panels render from API data, own-claim notice), `ProposalPanel.test.tsx` (quotes rendered as text), `DecisionForm.test.tsx` (comment rule, body, 409/422). `tests/review/test_decisions_db.py` (reject as proposed without a comment → 422). `tests/extraction/test_extraction_api.py`, `test_extraction_api_db.py` |
-| Loading and error states on every async view | Every query renders through `<QueryState>`: a spinner while loading, an error with "Try again" (refetch) on failure, the API's `detail` for 4xx, and a generic message for 5xx/network. A 401 signs out. A mutation disables its button while pending and shows its error inline. One panel failing doesn't blank the review page | `QueryState.test.tsx`. Each async view's test has a loading case and an error case (MSW returns 500) |
+| Employee: create a claim and upload its file; list of own claims with status (a reviewer's list shows every claim) | `/claims/new`: purpose, attendees, pre-approval ref, file (type and size checked before sending, to mirror T04) → `POST /claims` → `uploadToS3` posts the form fields then the file to `upload.url` → `/claims/view?id=`, which polls until `extracted`/`failed`. `/claims`: `GET /claims` (an employee's own claims, every claim for a reviewer), newest first, status badge, failure reason, 20 per page. `/claims/view`: status, file link, failure reason, the reviewer's comments from `/review`, and an answer form when `needs_info`, for the claim's owner only (a message, plus the attendees and pre-approval reference to correct) → `POST /claims/{id}/answer` | `NewClaimForm.test.tsx`: validation, the S3 form's field order (file last), S3 failure → error and no redirect. `ClaimList.test.tsx`: rows, statuses, paging. `ClaimDetail.test.tsx`: polling stops at a waiting status. `AnswerForm.test.tsx`: shown only for `needs_info` and only to the owner, posts the body, 409 message |
+| Reviewer: claims in review; one page with the document, its extracted fields and warnings, and the proposal with its quoted clauses; approve, reject or request information with a comment | `/review`: `GET /claims?status=in_review`. `/review/claim?id=` has 4 panels, each with its own query: the claim, `DocumentViewer` (`GET /file`: PDF in an `<iframe>`, image in an `<img>`), `ExtractionPanel` (new `GET /claims/{id}/extraction`: fields, line items, warnings highlighted), `ProposalPanel` (the newest round of `GET /review`: decision, each reason's clause id, quote and explanation, missing information, duplicate link; earlier rounds collapsed). `DecisionForm`: approve / reject / needs_info, preset to the proposal; the comment is required for `reject` and `needs_info`, and when the decision differs from the proposal (the same rule as the API, and a 422 from the server is shown); 409 → a refetch, and a decided claim shows "This claim has already been decided" instead of the form; hidden on the reviewer's own claim; reset when another claim or a newer proposal opens | `ReviewQueue.test.tsx`, `ReviewClaim.test.tsx` (all panels render from API data, own-claim notice, decided notice after a 409, a fresh form per claim), `ProposalPanel.test.tsx` (quotes rendered as text), `DecisionForm.test.tsx` (comment rule, body, 409/422). `tests/review/test_decisions_db.py` (reject as proposed without a comment → 422). `tests/extraction/test_extraction_api.py`, `test_extraction_api_db.py` |
+| Loading and error states on every async view | Every query renders through `<QueryState>`: a spinner while loading, an error with "Try again" (refetch) on failure, the API's `detail` for 4xx (the first message of a request-validation 422), and a generic message for 5xx/network. A 401 signs out. A mutation disables its button while pending and shows its error inline. One panel failing doesn't blank the review page | `QueryState.test.tsx`. Each async view's test has a loading case and an error case (MSW returns 500) |
 | A change in an API response shape is caught by the build or tests, not by a user | Types are generated from the committed `frontend/openapi.json` (see Design decisions). MSW handlers are typed by the same schema (`openapi-msw`), so a test fixture of the old shape fails `tsc` | `tests/test_openapi_snapshot.py`. CI `frontend` job: `gen:api` + `git diff --exit-code`, `tsc --noEmit`, `next build` |
 
 ## Flow
@@ -49,7 +49,8 @@ every request: fetchAuthSession() (Amplify refreshes) → Authorization: Bearer 
   error handled by us). Hosted UI + PKCE (a Cognito domain and callback URLs in Terraform, and
   login leaves the app).
 - **API types are generated from a committed `frontend/openapi.json`:** `make openapi` runs
-  `python -m app.openapi` (it prints `create_app().openapi()`), writes the output to that file, then
+  `python -m app.openapi frontend/openapi.json`, which writes `create_app().openapi()` to that file
+  (built first, so a failing app leaves the file untouched), then
   runs `openapi-typescript`, which writes `frontend/src/api/schema.d.ts`. Every call goes through
   one `openapi-fetch` client, so paths, params, bodies and responses are typed. Money (`Decimal`)
   arrives as a string and is shown as-is, never parsed to a float. The chain that catches a shape
@@ -102,8 +103,9 @@ every request: fetchAuthSession() (Amplify refreshes) → Authorization: Bearer 
   status is `pending_upload`, `uploaded`, `extracting` or `extracted`. Polling stops at `in_review`
   and `needs_info` (they wait for a person) and at `approved`, `rejected` and `failed`. Lists
   refetch on window focus. This also picks up a role change on the next `/me` (T03 gap). The
-  presigned file link is valid for 5 minutes, so it is cached for 4. A "Reload document" button
-  fetches a new one.
+  presigned file link's freshness follows its `expires_at`: the employee's file link is replaced
+  30 s before it expires; the reviewer's document viewer never swaps it under the reader (a new
+  link comes on the next visit or with the "Reload document" button).
 - **The API allows the frontend's origin:** `CORSMiddleware` in `create_app` with
   `allow_origins=settings.frontend_origins`, methods `GET` and `POST`, headers
   `Authorization` and `Content-Type`, no credentials (the token is a header, not a cookie). The
@@ -164,17 +166,18 @@ every request: fetchAuthSession() (Amplify refreshes) → Authorization: Bearer 
   = "hours"`. You run `terraform apply`.
 - **Make / CI:** `make openapi` (dump + `npm --prefix frontend run gen:api`). New CI job `frontend`
   (Node 22, `npm ci`): lint, `tsc --noEmit`, `vitest run`, `gen:api` + `git diff --exit-code`,
-  `next build` (with placeholder env). `README.md` gets a "Run the frontend" section.
+  `next build` (with `.env.example` copied to `.env.local`, so the CI file holds no URLs). `README.md` gets a "Run the frontend" section.
 
 ## Known gaps
 
 - `'unsafe-inline'` in `script-src`, and no `frame-ancestors` (clickjacking) until hosting sets real
   response headers. A post-build hash step could remove `'unsafe-inline'`.
 - An access token stolen before sign-out still works for up to 15 minutes (offline verification).
-- If the browser closes between `POST /claims` and the S3 upload, the claim stays `pending_upload`
-  in the list (T04). The employee submits again.
+- If the S3 upload fails, or the browser closes between `POST /claims` and the upload, the claim
+  stays `pending_upload` in the list (T04). Submitting again creates a new claim.
 - The bundle and the API are not versioned together. A deployed API ahead of a cached bundle would
   surface as runtime errors (no runtime validation). This matters only once hosted.
+- An orphan `pending_upload` claim (upload never finished) keeps polling while its page is open.
 - The review queue polls nothing. Another reviewer's decision shows on focus or as a 409.
 
 ## Testing
@@ -220,3 +223,8 @@ every request: fetchAuthSession() (Amplify refreshes) → Authorization: Bearer 
   `ProposalPanel`, `DecisionForm`, routes `/review`, `/review/claim`; README "Run the frontend" —
   reviewer, loading/error for these views —
   `add review queue, review claim page with document, extraction, proposal panels and decision form, comment required on reject, readme, tests`
+- [x] 6. Code-review fixes: "already decided" notice on the review page, answer form only for the
+  claim's owner, file link freshness from `expires_at` (no reload under the reviewer), validation
+  messages and limits, decision form reset per claim and proposal, extraction key in
+  `claimQueryKeys`, no URLs in CI — reviewer, employee, loading/error —
+  `fix review findings: decided notice, owner-only answer, stable file link, validation messages, form reset, tests`

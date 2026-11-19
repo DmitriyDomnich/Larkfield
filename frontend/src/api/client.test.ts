@@ -42,6 +42,33 @@ describe("api client", () => {
   });
 });
 
+describe("validation errors", () => {
+  it("show the first message of a request-validation 422", async () => {
+    server.use(
+      http.get("/me", ({ response }) =>
+        response.untyped(
+          HttpResponse.json(
+            {
+              detail: [
+                {
+                  loc: ["body", "comment"],
+                  msg: "String should have at most 2000 characters",
+                  type: "string_too_long",
+                },
+              ],
+            },
+            { status: 422 },
+          ),
+        ),
+      ),
+    );
+
+    const error = await unwrap(api.GET("/me")).catch((caught: unknown) => caught);
+
+    expect(getErrorMessage(error)).toBe("String should have at most 2000 characters");
+  });
+});
+
 describe("getErrorMessage", () => {
   it.each([
     [new ApiError(404, "Claim not found"), "Claim not found"],
