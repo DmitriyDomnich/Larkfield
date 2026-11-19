@@ -14,6 +14,9 @@ from app.claims.storage import S3ObjectStorage
 from app.core.config import get_settings
 from app.core.db import build_engine, build_session_factory
 from app.health.router import router as health_router
+from app.notifications.queue import SqsNotificationService
+from app.review.queue import SqsReviewQueue
+from app.review.router import router as review_router
 from app.users.router import router as users_router
 
 
@@ -27,6 +30,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     app.state.token_verifier = TokenVerifier(settings)
     app.state.user_directory = CognitoUserDirectory(settings)
     app.state.storage = S3ObjectStorage(settings)
+    app.state.notification_service = SqsNotificationService(settings)
+    app.state.review_requests = SqsReviewQueue(settings)
     yield
     await engine.dispose()
 
@@ -47,6 +52,7 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
     app.include_router(users_router)
     app.include_router(claims_router)
+    app.include_router(review_router)
     return app
 
 

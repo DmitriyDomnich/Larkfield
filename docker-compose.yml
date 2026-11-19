@@ -27,6 +27,8 @@ services:
       COGNITO_APP_CLIENT_ID: ${COGNITO_APP_CLIENT_ID:?set COGNITO_APP_CLIENT_ID in .env}
       AWS_REGION: ${AWS_REGION:?set AWS_REGION in .env}
       DOCUMENTS_BUCKET: ${DOCUMENTS_BUCKET:?set DOCUMENTS_BUCKET in .env}
+      REVIEW_QUEUE_URL: ${REVIEW_QUEUE_URL:?set REVIEW_QUEUE_URL in .env}
+      NOTIFICATION_QUEUE_URL: ${NOTIFICATION_QUEUE_URL:?set NOTIFICATION_QUEUE_URL in .env}
       AWS_PROFILE: ${AWS_PROFILE:?set AWS_PROFILE in .env}  # needed locally for user role changes and S3 documents
     ports:
       - "8000:8000"
@@ -56,6 +58,7 @@ services:
       EXTRACTION_QUEUE_URL: ${EXTRACTION_QUEUE_URL:-}
       BEDROCK_MODEL_ID: ${BEDROCK_MODEL_ID:-}
       REVIEW_QUEUE_URL: ${REVIEW_QUEUE_URL:-}
+      NOTIFICATION_QUEUE_URL: ${NOTIFICATION_QUEUE_URL:-}
       AWS_PROFILE: ${AWS_PROFILE:?set AWS_PROFILE in .env}
     command:
       ["watchfiles", "--filter", "python", "--sigint-timeout", "25", "python -m app.extraction", "app"]
@@ -82,6 +85,7 @@ services:
       REVIEW_QUEUE_URL: ${REVIEW_QUEUE_URL:-}
       REVIEW_MODEL_ID: ${REVIEW_MODEL_ID:-}
       POLICY_KB_ID: ${POLICY_KB_ID:-}
+      NOTIFICATION_QUEUE_URL: ${NOTIFICATION_QUEUE_URL:-}
       AWS_PROFILE: ${AWS_PROFILE:?set AWS_PROFILE in .env}
     command:
       ["watchfiles", "--filter", "python", "--sigint-timeout", "25", "python -m app.review", "app"]

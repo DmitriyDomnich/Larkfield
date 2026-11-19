@@ -4,7 +4,6 @@ from app.core.config import Settings
 
 
 class ReviewWorkerSettings(Settings):
-    review_queue_url: str = Field(min_length=1)
     review_model_id: str = Field(min_length=1)
     policy_kb_id: str = Field(min_length=1)
 

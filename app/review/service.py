@@ -29,12 +29,12 @@ async def review_claim(
     *,
     receive_count: int,
     max_receives: int,
-) -> None:
+) -> ClaimStatus | None:
     async with sessions() as session:
         claim = await load_extracted_claim(session, claim_id)
     if claim is None:
         logger.info("claim %s is not extracted; nothing to review", claim_id)
-        return
+        return None
 
     try:
         outcome = await agent.review(claim)
@@ -42,15 +42,14 @@ async def review_claim(
         if receive_count < max_receives:
             raise
         logger.exception("review of claim %s failed on the last delivery", claim_id)
-        await _finish_claim(sessions, claim_id, None, TECHNICAL_FAILURE_REASON)
-        return
+        return await _finish_claim(sessions, claim_id, None, TECHNICAL_FAILURE_REASON)
 
     match outcome:
         case ValidProposal():
-            await _finish_claim(sessions, claim_id, outcome, None)
+            return await _finish_claim(sessions, claim_id, outcome, None)
         case NoValidProposal(detail=detail):
             logger.warning("no valid proposal for claim %s: %s", claim_id, detail)
-            await _finish_claim(sessions, claim_id, None, NO_VALID_PROPOSAL_REASON)
+            return await _finish_claim(sessions, claim_id, None, NO_VALID_PROPOSAL_REASON)
 
 
 async def _finish_claim(
@@ -58,7 +57,7 @@ async def _finish_claim(
     claim_id: uuid.UUID,
     outcome: ValidProposal | None,
     failure_reason: str | None,
-) -> None:
+) -> ClaimStatus | None:
     async with sessions() as session:
         status = await session.scalar(
             select(Claim.status).where(Claim.id == claim_id).with_for_update()
@@ -66,7 +65,7 @@ async def _finish_claim(
         if status is not ClaimStatus.EXTRACTED:
             logger.info("claim %s is %s; another delivery finished it", claim_id, status)
             await session.rollback()
-            return
+            return None
         if outcome is not None:
             proposal = outcome.proposal
             session.add(
@@ -81,14 +80,14 @@ async def _finish_claim(
                 )
             )
             await session.flush()
-        target = ClaimStatus.FAILED if failure_reason else ClaimStatus.IN_REVIEW
+        target_claim_status = ClaimStatus.FAILED if failure_reason else ClaimStatus.IN_REVIEW
         try:
-            await transition(session, claim_id, target, failure_reason=failure_reason)
+            await transition(session, claim_id, target_claim_status, failure_reason=failure_reason)
         except (ConcurrentTransitionError, InvalidTransitionError):
             # another delivery finished this claim first
             logger.info("claim %s already left extracted", claim_id)
             await session.rollback()
-            return
+            return None
         await session.commit()
     if outcome is not None:
         logger.info(
@@ -99,3 +98,4 @@ async def _finish_claim(
         )
     else:
         logger.info("claim %s: failed: %s", claim_id, failure_reason)
+    return target_claim_status

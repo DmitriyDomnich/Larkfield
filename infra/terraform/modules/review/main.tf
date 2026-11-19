@@ -61,3 +61,17 @@ resource "aws_iam_policy" "worker" {
     ]
   })
 }
+
+# the API requests a re-review after a needs_info answer
+resource "aws_iam_policy" "api" {
+  name = "${var.project_name}-api-review"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid      = "RequestReviews"
+      Effect   = "Allow"
+      Action   = "sqs:SendMessage"
+      Resource = aws_sqs_queue.review.arn
+    }]
+  })
+}
