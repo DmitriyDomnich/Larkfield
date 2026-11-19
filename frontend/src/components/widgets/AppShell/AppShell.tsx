@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
+import { LogoMark } from "@/components/widgets/LogoMark/LogoMark";
 import { PageGate } from "@/features/auth/PageGate/PageGate";
 import { canOpenPage } from "@/features/auth/pageAccess";
 import { useMe } from "@/features/auth/hooks/useMe";
@@ -13,9 +14,12 @@ import { cn } from "@/lib/utils";
 
 const NAV_LINKS = [
   { href: "/claims", label: "Claims" },
-  { href: "/claims/new", label: "New claim" },
   { href: "/review", label: "Review queue" },
 ];
+
+function isCurrentSection(pathname: string, href: string): boolean {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
 
 export function AppShell({ children }: { children: ReactNode }) {
   const me = useMe();
@@ -26,24 +30,29 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <>
       <header className="border-b">
-        <div className="mx-auto flex max-w-6xl items-center gap-6 px-4 py-3">
-          <Link href="/" className="font-semibold">
+        <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3">
+          <Link href="/" className="flex items-center gap-2 text-lg font-bold tracking-tight">
+            <LogoMark />
             Larkfield
           </Link>
-          <nav aria-label="Main" className="flex gap-4 text-sm">
-            {links.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                aria-current={pathname === link.href ? "page" : undefined}
-                className={cn(
-                  "text-muted-foreground hover:text-foreground",
-                  pathname === link.href && "text-foreground font-medium",
-                )}
-              >
-                {link.label}
-              </Link>
-            ))}
+          {links.length > 0 && <div className="bg-border h-6 w-px" aria-hidden />}
+          <nav aria-label="Main" className="flex gap-1 text-sm">
+            {links.map((link) => {
+              const current = isCurrentSection(pathname, link.href);
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  aria-current={current ? "page" : undefined}
+                  className={cn(
+                    "text-muted-foreground hover:bg-muted hover:text-foreground rounded-md px-3 py-1.5 transition-colors",
+                    current && "bg-muted text-foreground font-medium",
+                  )}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
           </nav>
           <div className="ml-auto flex items-center gap-3 text-sm">
             {me.data && <span className="text-muted-foreground">{me.data.email}</span>}

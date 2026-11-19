@@ -19,7 +19,7 @@ export function QueryState<T>({ query, children }: QueryStateProps<T>) {
   }
   if (query.isError) {
     return (
-      <Alert variant="destructive">
+      <Alert variant="destructive" className="mx-auto w-full max-w-md">
         <AlertTitle>Could not load</AlertTitle>
         <AlertDescription>
           <p>{getErrorMessage(query.error)}</p>

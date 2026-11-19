@@ -107,6 +107,12 @@ describe("NewClaimForm", () => {
     expect(fieldOrder).toEqual([[...Object.keys(UPLOAD_FIELDS), "file"]]);
   });
 
+  it("links back to the claims list", () => {
+    renderWithClient(<NewClaimForm />);
+
+    expect(screen.getByRole("link", { name: "← Claims" })).toHaveAttribute("href", "/claims");
+  });
+
   it("shows an error and stays on the form when S3 refuses the upload", async () => {
     mockCreateClaim();
     mockS3(403);

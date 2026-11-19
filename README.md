@@ -26,6 +26,26 @@ make check                    # lint, type check, tests (same as CI)
 
 Configuration comes from environment variables; see [.env.example](.env.example).
 
+## Run the frontend
+
+A Next.js app exported as static files (`frontend/`). Requires Node 22 and the API running with
+`FRONTEND_ORIGINS=["http://localhost:3000"]` in `.env`.
+
+```bash
+cd frontend
+cp .env.example .env.local    # API URL, Cognito pool and app client, documents bucket URL
+npm install
+npm run dev                   # http://localhost:3000
+npm run lint && npm run typecheck && npm test
+npm run build && npx serve out    # the static export, as it would be hosted
+```
+
+Sign up on the login page (Cognito emails a code); new users are employees. A claim moves on to
+`in_review` only with the extraction and review workers running.
+
+After an API change, `make openapi` regenerates `frontend/openapi.json` and the frontend's types
+(`src/api/schema.d.ts`); `tests/test_openapi_snapshot.py` and CI fail until both are committed.
+
 ## Review tools in Claude Code (MCP)
 
 The review agent's tools (`search_policy`, `get_clause`, `find_duplicate_claims`,

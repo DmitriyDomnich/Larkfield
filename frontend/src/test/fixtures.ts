@@ -61,3 +61,60 @@ export function mockReview(rounds: components["schemas"]["ReviewRound"][] = []) 
     ),
   );
 }
+
+type ProposalRead = components["schemas"]["ProposalRead"];
+type ReviewRound = components["schemas"]["ReviewRound"];
+
+export function makeProposal(changes: Partial<ProposalRead> = {}): ProposalRead {
+  return {
+    id: "66666666-6666-4666-8666-666666666666",
+    decision: "approve",
+    reasons: [
+      {
+        clause_id: "3.1",
+        quote: "Client meals are reimbursable up to EUR 80 per person.",
+        explanation: "Two attendees, EUR 120 in total, within the limit.",
+      },
+    ],
+    missing_information: [],
+    duplicate_of: null,
+    ai_model: "eu.anthropic.test-review-model",
+    retrieved_clauses: ["3.1"],
+    created_at: "2026-11-10T09:06:00Z",
+    ...changes,
+  };
+}
+
+export function makeRound(changes: Partial<ReviewRound> = {}): ReviewRound {
+  const proposal = changes.proposal === undefined ? makeProposal() : changes.proposal;
+  return { proposal_id: proposal?.id ?? "77777777-7777-4777-8777-777777777777", proposal, decision: null, answer: null, ...changes };
+}
+
+export function mockExtraction() {
+  server.use(
+    http.get("/claims/{claim_id}/extraction", ({ response }) =>
+      response(200).json({
+        document_type: "receipt",
+        vendor_name: "Trattoria Roma",
+        vendor_tax_id: null,
+        document_number: "R-2041",
+        document_date: "2026-11-09",
+        document_time: "20:15:00",
+        currency: "EUR",
+        line_items: [
+          { description: "Menu del giorno", quantity: "2", unit_price: "45.0000", amount: "90.00" },
+        ],
+        subtotal: "90.00",
+        tax_amount: "9.00",
+        tip_amount: null,
+        total: "120.00",
+        category: "client_entertainment",
+        warnings: [
+          { code: "sum_mismatch", message: "Items, tax and tip add up to 99.00, the total is 120.00" },
+        ],
+        ai_model: "eu.anthropic.test-model",
+        created_at: "2026-11-10T09:02:00Z",
+      }),
+    ),
+  );
+}

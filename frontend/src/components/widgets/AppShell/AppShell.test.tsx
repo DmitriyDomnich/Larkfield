@@ -8,8 +8,9 @@ import { renderWithClient } from "@/test/render";
 
 import { AppShell } from "./AppShell";
 
+const navigation = vi.hoisted(() => ({ pathname: "/claims" }));
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/claims",
+  usePathname: () => navigation.pathname,
   useRouter: () => ({ replace: vi.fn() }),
 }));
 
@@ -23,8 +24,8 @@ async function getNavLinks() {
 
 describe("AppShell", () => {
   it.each([
-    ["employee", ["Claims", "New claim"]],
-    ["reviewer", ["Claims", "New claim", "Review queue"]],
+    ["employee", ["Claims"]],
+    ["reviewer", ["Claims", "Review queue"]],
     ["admin", []],
   ] as const)("shows an %s the links %j", async (role, links) => {
     mockMe(role);
@@ -43,5 +44,17 @@ describe("AppShell", () => {
 
     expect(screen.getByRole("link", { name: "Claims" })).toHaveAttribute("aria-current", "page");
     expect(signOut).toHaveBeenCalledOnce();
+  });
+
+  it("keeps the section marked on its detail pages", async () => {
+    navigation.pathname = "/review/claim";
+    mockMe("reviewer");
+
+    renderWithClient(<AppShell>page</AppShell>);
+    await getNavLinks();
+
+    expect(screen.getByRole("link", { name: "Review queue" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Claims" })).not.toHaveAttribute("aria-current");
+    navigation.pathname = "/claims";
   });
 });

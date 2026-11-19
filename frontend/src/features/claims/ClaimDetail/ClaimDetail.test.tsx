@@ -79,6 +79,7 @@ describe("ClaimDetail", () => {
       "https://documents.test/claims/receipt.pdf?signature=abc",
     );
     expect(await screen.findByText("Alcohol is not reimbursable (policy 3.2).")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "← Claims" })).toHaveAttribute("href", "/claims");
     expect(screen.getByText("Rejected", { selector: "p" })).toBeInTheDocument();
   });
 

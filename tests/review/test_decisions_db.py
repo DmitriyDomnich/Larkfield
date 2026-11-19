@@ -227,6 +227,7 @@ async def test_a_decision_that_differs_from_the_proposal_needs_a_comment_and_ema
         pytest.param("needs_info", "needs_info", None, id="needs-info"),
         pytest.param("needs_info", "needs_info", "   ", id="needs-info-blank-comment"),
         pytest.param("reject", "approve", "", id="differs-empty-comment"),
+        pytest.param("reject", "reject", None, id="reject-as-proposed"),
     ],
 )
 async def test_a_missing_comment_is_refused_and_nothing_changes(

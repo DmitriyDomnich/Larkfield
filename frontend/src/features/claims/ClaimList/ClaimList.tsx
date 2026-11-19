@@ -1,5 +1,6 @@
 "use client";
 
+import { PlusIcon } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -13,6 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { LinkRow } from "@/components/widgets/LinkRow/LinkRow";
 import { Pager } from "@/components/widgets/Pager/Pager";
 import { QueryState } from "@/components/widgets/QueryState/QueryState";
 import { StatusBadge } from "@/components/widgets/StatusBadge/StatusBadge";
@@ -28,8 +30,11 @@ export function ClaimList() {
     <section className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Claims</h1>
-        <Button asChild>
-          <Link href="/claims/new">New claim</Link>
+        <Button size="lg" asChild>
+          <Link href="/claims/new">
+            <PlusIcon aria-hidden />
+            New claim
+          </Link>
         </Button>
       </div>
       <QueryState query={claims}>
@@ -66,7 +71,7 @@ function ClaimTable({ claims }: { claims: ClaimRead[] }) {
       </TableHeader>
       <TableBody>
         {claims.map((claim) => (
-          <TableRow key={claim.id}>
+          <LinkRow key={claim.id} href={`/claims/view?id=${claim.id}`}>
             <TableCell className="whitespace-nowrap">{formatDateTime(claim.submitted_at)}</TableCell>
             <TableCell className="max-w-sm truncate">
               <Link href={`/claims/view?id=${claim.id}`} className="underline-offset-4 hover:underline">
@@ -80,7 +85,7 @@ function ClaimTable({ claims }: { claims: ClaimRead[] }) {
                 <span className="text-muted-foreground text-xs">{claim.failure_reason}</span>
               )}
             </TableCell>
-          </TableRow>
+          </LinkRow>
         ))}
       </TableBody>
     </Table>
