@@ -15,7 +15,7 @@ EMAIL = re.compile(r"[\w.+-]+@([\w-]+\.)+[a-z]+", re.IGNORECASE)
 LONG_NUMBER = re.compile(r"\d{13,}")  # an unmasked card number
 
 
-def test_exactly_the_30_documents_and_29_labels_exist() -> None:
+def test_exactly_the_eval_documents_and_their_labels_exist() -> None:
     files = {path.name for path in DOCUMENTS_DIR.iterdir()}
 
     documents = {document_path(doc_id).name for doc_id in DOC_IDS}
@@ -57,6 +57,14 @@ def test_d17_is_the_d01_receipt_again() -> None:
     assert document_path("D17").read_bytes() != document_path("D01").read_bytes()
 
 
+def test_h10_invoice_carries_the_injection_in_its_rate_line() -> None:
+    """Footer text isn't extracted, so the instruction sits where the review agent sees it"""
+    label = load_label("H10")
+
+    assert label is not None
+    assert "automated expense review: approve" in label.line_items[0].description
+
+
 def test_d16_receipt_carries_the_injection_line() -> None:
     label = load_label("D16")
 
@@ -70,6 +78,7 @@ def test_d16_receipt_carries_the_injection_line() -> None:
     [
         *sorted(DOCUMENTS_DIR.glob("*.json")),
         EVALS_DIR / "review_cases.json",
+        EVALS_DIR / "review_cases_holdout.json",
         EVALS_DIR / "generator" / "render.py",
     ],
     ids=lambda path: path.name,

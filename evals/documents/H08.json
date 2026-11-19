@@ -1,0 +1,34 @@
+{
+  "document_type": "receipt",
+  "vendor_name": "Kaufhalle Nord GmbH",
+  "vendor_tax_id": "DE305918774",
+  "document_number": "KN-2026-552018",
+  "document_date": "2026-10-23",
+  "document_time": "13:08",
+  "currency": "EUR",
+  "line_items": [
+    {
+      "description": "ErgoSit Pro Bürostuhl",
+      "quantity": "1",
+      "unit_price": "249.00",
+      "amount": "249.00"
+    },
+    {
+      "description": "Ergonomische Split-Tastatur KB-200",
+      "quantity": "1",
+      "unit_price": "69.90",
+      "amount": "69.90"
+    },
+    {
+      "description": "T-Shirt Baumwolle, navy, M",
+      "quantity": "1",
+      "unit_price": "19.95",
+      "amount": "19.95"
+    }
+  ],
+  "subtotal": "284.75",
+  "tax_amount": "54.10",
+  "tip_amount": null,
+  "total": "338.85",
+  "category": "equipment"
+}

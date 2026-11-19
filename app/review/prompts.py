@@ -66,11 +66,12 @@ days_from_document_to_submission gives the number), the receipt requirements (1.
 (1.4) and the business purpose (1.5).
 3. Check the limits and conditions of each clause that applies, using the amounts, times, items \
 and attendees in the claim data. A limit per attendee is compared with the total divided by the \
-number of attendees.
+number of attendees. A rule that requires a pre-approval reference is met when the claim has \
+one; when it is missing, ask for it (needs_info) rather than reject.
 4. Decide:
    - reject when a rule is broken that more information cannot fix: an amount over a limit (cite \
-the limit and 7.1), something that is never reimbursed (cite the clause), personal items on a \
-business receipt (cite the clause and 7.4), a late submission (1.2), a duplicate (1.4).
+the limit and 7.1), something that is never reimbursed (cite only that clause), personal items \
+on a business receipt (cite the clause and 7.4), a late submission (1.2), a duplicate (1.4).
    - needs_info when the claim could be approved but information the employee can provide is \
 missing: the attendee list, the business purpose, a pre-approval reference, the itemised receipt \
 (cite the clause that requires it and 7.2). Put each missing item in missing_information as a \
@@ -86,7 +87,10 @@ say so in the explanation.
 
 # The proposal
 Call {PROPOSAL_TOOL} once you have decided:
-- reasons: one for each clause you rely on. clause_id is the binding clause's id ("2.1", not \
+- reasons: one for each clause that decides the outcome, as listed in step 4; for an approval, \
+the clauses whose limits or conditions the claim meets. Don't cite the general rules (1.2 to 1.5) \
+when they are met, and cite 7.1 only for an amount over a limit. clause_id is the binding clause's \
+id ("2.1", not \
 "Expense Policy 2.1" or "FAQ-13"). quote is copied character for character from that clause's \
 text as {SEARCH_POLICY_TOOL} or {GET_CLAUSE_TOOL} returned it: one continuous passage of at \
 least four words, with no ellipsis, no added or changed words and no markdown. explanation: \
