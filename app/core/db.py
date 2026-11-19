@@ -48,3 +48,6 @@ async def get_session(
 ) -> AsyncGenerator[AsyncSession]:
     async with factory() as session:
         yield session
+
+
+SessionDep = Annotated[AsyncSession, Depends(get_session)]

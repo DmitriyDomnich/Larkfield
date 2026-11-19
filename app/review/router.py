@@ -2,13 +2,11 @@ import uuid
 from typing import Annotated, Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.dependencies import CurrentUser, require_roles
-from app.auth.roles import Role
+from app.auth.dependencies import ClaimsUser, ReviewerUser
 from app.claims.router import ErrorDetail, claim_not_found
 from app.claims.service import ClaimNotFoundError
-from app.core.db import get_session
+from app.core.db import SessionDep
 from app.notifications.queue import NotificationService, get_notification_service, send_notification
 from app.review import decisions
 from app.review.decisions import CommentRequiredError, OwnClaimError
@@ -34,9 +32,6 @@ def _errors(*codes: int) -> dict[int | str, dict[str, Any]]:
     return {code: {"model": ErrorDetail, "description": ERROR_DESCRIPTIONS[code]} for code in codes}
 
 
-ReviewerUser = Annotated[CurrentUser, Depends(require_roles(Role.REVIEWER))]
-ClaimsUser = Annotated[CurrentUser, Depends(require_roles(Role.EMPLOYEE, Role.REVIEWER))]
-SessionDep = Annotated[AsyncSession, Depends(get_session)]
 NotificationServiceDep = Annotated[NotificationService, Depends(get_notification_service)]
 ReviewRequestsDep = Annotated[ReviewRequests, Depends(get_review_requests)]
 
@@ -51,7 +46,8 @@ router = APIRouter(prefix="/claims", tags=["review"], responses=_errors(401, 403
     description=(
         "Reviewers only, never on their own claim. Decides the claim's undecided proposal: the "
         "claim moves to `approved`, `rejected` or `needs_info` and the employee is emailed. "
-        "`comment` is required when the decision differs from the proposal or is `needs_info`."
+        "`comment` is required for `reject` and `needs_info`, and when the decision differs from "
+        "the proposal."
     ),
     responses=_errors(404, 409, 422),
 )
@@ -74,7 +70,8 @@ async def decide_claim(
     except CommentRequiredError:
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
-            "A comment is required when the decision differs from the proposal or is needs_info",
+            "A comment is required for reject and needs_info, and when the decision differs from "
+            "the proposal",
         ) from None
     background_tasks.add_task(send_notification, notification_service, notification)
     return ReviewerDecisionRead.model_validate(decision)
