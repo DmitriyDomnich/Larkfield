@@ -9,7 +9,7 @@ API; S3 + CloudFront later), a new document in answer to `needs_info` (T12).
 | Criterion | How | Tested by |
 |---|---|---|
 | Login through Cognito; pages limited by role | `<AuthGate>` shows Amplify's `<Authenticator>` until signed in. The role comes from `GET /me`, never from decoding the token. One page → roles map (`pageAccess.ts`): employee → `/claims*`, reviewer → `/claims*` and `/review*`. The nav shows only the pages the role may open; `<PageGate>` around every page redirects to `/` at once when a page is opened by URL without access. `/` redirects by role; admin → an "administrator pages are coming soon" notice with sign-out. An unknown URL shows a "Page not found" page (`out/404.html`) with a link to `/`. Signing out clears the query cache. The API still enforces every rule; the map is navigation only | `src/features/auth/AuthGate.test.tsx`: signed out → Authenticator, signed in → app, sign-out clears the cache. `PageGate.test.tsx`: each role × each page. `HomeRedirect.test.tsx`: redirect by role, admin notice. `NotFoundNotice.test.tsx`. `AppShell.test.tsx`: nav links per role |
-| Employee: create a claim and upload its file; list of own claims with status | `/claims/new`: purpose, attendees, pre-approval ref, file (type and size checked before sending, to mirror T04) → `POST /claims` → `uploadToS3` posts the form fields then the file to `upload.url` → `/claims/view?id=`, which polls until `extracted`/`failed`. `/claims`: `GET /claims`, newest first, status badge, failure reason, 20 per page. `/claims/view`: status, file link, failure reason, the reviewer's comments from `/review`, and an answer form when `needs_info` → `POST /claims/{id}/answer` | `NewClaimForm.test.tsx`: validation, the S3 form's field order (file last), S3 failure → error and no redirect. `ClaimList.test.tsx`: rows, statuses, paging. `ClaimDetail.test.tsx`: polling stops at a waiting status. `AnswerForm.test.tsx`: shown only for `needs_info`, posts the body, 409 message |
+| Employee: create a claim and upload its file; list of own claims with status | `/claims/new`: purpose, attendees, pre-approval ref, file (type and size checked before sending, to mirror T04) → `POST /claims` → `uploadToS3` posts the form fields then the file to `upload.url` → `/claims/view?id=`, which polls until `extracted`/`failed`. `/claims`: `GET /claims`, newest first, status badge, failure reason, 20 per page. `/claims/view`: status, file link, failure reason, the reviewer's comments from `/review`, and an answer form when `needs_info` (a message, plus the attendees and pre-approval reference to correct) → `POST /claims/{id}/answer` | `NewClaimForm.test.tsx`: validation, the S3 form's field order (file last), S3 failure → error and no redirect. `ClaimList.test.tsx`: rows, statuses, paging. `ClaimDetail.test.tsx`: polling stops at a waiting status. `AnswerForm.test.tsx`: shown only for `needs_info`, posts the body, 409 message |
 | Reviewer: claims in review; one page with the document, its extracted fields and warnings, and the proposal with its quoted clauses; approve, reject or request information with a comment | `/review`: `GET /claims?status=in_review`. `/review/claim?id=` has 4 panels, each with its own query: the claim, `DocumentViewer` (`GET /file`: PDF in an `<iframe>`, image in an `<img>`), `ExtractionPanel` (new `GET /claims/{id}/extraction`: fields, line items, warnings highlighted), `ProposalPanel` (the newest round of `GET /review`: decision, each reason's clause id, quote and explanation, missing information, duplicate link; earlier rounds collapsed). `DecisionForm`: approve / reject / needs_info, preset to the proposal; the comment is required when the decision differs or is `needs_info` (mirrors T12, and a 422 from the server is shown); 409 → "already decided" and a refetch; hidden on the reviewer's own claim | `ReviewQueue.test.tsx`, `ReviewClaim.test.tsx` (all panels render from API data, own-claim notice), `ProposalPanel.test.tsx` (quotes rendered as text), `DecisionForm.test.tsx` (comment rule, body, 409/422). `tests/extraction/test_extraction_api.py`, `test_extraction_api_db.py` |
 | Loading and error states on every async view | Every query renders through `<QueryState>`: a spinner while loading, an error with "Try again" (refetch) on failure, the API's `detail` for 4xx, and a generic message for 5xx/network. A 401 signs out. A mutation disables its button while pending and shows its error inline. One panel failing doesn't blank the review page | `QueryState.test.tsx`. Each async view's test has a loading case and an error case (MSW returns 500) |
 | A change in an API response shape is caught by the build or tests, not by a user | Types are generated from the committed `frontend/openapi.json` (see Design decisions). MSW handlers are typed by the same schema (`openapi-msw`), so a test fixture of the old shape fails `tsc` | `tests/test_openapi_snapshot.py`. CI `frontend` job: `gen:api` + `git diff --exit-code`, `tsc --noEmit`, `next build` |
@@ -79,12 +79,16 @@ every request: fetchAuthSession() (Amplify refreshes) → Authorization: Bearer 
   frontend/  openapi.json, .env.example, next.config.ts, package.json
     src/app/          routes only: layout.tsx, page.tsx (/ → by role), not-found.tsx, claims/, claims/new/, claims/view/, review/, review/claim/
     src/core/         config.ts (NEXT_PUBLIC_* values), providers.tsx (TanStack Query), csp.ts
-    src/api/          schema.d.ts (generated), client.ts (openapi-fetch + Bearer), queries.ts (hooks)
+    src/api/          schema.d.ts (generated), types.ts (schema aliases), client.ts (openapi-fetch +
+                      Bearer), errors.ts, queryClient.ts
     src/features/auth/    AuthGate/, PageGate/, HomeRedirect/, hooks/useMe.ts, pageAccess.ts, amplifyConfig.ts
-    src/features/claims/  ClaimList, NewClaimForm, uploadToS3, ClaimDetail, AnswerForm
+    src/features/claims/  ClaimList/, NewClaimForm/, ClaimDetail/, AnswerForm/, AttendeesFields/,
+                          ClaimFileLink/, ReviewerComments/, hooks/ (queries + mutations),
+                          uploadToS3.ts, claimFormRules.ts
     src/features/review/  ReviewQueue, ReviewClaim, DocumentViewer, ExtractionPanel, ProposalPanel,
                           DecisionForm
-    src/components/widgets/  shared by pages: QueryState/, LoadingSpinner/, StatusBadge/,
+    src/components/widgets/  shared by pages: QueryState/, LoadingSpinner/, StatusBadge/, Pager/,
+                             FormError/,
                              AppShell/ (nav by role), NotFoundNotice/
     src/components/ui/  shadcn/ui components (generated)
   ```
@@ -202,7 +206,7 @@ every request: fetchAuthSession() (Amplify refreshes) → Authorization: Bearer 
 - [x] 3. Auth: Amplify config, `AuthGate`, `useMe`, `pageAccess` + `PageGate`, `AppShell` nav by role,
   `/` redirect, admin notice, 404 page — login + roles —
   `add amplify authenticator gate, page access map and gate, app shell nav, role redirect, 404 page, tests`
-- [ ] 4. Employee pages: `ClaimList`, `NewClaimForm` + `uploadToS3`, `ClaimDetail` (polling, file
+- [x] 4. Employee pages: `ClaimList`, `NewClaimForm` + `uploadToS3`, `ClaimDetail` (polling, file
   link, reviewer comments), `AnswerForm`, routes `/claims`, `/claims/new`, `/claims/view` — employee,
   loading/error for these views —
   `add employee claim list, new claim form with s3 upload, claim detail with polling and needs_info answer, tests`
