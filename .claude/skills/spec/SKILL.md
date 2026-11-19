@@ -51,8 +51,11 @@ Grill the developer until every open point is decided. Rules:
   "Tested by". Don't pad the interview with questions that change nothing.
 
 ## 5. Finish the spec
-- Fill Flow (or delete it), Configuration, Known gaps and Testing. Delete the template's HTML
-  comments and the Commit plan section (`/implement` adds it).
+- Fill Flow as a Mermaid diagram, the same way `/pr` condenses it: a ```` ```mermaid ```` block of
+  about 15 lines, `sequenceDiagram` for requests between browser, API, AWS and workers, `flowchart`
+  for statuses and branches; or delete it if there is no flow worth drawing. Then fill
+  Configuration, Known gaps and Testing. Delete the template's HTML comments and the Commit plan
+  section (`/implement` adds it).
 - Match the existing specs: terse, facts over prose, about one screen per section, no filler.
 - Re-read the ticket line by line and check each criterion, decision and question is covered.
 

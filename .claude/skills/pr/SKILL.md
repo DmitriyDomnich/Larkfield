@@ -16,14 +16,38 @@ The developer creates the PR; you write its text. Never push, create the PR or r
   and the diff itself where a commit message doesn't say enough.
 - Check, and list any problem at the top of your reply:
   - uncommitted changes (`git status`),
-  - unticked slices in the spec's Commit plan,
+  - unticked slices in the spec's Commit plan (before step 2 deletes it),
   - acceptance-criteria rows whose "Tested by" files don't exist,
   - a new setting missing from `.env.example`.
 - Spec link: `git remote get-url origin` → `https://github.com/<owner>/<repo>/blob/<branch>/specs/<file>`.
 - If neither the spec's Results nor the commits say what was verified by hand (manual end-to-end
   run, a review), ask the developer before writing the Result section.
 
-## 2. Write
+## 2. Condense the spec
+Once the ticket is built, the spec is the record of what was decided and why; how it was built
+lives in the code and the commits. Rewrite `specs/TNN-*.md` to about 100 lines (the earlier specs'
+size) before writing the PR:
+- Keep every acceptance criterion, decision, rejected alternative, answered question, setting,
+  known gap and the manual Results. Shorten the wording, never the meaning.
+- **Acceptance criteria:** "How" is the mechanism in one or two sentences (endpoint, rule,
+  component), not the steps. "Tested by" lists the test files only.
+- **Design decisions:** `**Choice:** why in one sentence. *Rejected:* alternative (why not).`
+  Drop what the code already shows: file trees, folder layouts, prop and hook names, exact styling.
+- **Questions:** the answer's facts and links; cut the reasoning around them.
+- **Flow:** a Mermaid diagram in a ```` ```mermaid ```` block (GitHub renders it), about 15 lines:
+  `sequenceDiagram` for requests between browser, API, AWS and workers; `flowchart` for statuses
+  and branches. Keep the happy path and the main failures; drop it if there is no flow worth
+  drawing.
+- **Configuration:** what changed, not instructions to the developer,
+  which are done by now.
+- **Testing:** one line each for Unit and Integration; keep Manual.
+- **Results:** their own `## Results` section at the end: the manual run and the reviews.
+- **Commit plan:** delete it (the commits and the PR record the slices).
+
+Show the developer the new line count and anything removed that isn't plain rewording, and wait
+for their OK. They commit the condensed spec before creating the PR.
+
+## 3. Write
 Match the earlier PRs (`gh pr list --base dev --state merged --limit 2 --json body`): terse, facts,
 no filler, no restating the spec at length.
 
@@ -51,7 +75,7 @@ Spec: [specs/<file>](<link>)
 
 Title: `TNN — <spec title>`.
 
-## 3. Hand over
+## 4. Hand over
 - Save the body to `pr-body.md` in the scratchpad directory and give its full path.
 - Print the title and the body in the reply, ready to paste.
 - Give the command for the developer to run:

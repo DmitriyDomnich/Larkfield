@@ -14,10 +14,12 @@ deferred while writing this spec, with the ticket it moves to>.
 
 ## Flow
 
-<!-- Optional: the happy path and the main failures, a few lines of pseudo-steps or an ASCII diagram.
-Delete if the ticket has no flow worth drawing. -->
+<!-- Optional: the happy path and the main failures as a Mermaid diagram (GitHub renders it), about
+15 lines: `sequenceDiagram` for requests between browser, API, AWS and workers; `flowchart` for
+statuses and branches. Delete if the ticket has no flow worth drawing. -->
 
-```
+```mermaid
+sequenceDiagram
 ```
 
 ## Design decisions
@@ -48,6 +50,11 @@ docs that back an answer. No question may stay open. -->
 - **Unit:** <what is covered without a DB or AWS>.
 - **Integration:** <what needs PostgreSQL, marked `@pytest.mark.integration`>.
 - **Manual:** <the end-to-end check run before the PR>.
+
+## Results
+
+<!-- Filled before the PR: how the manual run went (date, anything that failed) and the code
+reviews, with what was fixed or left out. -->
 
 ## Commit plan
 
