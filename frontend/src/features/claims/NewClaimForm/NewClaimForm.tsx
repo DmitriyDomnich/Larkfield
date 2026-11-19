@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { BackLink } from "@/components/widgets/BackLink/BackLink";
 import { FormError } from "@/components/widgets/FormError/FormError";
 
 import { AttendeesFields } from "../AttendeesFields/AttendeesFields";
@@ -68,56 +69,59 @@ export function NewClaimForm() {
       : submitClaim.error && getErrorMessage(submitClaim.error);
 
   return (
-    <Card className="mx-auto max-w-2xl">
-      <CardHeader>
-        <CardTitle>New claim</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-5">
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="purpose">Business purpose</Label>
-            <Textarea
-              id="purpose"
-              value={purpose}
-              onChange={(event) => setPurpose(event.target.value)}
-              placeholder="Dinner with Meridian Health to discuss the 2027 contract"
-            />
-            <FormError message={problems.purpose} />
-          </div>
+    <div className="mx-auto flex max-w-2xl flex-col gap-4">
+      <BackLink href="/claims">Claims</BackLink>
+      <Card>
+        <CardHeader>
+          <CardTitle>New claim</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-5">
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="purpose">Business purpose</Label>
+              <Textarea
+                id="purpose"
+                value={purpose}
+                onChange={(event) => setPurpose(event.target.value)}
+                placeholder="Dinner with Meridian Health to discuss the 2027 contract"
+              />
+              <FormError message={problems.purpose} />
+            </div>
 
-          <div className="flex flex-col gap-1">
-            <AttendeesFields attendees={attendees} onChange={setAttendees} />
-            <FormError message={problems.attendees} />
-          </div>
+            <div className="flex flex-col gap-1">
+              <AttendeesFields attendees={attendees} onChange={setAttendees} />
+              <FormError message={problems.attendees} />
+            </div>
 
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="preapproval-ref">Pre-approval reference (if you have one)</Label>
-            <Input
-              id="preapproval-ref"
-              value={preapprovalRef}
-              onChange={(event) => setPreapprovalRef(event.target.value)}
-              placeholder="PA-2026-114"
-            />
-            <FormError message={problems.preapprovalRef} />
-          </div>
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="preapproval-ref">Pre-approval reference (if you have one)</Label>
+              <Input
+                id="preapproval-ref"
+                value={preapprovalRef}
+                onChange={(event) => setPreapprovalRef(event.target.value)}
+                placeholder="PA-2026-114"
+              />
+              <FormError message={problems.preapprovalRef} />
+            </div>
 
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="file">Receipt or invoice (PDF, JPEG or PNG, up to 10 MB)</Label>
-            <Input
-              id="file"
-              type="file"
-              accept={FILE_INPUT_ACCEPT}
-              onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-            />
-            <FormError message={problems.file} />
-          </div>
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="file">Receipt or invoice (PDF, JPEG or PNG, up to 10 MB)</Label>
+              <Input
+                id="file"
+                type="file"
+                accept={FILE_INPUT_ACCEPT}
+                onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+              />
+              <FormError message={problems.file} />
+            </div>
 
-          <FormError message={submitError} />
-          <Button type="submit" className="self-start" disabled={submitClaim.isPending}>
-            {submitClaim.isPending ? "Submitting…" : "Submit claim"}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+            <FormError message={submitError} />
+            <Button type="submit" className="self-start" disabled={submitClaim.isPending}>
+              {submitClaim.isPending ? "Submitting…" : "Submit claim"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

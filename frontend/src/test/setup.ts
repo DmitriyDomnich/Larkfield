@@ -15,6 +15,13 @@ vi.mock("aws-amplify/auth", async (importOriginal) => ({
   signOut: vi.fn(async () => undefined),
 }));
 
+// jsdom has no ResizeObserver; Radix (radio group) measures elements with it
+globalThis.ResizeObserver ??= class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
+
 beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
 afterEach(() => {
   server.resetHandlers();

@@ -8,3 +8,7 @@ export type ClaimStatus = Schemas["ClaimStatus"];
 export type ClaimReview = Schemas["ClaimReview"];
 export type FileContentType = Schemas["FileSpec"]["content_type"];
 export type UploadForm = Schemas["UploadForm"];
+export type Decision = Schemas["Decision"];
+export type ExtractionRead = Schemas["ExtractionRead"];
+export type ReviewRound = Schemas["ReviewRound"];
+export type ProposalRead = Schemas["ProposalRead"];

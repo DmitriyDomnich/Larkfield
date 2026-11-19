@@ -27,6 +27,7 @@ DECIDED_STATUS: dict[Decision, NotifiedStatus] = {
     Decision.REJECT: ClaimStatus.REJECTED,
     Decision.NEEDS_INFO: ClaimStatus.NEEDS_INFO,
 }
+COMMENT_REQUIRED_DECISIONS = frozenset({Decision.REJECT, Decision.NEEDS_INFO})
 
 
 class OwnClaimError(Exception):
@@ -34,7 +35,7 @@ class OwnClaimError(Exception):
 
 
 class CommentRequiredError(Exception):
-    """The decision differs from the proposal or is needs_info, and has no comment."""
+    """The decision differs from the proposal or is reject or needs_info, and has no comment."""
 
 
 async def decide_claim(
@@ -50,7 +51,7 @@ async def decide_claim(
     if claim.status is not ClaimStatus.IN_REVIEW or proposal is None:
         raise InvalidTransitionError(claim.status, target_status)
     differs = data.decision != proposal.decision
-    if (differs or data.decision is Decision.NEEDS_INFO) and not data.comment:
+    if (differs or data.decision in COMMENT_REQUIRED_DECISIONS) and not data.comment:
         raise CommentRequiredError(claim_id)
 
     decision = ReviewerDecision(

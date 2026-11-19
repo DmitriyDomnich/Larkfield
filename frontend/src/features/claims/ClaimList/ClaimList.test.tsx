@@ -1,7 +1,7 @@
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse } from "msw";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { GENERIC_ERROR } from "@/api/errors";
 import { makeClaim } from "@/test/fixtures";
@@ -31,6 +31,9 @@ function mockClaimPages(total: number) {
   return offsets;
 }
 
+const navigation = vi.hoisted(() => ({ push: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: navigation.push }) }));
+
 describe("ClaimList", () => {
   it("lists the claims with their status and failure reason", async () => {
     mockClaimPages(2);
@@ -45,6 +48,15 @@ describe("ClaimList", () => {
     expect(screen.getByText("Failed")).toBeInTheDocument();
     expect(screen.getByText(FAILED.failure_reason!)).toBeInTheDocument();
     expect(screen.getByText("1–2 of 2")).toBeInTheDocument();
+  });
+
+  it("opens a claim by clicking anywhere on its row", async () => {
+    mockClaimPages(2);
+    renderWithClient(<ClaimList />);
+
+    await userEvent.click(await screen.findByText("Failed"));
+
+    expect(navigation.push).toHaveBeenCalledWith(`/claims/view?id=${FAILED.id}`);
   });
 
   it("pages through 20 claims at a time", async () => {

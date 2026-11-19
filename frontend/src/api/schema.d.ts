@@ -150,7 +150,7 @@ export interface paths {
         put?: never;
         /**
          * Decide a claim in review
-         * @description Reviewers only, never on their own claim. Decides the claim's undecided proposal: the claim moves to `approved`, `rejected` or `needs_info` and the employee is emailed. `comment` is required when the decision differs from the proposal or is `needs_info`.
+         * @description Reviewers only, never on their own claim. Decides the claim's undecided proposal: the claim moves to `approved`, `rejected` or `needs_info` and the employee is emailed. `comment` is required for `reject` and `needs_info`, and when the decision differs from the proposal.
          */
         post: operations["decide_claim_claims__claim_id__decision_post"];
         delete?: never;
@@ -332,7 +332,7 @@ export interface components {
             decision: components["schemas"]["Decision"];
             /**
              * Comment
-             * @description Required when the decision differs from the proposal or is needs_info
+             * @description Required for reject and needs_info, and when the decision differs from the proposal
              */
             comment?: string | null;
             corrected_fields?: components["schemas"]["ExpenseCorrections"] | null;

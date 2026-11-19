@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import type { ClaimRead } from "@/api/types";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { BackLink } from "@/components/widgets/BackLink/BackLink";
 import { NotFoundNotice } from "@/components/widgets/NotFoundNotice/NotFoundNotice";
 import { QueryState } from "@/components/widgets/QueryState/QueryState";
 import { StatusBadge } from "@/components/widgets/StatusBadge/StatusBadge";
@@ -25,12 +26,17 @@ export function ClaimDetail() {
 
 function ClaimDetailQuery({ claimId }: { claimId: string }) {
   const claim = useClaim(claimId);
-  return <QueryState query={claim}>{(data) => <ClaimSummary claim={data} />}</QueryState>;
+  return (
+    <div className="mx-auto flex max-w-3xl flex-col gap-4">
+      <BackLink href="/claims">Claims</BackLink>
+      <QueryState query={claim}>{(data) => <ClaimSummary claim={data} />}</QueryState>
+    </div>
+  );
 }
 
 function ClaimSummary({ claim }: { claim: ClaimRead }) {
   return (
-    <Card className="mx-auto max-w-3xl">
+    <Card>
       <CardHeader>
         <div className="flex items-start justify-between gap-4">
           <CardTitle className="whitespace-pre-wrap">{claim.purpose}</CardTitle>

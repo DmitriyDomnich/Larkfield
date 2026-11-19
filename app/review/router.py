@@ -46,7 +46,8 @@ router = APIRouter(prefix="/claims", tags=["review"], responses=_errors(401, 403
     description=(
         "Reviewers only, never on their own claim. Decides the claim's undecided proposal: the "
         "claim moves to `approved`, `rejected` or `needs_info` and the employee is emailed. "
-        "`comment` is required when the decision differs from the proposal or is `needs_info`."
+        "`comment` is required for `reject` and `needs_info`, and when the decision differs from "
+        "the proposal."
     ),
     responses=_errors(404, 409, 422),
 )
@@ -69,7 +70,8 @@ async def decide_claim(
     except CommentRequiredError:
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
-            "A comment is required when the decision differs from the proposal or is needs_info",
+            "A comment is required for reject and needs_info, and when the decision differs from "
+            "the proposal",
         ) from None
     background_tasks.add_task(send_notification, notification_service, notification)
     return ReviewerDecisionRead.model_validate(decision)
