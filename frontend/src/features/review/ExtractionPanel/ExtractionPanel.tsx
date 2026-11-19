@@ -11,7 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { QueryState } from "@/components/widgets/QueryState/QueryState";
-import { formatEnumValue } from "@/lib/format";
+import { formatEnumValue, formatQuantity, formatUnitPrice } from "@/lib/format";
 
 import { useExtraction } from "../hooks/useExtraction";
 
@@ -73,8 +73,8 @@ function ExtractedFields({ extraction }: { extraction: ExtractionRead }) {
             {extraction.line_items.map((item, index) => (
               <TableRow key={index}>
                 <TableCell className="whitespace-normal">{item.description}</TableCell>
-                <TableCell className="text-right">{item.quantity}</TableCell>
-                <TableCell className="text-right">{item.unit_price ?? "—"}</TableCell>
+                <TableCell className="text-right">{formatQuantity(item.quantity)}</TableCell>
+                <TableCell className="text-right">{item.unit_price === null ? "—" : formatUnitPrice(item.unit_price)}</TableCell>
                 <TableCell className="text-right">{item.amount}</TableCell>
               </TableRow>
             ))}

@@ -83,8 +83,11 @@ function EarlierRounds({ rounds }: { rounds: ReviewRound[] }) {
         </Button>
       </CollapsibleTrigger>
       <CollapsibleContent className="flex flex-col gap-3 pt-2">
-        {rounds.map(({ proposal_id, proposal, decision, answer }) => (
+        {rounds.map(({ proposal_id, proposal, decision, answer }, index) => (
           <div key={proposal_id} className="flex flex-col gap-2 rounded-lg border p-3 text-sm">
+            <p className="text-muted-foreground border-b pb-2 text-xs font-semibold tracking-wide uppercase">
+              Round {rounds.length - index}
+            </p>
             {proposal && <ProposalDetails proposal={proposal} />}
             {decision && (
               <p>
