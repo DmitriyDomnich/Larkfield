@@ -29,3 +29,7 @@ output "load_balancer_arn" {
 output "load_balancer_security_group_id" {
   value = aws_security_group.alb.id
 }
+
+output "load_balancer_dns_name" {
+  value = one(aws_lb.api[*].dns_name)
+}

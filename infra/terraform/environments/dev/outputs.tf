@@ -89,3 +89,26 @@ output "migration_security_group_id" {
 output "db_snapshot" {
   value = module.database.latest_snapshot
 }
+
+output "site_url" {
+  value = "https://${module.frontend.domain_name}"
+}
+
+output "distribution_id" {
+  value = module.frontend.distribution_id
+}
+
+output "site_bucket" {
+  value = module.frontend.site_bucket
+}
+
+output "frontend_build_env" {
+  description = "NEXT_PUBLIC_* of the frontend build in the deploy job."
+  value = {
+    NEXT_PUBLIC_API_URL               = "https://${module.frontend.domain_name}/api"
+    NEXT_PUBLIC_COGNITO_REGION        = var.aws_region
+    NEXT_PUBLIC_COGNITO_USER_POOL_ID  = module.cognito.user_pool_id
+    NEXT_PUBLIC_COGNITO_APP_CLIENT_ID = module.cognito.app_client_id
+    NEXT_PUBLIC_DOCUMENTS_ORIGIN      = "https://${module.documents.bucket_regional_domain_name}"
+  }
+}

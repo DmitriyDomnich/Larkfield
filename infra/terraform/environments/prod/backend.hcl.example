@@ -1,0 +1,3 @@
+# read by `terraform init`, where tf's state lives
+bucket = "larkfield-tfstate-<suffix>"
+region = "<region>"

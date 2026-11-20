@@ -1,0 +1,15 @@
+var routes = ${routes};
+
+function handler(event) {
+  var request = event.request;
+  var uri = request.uri;
+  if (uri.length > 1 && uri.endsWith("/")) {
+    uri = uri.slice(0, -1);
+  }
+  if (uri === "/") {
+    request.uri = "/index.html";
+  } else if (uri.lastIndexOf(".") < uri.lastIndexOf("/")) {
+    request.uri = routes.indexOf(uri) >= 0 ? uri + ".html" : "/404.html";
+  }
+  return request;
+}

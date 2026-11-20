@@ -38,9 +38,10 @@ provider "aws" {
 data "aws_caller_identity" "current" {}
 
 locals {
-  name_prefix  = "${var.project}-${var.environment}"
-  iam_path     = "/${local.name_prefix}/"
-  boundary_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/${var.project}-bootstrap/${local.name_prefix}-boundary"
+  name_prefix      = "${var.project}-${var.environment}"
+  iam_path         = "/${local.name_prefix}/"
+  boundary_arn     = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/${var.project}-bootstrap/${local.name_prefix}-boundary"
+  frontend_origins = concat(["https://${module.frontend.domain_name}"], var.extra_frontend_origins)
 }
 
 module "iam" {
@@ -69,7 +70,7 @@ module "documents" {
   source           = "../../modules/documents"
   project_name     = local.name_prefix
   iam_path         = local.iam_path
-  frontend_origins = var.frontend_origins
+  frontend_origins = local.frontend_origins
 }
 
 module "extraction" {
@@ -165,7 +166,7 @@ module "runtime" {
     DOCUMENTS_BUCKET       = module.documents.bucket_name
     REVIEW_QUEUE_URL       = module.review.queue_url
     NOTIFICATION_QUEUE_URL = module.notifications.queue_url
-    FRONTEND_ORIGINS       = jsonencode(var.frontend_origins)
+    FRONTEND_ORIGINS       = jsonencode(local.frontend_origins)
   }
   extraction_environment = {
     EXTRACTION_QUEUE_URL = module.extraction.queue_url
@@ -188,5 +189,30 @@ module "runtime" {
   review_policy_arns = {
     worker        = module.review.worker_policy_arn
     notifications = module.notifications.sender_policy_arn
+  }
+}
+
+module "frontend" {
+  source                          = "../../modules/frontend"
+  project_name                    = local.name_prefix
+  runtime_enabled                 = var.runtime_enabled
+  frontend_app_dir                = "${path.root}/../../../../frontend/src/app"
+  vpc_id                          = module.network.vpc_id
+  load_balancer_arn               = module.runtime.load_balancer_arn
+  load_balancer_dns_name          = module.runtime.load_balancer_dns_name
+  load_balancer_security_group_id = module.runtime.load_balancer_security_group_id
+}
+
+module "monitoring" {
+  source          = "../../modules/monitoring"
+  project_name    = local.name_prefix
+  environment     = var.environment
+  aws_region      = var.aws_region
+  runtime_enabled = var.runtime_enabled
+  alarm_email     = var.alarm_email
+  dead_letter_queues = {
+    extraction    = module.extraction.dlq_name
+    review        = module.review.dlq_name
+    notifications = module.notifications.dlq_name
   }
 }

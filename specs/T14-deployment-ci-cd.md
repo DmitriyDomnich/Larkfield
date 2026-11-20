@@ -75,7 +75,9 @@ sequenceDiagram
   (an EC2 instance to patch).
 - **Frontend hosting: one CloudFront distribution, the only entry point.** It serves the default
   behavior from a private S3 bucket (OAC), with a CloudFront Function mapping `/claims/view` to
-  `claims/view.html`, and `404.html` for misses. `/api/*` goes to the API with the prefix stripped
+  `claims/view.html` (the routes are the frontend's `page.tsx` files), and `404.html` for any other
+  path without an extension. Not CloudFront's custom error responses: they apply to the whole
+  distribution and would replace the API's own 403/404 JSON. `/api/*` goes to the API with the prefix stripped
   by a function, so the API keeps its paths. The browser sees one HTTPS origin
   (`*.cloudfront.net`, no domain needed): no CORS for the API, `connect-src 'self'`. A
   response-headers policy adds a CSP header with only `frame-ancestors 'none'` (which a `<meta>` CSP
@@ -223,7 +225,12 @@ sequenceDiagram
   the `deploy` and `plan` roles and the `boundary` policy; the state bucket (imported) and its
   policy. Variables: `github_repo`, `environments`, `state_bucket`.
 - **`environments/prod`:** a new root like `dev`, state key `prod/terraform.tfstate`, only the
-  `clause` KB, Cognito with `enable_password_auth = false`.
+  `clause` KB, Cognito with `enable_password_auth = false` and deletion protection, and
+  `manage_email_identities = false`: SES identities belong to the account, not an environment, so
+  `dev` creates them and prod's notification Lambda sends from them (prod's sender and recipients
+  must be addresses verified through dev). *Rejected:* identities in `bootstrap` (adding a demo
+  recipient would need an admin apply), separate addresses per environment (every demo employee
+  verifies twice).
 - **New modules:** `network` (VPC, 2 public + 2 private subnets, IGW, S3 gateway endpoint on the
   private route tables; NAT gateway + Elastic IP in one public subnet and the private default route,
   both behind `runtime_enabled`), `database` (RDS PostgreSQL
@@ -231,7 +238,7 @@ sequenceDiagram
   on stop / restore on start), `runtime` (ECR with immutable tags + a lifecycle keeping 20 images,
   ECS cluster, task roles from the existing policy ARNs, services: API 0.5 vCPU / 1 GB, workers
   0.25 vCPU / 0.5 GB extraction and 0.5 / 1 GB review, 1 task each, circuit breaker; internal ALB;
-  migration task definition; log groups with 14-day retention), `edge` (site bucket, CloudFront
+  migration task definition; log groups with 14-day retention), `frontend` (site bucket, CloudFront
   with OAC, the VPC origin, the two functions, response-headers policy), `monitoring` (SNS + email,
   alarms, dashboard).
 - **Terraform `>= 1.11`** (ephemeral resources and write-only arguments); the AWS provider stays `~> 6.0`.
@@ -241,8 +248,8 @@ sequenceDiagram
   `/larkfield-<env>/`, roles `larkfield-<env>-deploy|plan`, metrics namespace `Larkfield/<env>`.
 - **New variables:** `environment`, `runtime_enabled` (also SSM `/larkfield-<env>/runtime_enabled`),
   `alarm_email`, `db_password_version`, `restore_db_snapshot`, `apply_db_password`, `image_tag`
-  (the SHA the deploy pushed; the base task definitions point at it). `frontend_origins` becomes the distribution's origin (+ localhost in
-  dev). IAM roles and policies move under `/<project>-<env>/`.
+  (the SHA the deploy pushed; the base task definitions point at it). `frontend_origins` becomes the distribution's origin plus `extra_frontend_origins`
+  (localhost in dev). IAM roles and policies move under `/<project>-<env>/`.
 - **Task environment:** what compose sets today, from Terraform outputs; `APP_ENV` = `dev`/`prod`,
   `DATABASE_URL` without a password, `PGPASSWORD` from the secret, `FRONTEND_ORIGINS` = the
   distribution's origin. No new `Settings` fields.
@@ -273,6 +280,9 @@ sequenceDiagram
   previous image too. Recovery: a forward fix.
 - The VPC-origin hop from CloudFront to the ALB is HTTP inside AWS; end-to-end TLS needs a domain.
 - `'unsafe-inline'` stays in `script-src` (the static export's inline scripts, T13).
+- A missing page is served as `404.html` with status 200 (a CloudFront Function can rewrite the
+  path, not the status).
+- Prod's email depends on the SES identities in dev's state; destroying dev's root would break it.
 - Single-AZ RDS, one NAT gateway and one task per service: an AZ outage (for the NAT, its AZ cuts
   every task off from Bedrock, SQS and Cognito) or a task restart means downtime. Fine for a demo;
   prod would use Multi-AZ, a NAT per AZ and two API tasks.
@@ -302,6 +312,6 @@ sequenceDiagram
 - [x] 1. EMF metrics module; `ClaimsFailed` on every path to `failed` and Bedrock token metrics once per claim per stage in both workers — alarm/tokens (code part) — `add emf metrics module, claims failed and bedrock token metrics per claim from both workers, tests`
 - [x] 2. `bootstrap` root: GitHub OIDC provider, per-environment deploy and plan roles with the permissions boundary, imported state bucket and its policy; Terraform `>= 1.11`; existing roles and policies under `/<project>-<env>/` — no long-lived keys, infra through the pipeline — `add terraform bootstrap root with github oidc, deploy and plan roles, permissions boundary, state bucket policy, iam paths`
 - [x] 3. `network`, `database`, `runtime` modules behind `runtime_enabled`, wired into `dev`: VPC, NAT, S3 endpoint, RDS with write-only password, ECR, ECS cluster + services + migration task, internal ALB — merge deploys (infra) — `add network, database and runtime terraform modules behind the runtime toggle, wire into dev`
-- [ ] 4. `edge` and `monitoring` modules, `environments/prod`: site bucket, CloudFront with OAC, VPC origin, functions, headers policy; SNS, alarms, dashboard — merge deploys (infra), alarm/tokens (infra) — `add edge and monitoring terraform modules, prod environment root`
+- [x] 4. `frontend` and `monitoring` modules, `environments/prod`: site bucket, CloudFront with OAC, VPC origin, functions, headers policy; SNS, alarms, dashboard — merge deploys (infra), alarm/tokens (infra) — `add frontend and monitoring terraform modules, prod environment root, ses identities owned by dev`
 - [ ] 5. `ci.yml` on `pull_request` + `workflow_call` with `evals`, `actionlint`, terraform validate of every root + read-only plan; `tests/test_workflows.py`, `docs/pipeline.md` CI section, `pyyaml` — PR checks, docs, no long-lived keys — `add evals, actionlint and terraform plan ci jobs, reusable ci, workflow tests, pipeline docs`
 - [ ] 6. `deploy.yml` and `environment.yml` (Start/Stop), runbooks (bootstrap, start/stop, rollback), workflow tests — merge deploys, infra through the pipeline, docs, no long-lived keys — `add deploy workflow with migration, ecs deploy, frontend release, smoke and rollback, start/stop workflow, runbooks, tests`

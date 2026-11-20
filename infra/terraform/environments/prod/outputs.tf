@@ -1,0 +1,114 @@
+output "region" {
+  value = var.aws_region
+}
+
+output "user_pool_id" {
+  value = module.cognito.user_pool_id
+}
+
+output "app_client_id" {
+  value = module.cognito.app_client_id
+}
+
+output "documents_bucket" {
+  value = module.documents.bucket_name
+}
+
+output "api_documents_policy_arn" {
+  value = module.documents.api_policy_arn
+}
+
+output "extraction_queue_url" {
+  value = module.extraction.queue_url
+}
+
+output "extraction_worker_policy_arn" {
+  value = module.extraction.worker_policy_arn
+}
+
+output "policies_bucket" {
+  value = module.knowledge_base.bucket_name
+}
+
+output "policy_knowledge_base_ids" {
+  value = module.knowledge_base.knowledge_base_ids
+}
+
+output "policy_data_source_ids" {
+  value = module.knowledge_base.data_source_ids
+}
+
+output "review_queue_url" {
+  value = module.review.queue_url
+}
+
+output "review_worker_policy_arn" {
+  value = module.review.worker_policy_arn
+}
+
+output "api_review_policy_arn" {
+  value = module.review.api_policy_arn
+}
+
+output "notification_queue_url" {
+  value = module.notifications.queue_url
+}
+
+output "notification_dlq_url" {
+  value = module.notifications.dlq_url
+}
+
+output "notification_sender_policy_arn" {
+  value = module.notifications.sender_policy_arn
+}
+
+output "ecr_repository_url" {
+  value = module.runtime.repository_url
+}
+
+output "ecs_cluster" {
+  value = module.runtime.cluster_name
+}
+
+output "ecs_services" {
+  value = module.runtime.service_names
+}
+
+output "task_families" {
+  value = module.runtime.task_families
+}
+
+output "migration_subnet_ids" {
+  value = module.runtime.migration_subnet_ids
+}
+
+output "migration_security_group_id" {
+  value = module.runtime.migration_security_group_id
+}
+
+output "db_snapshot" {
+  value = module.database.latest_snapshot
+}
+
+output "site_url" {
+  value = "https://${module.frontend.domain_name}"
+}
+
+output "distribution_id" {
+  value = module.frontend.distribution_id
+}
+
+output "site_bucket" {
+  value = module.frontend.site_bucket
+}
+
+output "frontend_build_env" {
+  description = "NEXT_PUBLIC_* of the frontend build in the deploy job."
+  value = {
+    NEXT_PUBLIC_API_URL               = "https://${module.frontend.domain_name}/api"
+    NEXT_PUBLIC_COGNITO_REGION        = var.aws_region
+    NEXT_PUBLIC_COGNITO_USER_POOL_ID  = module.cognito.user_pool_id
+    NEXT_PUBLIC_COGNITO_APP_CLIENT_ID = module.cognito.app_client_id
+    NEXT_PUBLIC_DOCUMENTS_ORIGIN      = "https://${module.documents.bucket_regional_domain_name}"
+  }
+}

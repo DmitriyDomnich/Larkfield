@@ -44,3 +44,9 @@ variable "permissions_boundary_arn" {
   type        = string
   default     = null
 }
+
+variable "manage_email_identities" {
+  description = "Create the SES identities of sender_email and recipient_emails; false where another environment of the account already does."
+  type        = bool
+  default     = true
+}
