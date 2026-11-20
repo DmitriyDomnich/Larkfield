@@ -9,3 +9,7 @@ output "dlq_url" {
 output "sender_policy_arn" {
   value = aws_iam_policy.sender.arn
 }
+
+output "dlq_name" {
+  value = aws_sqs_queue.notifications_dlq.name
+}

@@ -13,9 +13,15 @@ variable "environment" {
   default     = "dev"
 }
 
-variable "frontend_origins" {
-  type    = list(string)
-  default = ["http://localhost:3000"]
+variable "extra_frontend_origins" {
+  description = "Origins besides the distribution's allowed by the documents bucket's CORS (the local frontend)."
+  type        = list(string)
+  default     = ["http://localhost:3000"]
+}
+
+variable "alarm_email" {
+  description = "Receives the alarms; confirm the SNS subscription email once."
+  type        = string
 }
 
 variable "bedrock_inference_profile_id" {

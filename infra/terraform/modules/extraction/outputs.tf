@@ -9,3 +9,7 @@ output "queue_url" {
 output "worker_policy_arn" {
   value = aws_iam_policy.worker.arn
 }
+
+output "dlq_name" {
+  value = aws_sqs_queue.extraction_dlq.name
+}
