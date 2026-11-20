@@ -36,9 +36,3 @@ variable "password_version" {
   type        = number
   default     = 1
 }
-
-variable "apply_password" {
-  description = "false in the pull request plan, whose role can't read the secret; write-only values never show in a plan."
-  type        = bool
-  default     = true
-}

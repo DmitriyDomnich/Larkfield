@@ -3,11 +3,10 @@ name: CI
 on:
   pull_request:
     branches: [main, dev]
-  push:
-    branches: [main, dev]
+  workflow_call:
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
 permissions:
@@ -22,8 +21,10 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync --frozen
-      - run: uv run ruff check .
-      - run: uv run ruff format --check .
+      - name: ruff check
+        run: uv run ruff check .
+      - name: ruff format
+        run: uv run ruff format --check .
 
   typecheck:
     runs-on: ubuntu-latest
@@ -33,22 +34,8 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync --frozen
-      - run: uv run mypy
-
-  terraform:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        environment: [dev]
-    defaults:
-      run:
-        working-directory: infra/terraform/environments/${{ matrix.environment }}
-    steps:
-      - uses: actions/checkout@v7
-      - uses: hashicorp/setup-terraform@v3
-      - run: terraform fmt -check -recursive ../..
-      - run: terraform init -backend=false # syntax + provider schema
-      - run: terraform validate
+      - name: mypy
+        run: uv run mypy
 
   test:
     runs-on: ubuntu-latest
@@ -75,7 +62,19 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync --frozen
-      - run: uv run pytest --cov --cov-report=term-missing
+      - name: all tests with coverage
+        run: uv run pytest --cov --cov-report=term-missing
+
+  evals:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.2
+        with:
+          enable-cache: true
+      - run: uv sync --frozen
+      - name: evals against fakes
+        run: uv run pytest tests/evals --no-cov
 
   frontend:
     runs-on: ubuntu-latest
@@ -90,10 +89,41 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm test
+      - name: eslint
+        run: npm run lint
+      - name: tsc
+        run: npm run typecheck
+      - name: vitest
+        run: npm test
       - name: generated API types match openapi.json
         run: npm run gen:api && git diff --exit-code src/api/schema.d.ts
       - name: build with the placeholder values of .env.example
         run: cp .env.example .env.local && npm run build
+
+  actionlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: lint the workflows
+        uses: docker://rhysd/actionlint:1.7.7
+        with:
+          args: -color
+
+  terraform:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        root: [bootstrap, environments/dev, environments/prod]
+    defaults:
+      run:
+        working-directory: infra/terraform/${{ matrix.root }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.17.0
+      - name: terraform fmt
+        run: terraform fmt -check -recursive ../..
+      - name: terraform validate
+        run: terraform init -backend=false -input=false && terraform validate
+

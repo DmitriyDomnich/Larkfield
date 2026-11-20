@@ -44,10 +44,7 @@ resource "aws_iam_openid_connect_provider" "github" {
 }
 
 data "aws_iam_policy_document" "github_trust" {
-  for_each = merge(
-    { for env in var.environments : "${env}-deploy" => "repo:${var.github_repo}:environment:${env}" },
-    { for env in var.environments : "${env}-plan" => "repo:${var.github_repo}:pull_request" },
-  )
+  for_each = { for env in var.environments : "${env}-deploy" => "repo:${var.github_repo}:environment:${env}" }
 
   statement {
     actions = ["sts:AssumeRoleWithWebIdentity"]

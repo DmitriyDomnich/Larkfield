@@ -28,7 +28,7 @@ resource "aws_secretsmanager_secret_version" "db" {
 }
 
 ephemeral "aws_secretsmanager_secret_version" "db" {
-  count      = var.runtime_enabled && var.apply_password ? 1 : 0
+  count      = var.runtime_enabled ? 1 : 0
   secret_id  = aws_secretsmanager_secret.db.id
   version_id = aws_secretsmanager_secret_version.db.version_id
 }

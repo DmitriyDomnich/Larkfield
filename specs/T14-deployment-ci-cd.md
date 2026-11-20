@@ -9,8 +9,8 @@ Multi-AZ / high availability, automatic secret rotation.
 | Criterion | How | Tested by |
 |---|---|---|
 | A merge to main builds, deploys and runs a smoke request without manual steps | `deploy.yml` on push to `main` (→ `prod`) or `dev` (→ `dev`): CI, image to ECR, `terraform apply`, KB ingestion, migration task, ECS deploy of API + workers, frontend release, smoke `GET /api/health` + `GET /` through CloudFront; a failed smoke rolls back. Stopped environment: base + image only, noted in the summary | `tests/test_workflows.py` (triggers, job order, environment per branch); manual run on `dev` and `prod` (Results) |
-| Pull requests run lint, type check, tests with coverage ≥ 80%, evals against fakes, and frontend lint and type check | `ci.yml` on `pull_request` + `workflow_call`: `lint`, `typecheck`, `test` (`fail_under = 80`), `evals` (`tests/evals`), `frontend`, `actionlint`, `terraform` (validate + read-only plan) | `tests/test_workflows.py` (jobs present, PR trigger); the PR's own checks |
-| GitHub holds no long-lived AWS keys | GitHub OIDC → `<project>-<env>-deploy`, `<project>-<env>-plan`, trusted per repo + environment / event; 1-hour sessions; repo secrets hold no AWS values | `tests/test_workflows.py` (every `configure-aws-credentials` uses `role-to-assume`, no `aws-access-key-id`, `id-token: write` only on jobs that assume a role); manual: `gh secret list` empty of AWS keys |
+| Pull requests run lint, type check, tests with coverage ≥ 80%, evals against fakes, and frontend lint and type check | `ci.yml` on `pull_request` + `workflow_call`: `lint`, `typecheck`, `test` (`fail_under = 80`), `evals` (`tests/evals`), `frontend`, `actionlint`, `terraform` (fmt + validate) | `tests/test_workflows.py` (jobs present, PR trigger); the PR's own checks |
+| GitHub holds no long-lived AWS keys | GitHub OIDC → `<project>-<env>-deploy`, trusted per repo + environment; 1-hour sessions; repo secrets hold no AWS values | `tests/test_workflows.py` (every `configure-aws-credentials` uses `role-to-assume`, no `aws-access-key-id`, `id-token: write` only on jobs that assume a role); manual: `gh secret list` empty of AWS keys |
 | Infrastructure changes deploy through the pipeline, not from a laptop | `deploy.yml` applies the environment roots; the state bucket policy lets only each deploy role write its state and lock; `Start`/`Stop` are workflows; `bootstrap` is the one admin-applied root | manual: a local `terraform apply` on `dev` fails on the lock; `tests/test_workflows.py` |
 | docs/pipeline.md describes every pipeline step and why it is there | One section per workflow, one entry per job/step: what, why, what failing means. Bootstrap, start/stop and rollback runbooks | `tests/test_workflows.py`: every job id and step `name` in `.github/workflows/*.yml` appears in `docs/pipeline.md` |
 | An alarm fires on failed claims; Bedrock tokens per claim are visible as a metric | EMF lines from the workers: `ClaimsFailed{Stage}` → alarm → SNS email; `BedrockInputTokens`/`OutputTokens{Stage}` per claim on the `<project>-<env>` dashboard; DLQ alarms | `tests/core/test_metrics.py`, `tests/extraction/test_worker_db.py`, `tests/review/test_review_db.py`; manual: an invalid upload → `failed` → alarm email |
@@ -120,29 +120,17 @@ sequenceDiagram
   (replaced once, with the boundary attached). The new roles need the boundary, which only exists
   after `bootstrap`, so `bootstrap` is applied first and the first pipeline deploy of `dev` does the
   move: besides its path, the deploy role may only *delete* the old root-path roles and policies
-  named `<project>-<env>-*` (no create, change or pass; its own and the plan role are explicit
-  denies). *Rejected:* an admin moving them from a laptop (three steps with `-target`, since the
+  named `<project>-<env>-*` (no create, change or pass; its own role is an explicit
+  deny). *Rejected:* an admin moving them from a laptop (three steps with `-target`, since the
   state bucket policy blocks laptop writes once `bootstrap` is applied). *Rejected:* `AdministratorAccess` (it can rewrite its own policy, so merging to
   main means owning the account), `PowerUserAccess` + IAM (escalation reopens unless boundaries are
   added anyway).
-- **`terraform plan` on PRs with a read-only role:** `<project>-<env>-plan`, trusted for
-  `repo:…:pull_request` (same-repo branches only; forks get no OIDC token). It can describe/list,
-  read its state key and write only the `.tflock`. Its only other object reads are the policies and
-  clauses buckets (policy text; refreshing `aws_s3_object` calls HeadObject, which needs
-  `s3:GetObject`), never the documents or site bucket, and no secret values (with
-  `secret_string_wo` the provider refreshes the version through `ListSecretVersionIds` only). The
-  PR plans against the environment its base branch deploys to, and the plan goes to the job
-  summary. The plan job declares no GitHub environment (that would change the OIDC `sub` to
-  `environment:<env>`, and the environment's branch rule rejects PR refs), so what it needs lives
-  in repo variables (Configuration). *Rejected:* no AWS on PRs (the first plan anyone sees is the one being
-  applied), plan behind a label (solo repo).
 - **DB password write-only, never in state:** an `ephemeral "random_password"` is written once to a
   base Secrets Manager secret (`secret_string_wo`, a new value only when `db_password_version`
   changes). The secret is the source of truth: RDS reads it through an ephemeral
   `aws_secretsmanager_secret_version` into `password_wo` (+ `password_wo_version`), so an
   instance created by any later Start, or restored from the snapshot, gets the same value. Neither
-  the state nor the plan contains it. The PR plan passes `apply_db_password = false` (its role can't
-  read the secret; write-only values never show in a plan anyway). ECS injects it as
+  the state nor the plan contains it. ECS injects it as
   `PGPASSWORD`, and libpq uses it because `DATABASE_URL` has none, so no code change. The secret
   survives stop/start and matches the restored snapshot. *Rejected:* the random value written to
   both the secret and RDS in one apply (RDS is created in a later apply than the secret, with a
@@ -173,11 +161,10 @@ sequenceDiagram
   it ships. The evals against fakes (`tests/evals`: scoring, the recorded runs' reports and
   injection cases, the run loop with `review_fakes`) get their own `evals` job
   (`pytest tests/evals --no-cov`), so a failing eval shows as its own check; `test` still runs
-  everything with `fail_under = 80`. `actionlint` checks the workflows; `terraform` validates
-  `bootstrap`, `dev` and `prod`, and plans `dev`/`prod`.
+  everything with `fail_under = 80`. `actionlint` checks the workflows; `terraform` checks the format and validates
+  `bootstrap`, `dev` and `prod`.
 - **Laptop applies are blocked, not just discouraged:** the state bucket's policy (bootstrap)
-  allows writing `dev/` and `prod/` state and locks only to that environment's deploy role (plan
-  roles: the `.tflock` only), so a local `terraform apply` fails on the lock. Local `plan` still
+  allows writing `dev/` and `prod/` state and locks only to that environment's deploy role, so a local `terraform apply` fails on the lock. Local `plan` still
   works for an admin. `bootstrap/` stays writable by an admin only.
 - **Policy KB synced by the pipeline:** the deploy runs `make kb-build` before `terraform apply` (the
   module uploads `build/kb-clauses`), then `start-ingestion-job` on the clause data source and waits
@@ -222,7 +209,7 @@ sequenceDiagram
 ## Configuration
 
 - **Terraform `infra/terraform/bootstrap`** (admin, once): GitHub OIDC provider; per environment
-  the `deploy` and `plan` roles and the `boundary` policy; the state bucket (imported) and its
+  the `deploy` role and the `boundary` policy; the state bucket (imported) and its
   policy. Variables: `github_repo`, `environments`, `state_bucket`.
 - **`environments/prod`:** a new root like `dev`, state key `prod/terraform.tfstate`, only the
   `clause` KB, Cognito with `enable_password_auth = false` and deletion protection, and
@@ -245,9 +232,9 @@ sequenceDiagram
 - **Naming:** `<project>` is `larkfield`; a new `environment` variable (`dev` | `prod`) makes the
   resource prefix `larkfield-<env>`, which is today's `project_name` in dev, so no existing resource
   is renamed. SSM `/larkfield-<env>/runtime_enabled`, snapshot `larkfield-<env>-latest`, IAM path
-  `/larkfield-<env>/`, roles `larkfield-<env>-deploy|plan`, metrics namespace `Larkfield/<env>`.
+  `/larkfield-<env>/`, role `larkfield-<env>-deploy`, metrics namespace `Larkfield/<env>`.
 - **New variables:** `environment`, `runtime_enabled` (also SSM `/larkfield-<env>/runtime_enabled`),
-  `alarm_email`, `db_password_version`, `restore_db_snapshot`, `apply_db_password`, `image_tag`
+  `alarm_email`, `db_password_version`, `restore_db_snapshot`, `image_tag`
   (the SHA the deploy pushed; the base task definitions point at it). `frontend_origins` becomes the distribution's origin plus `extra_frontend_origins`
   (localhost in dev). IAM roles and policies move under `/<project>-<env>/`.
 - **Task environment:** what compose sets today, from Terraform outputs; `APP_ENV` = `dev`/`prod`,
@@ -255,15 +242,16 @@ sequenceDiagram
   distribution's origin. No new `Settings` fields.
 - **Frontend build:** `NEXT_PUBLIC_API_URL = https://<distribution>/api` and the other
   `NEXT_PUBLIC_*` from Terraform outputs in the deploy job.
-- **GitHub:** environments `dev` (branch `dev`) and `prod` (branch `main`), each holding only
-  `AWS_ROLE_ARN` (the deploy role). Repo variables, readable by the PR plan job too: `AWS_REGION`,
-  `TF_STATE_BUCKET`, `DEV_PLAN_ROLE_ARN`, `PROD_PLAN_ROLE_ARN`, `DEV_TFVARS`, `PROD_TFVARS` (JSON of
-  today's `terraform.tfvars` values: sender/recipient/alarm emails, inference profiles; written to
-  `ci.auto.tfvars.json` by both plan and deploy). No secrets. Branch protection on `main` and `dev`: PR required, CI green.
+- **GitHub:** environments `dev` (branch `dev`) and `prod` (branch `main`), each with the
+  variables `AWS_ROLE_ARN` (the deploy role) and `TFVARS` (JSON of today's `terraform.tfvars`
+  values: sender/recipient/alarm emails, inference profiles; written to `ci.auto.tfvars.json`).
+  Repo variables `AWS_REGION`, `TF_STATE_BUCKET`. No secrets. Branch protection on `main` and `dev`: PR required, CI green.
 - **Workflows:** `ci.yml` (changed: `pull_request` + `workflow_call`, new `evals`, `actionlint`,
-  plan), `deploy.yml`, `environment.yml` (Start/Stop).
+  all Terraform roots), `deploy.yml`, `environment.yml` (Start/Stop).
 - **Code:** `app/core/metrics.py`, calls in both workers, `docs/pipeline.md`; `pyyaml` as a dev
-  dependency for `tests/test_workflows.py`.
+  dependency for `tests/test_workflows.py`; `infra/scripts/terraform-vars.sh`, shared by the
+  deploy and Start/Stop jobs (tfvars from the environment variable, `runtime_enabled` from SSM,
+  `restore_db_snapshot`).
 
 ## Known gaps
 
@@ -271,7 +259,6 @@ sequenceDiagram
   manual by design.
 - The deploy role can delete the pre-T14 root-path roles and policies named `<project>-<env>-*`
   (needed once, for the move); deleting is within what it can already do to its environment.
-- The PR plan role can read the policy and clause files (needed to refresh their `aws_s3_object`s).
 - Dev and prod share one AWS account: the boundary and name prefixes separate them, but an IAM
   mistake in a boundary affects both. Separate accounts would make it a hard boundary.
 - Whoever can merge to `main` can do anything the prod deploy role can (read every receipt, delete
@@ -310,8 +297,8 @@ sequenceDiagram
 ## Commit plan
 
 - [x] 1. EMF metrics module; `ClaimsFailed` on every path to `failed` and Bedrock token metrics once per claim per stage in both workers — alarm/tokens (code part) — `add emf metrics module, claims failed and bedrock token metrics per claim from both workers, tests`
-- [x] 2. `bootstrap` root: GitHub OIDC provider, per-environment deploy and plan roles with the permissions boundary, imported state bucket and its policy; Terraform `>= 1.11`; existing roles and policies under `/<project>-<env>/` — no long-lived keys, infra through the pipeline — `add terraform bootstrap root with github oidc, deploy and plan roles, permissions boundary, state bucket policy, iam paths`
+- [x] 2. `bootstrap` root: GitHub OIDC provider, per-environment deploy roles with the permissions boundary, imported state bucket and its policy; Terraform `>= 1.11`; existing roles and policies under `/<project>-<env>/` — no long-lived keys, infra through the pipeline — `add terraform bootstrap root with github oidc, deploy roles, permissions boundary, state bucket policy, iam paths`
 - [x] 3. `network`, `database`, `runtime` modules behind `runtime_enabled`, wired into `dev`: VPC, NAT, S3 endpoint, RDS with write-only password, ECR, ECS cluster + services + migration task, internal ALB — merge deploys (infra) — `add network, database and runtime terraform modules behind the runtime toggle, wire into dev`
 - [x] 4. `frontend` and `monitoring` modules, `environments/prod`: site bucket, CloudFront with OAC, VPC origin, functions, headers policy; SNS, alarms, dashboard — merge deploys (infra), alarm/tokens (infra) — `add frontend and monitoring terraform modules, prod environment root, ses identities owned by dev`
-- [ ] 5. `ci.yml` on `pull_request` + `workflow_call` with `evals`, `actionlint`, terraform validate of every root + read-only plan; `tests/test_workflows.py`, `docs/pipeline.md` CI section, `pyyaml` — PR checks, docs, no long-lived keys — `add evals, actionlint and terraform plan ci jobs, reusable ci, workflow tests, pipeline docs`
+- [x] 5. `ci.yml` on `pull_request` + `workflow_call` with `evals`, `actionlint`, terraform fmt + validate of every root, removal of the plan roles and `apply_db_password`; `tests/test_workflows.py`, `docs/pipeline.md` CI section, `pyyaml` — PR checks, docs, no long-lived keys — `add evals and actionlint ci jobs, validate every terraform root, reusable ci, workflow tests, pipeline docs, remove plan roles`
 - [ ] 6. `deploy.yml` and `environment.yml` (Start/Stop), runbooks (bootstrap, start/stop, rollback), workflow tests — merge deploys, infra through the pipeline, docs, no long-lived keys — `add deploy workflow with migration, ecs deploy, frontend release, smoke and rollback, start/stop workflow, runbooks, tests`
