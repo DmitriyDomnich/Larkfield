@@ -29,6 +29,7 @@ from app.review.queue import ReviewMessage, get_review_requests
 from app.review.settings import ReviewWorkerSettings
 from app.review.worker import ReviewWorker
 from tests.claims.fakes import auth
+from tests.core.fakes import RecordingMetrics
 from tests.notifications.fakes import FakeNotificationService
 from tests.review.db import extracted_claim
 from tests.review.fakes import FakeAgent, FakeReviewQueue, proposal_input
@@ -524,7 +525,12 @@ async def test_the_agent_reviews_the_answered_claim_and_the_reviewer_decides_aga
     )
     agent = FakeAgent(approve)
     worker = ReviewWorker(
-        ReviewWorkerSettings(), FakeReviewQueue(), sessions, agent, FakeNotificationService()
+        ReviewWorkerSettings(),
+        FakeReviewQueue(),
+        sessions,
+        agent,
+        FakeNotificationService(),
+        RecordingMetrics(),
     )
     await worker.handle_message(ReviewMessage("handle-1", claim_id, 1))
 

@@ -9,6 +9,7 @@ from app.claims.models import Claim
 from app.claims.service import ConcurrentTransitionError, InvalidTransitionError, transition
 from app.claims.status import ClaimStatus
 from app.core.db import SessionFactory
+from app.core.metrics import ClaimMetrics, MetricStage
 from app.review.agent import NoValidProposal, ReviewAgent, ValidProposal
 from app.review.claim_data import load_extracted_claim
 from app.review.models import ClaimAnswer, Proposal, ReviewerDecision
@@ -27,6 +28,7 @@ TECHNICAL_FAILURE_REASON = (
 async def review_claim(
     sessions: SessionFactory,
     agent: ReviewAgent,
+    metrics: ClaimMetrics,
     claim_id: uuid.UUID,
     *,
     receive_count: int,
@@ -45,6 +47,7 @@ async def review_claim(
             raise
         logger.exception("review of claim %s failed on the last delivery", claim_id)
         return await _finish_claim(sessions, claim_id, None, TECHNICAL_FAILURE_REASON)
+    metrics.bedrock_tokens(MetricStage.REVIEW, claim_id, outcome.usage)
 
     match outcome:
         case ValidProposal():

@@ -6,6 +6,7 @@ from decimal import Decimal
 
 import pytest
 
+from app.core.metrics import TokenUsage
 from app.review.agent import (
     NoValidProposal,
     StrandsReviewAgent,
@@ -77,6 +78,8 @@ async def test_the_agent_consults_the_tools_and_returns_a_valid_proposal() -> No
     assert outcome.proposal.reasons[0].clause_id == "2.1"
     assert outcome.model == MODEL_NAME
     assert outcome.retrieved_clauses == ["FAQ-13", "2.1", "1.2"]
+    # the tokens of all 4 model calls
+    assert outcome.usage == TokenUsage(40, 20)
 
     search, clause, duplicates = model.tool_results()
     faq, clause_2_1 = json.loads(search)
@@ -183,6 +186,7 @@ async def test_no_valid_proposal_within_the_turn_limit() -> None:
     assert isinstance(outcome, NoValidProposal)
     assert "limit_turns" in outcome.detail
     assert len(model.calls) == 3
+    assert outcome.usage == TokenUsage(30, 15)
 
 
 @pytest.mark.parametrize("failing_turn", [SEARCH, (GET_CLAUSE_TOOL, {"clause_id": "2.1"})])

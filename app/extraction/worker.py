@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from app.claims.status import ClaimStatus
 from app.claims.storage import ObjectStorage, S3ObjectStorage
 from app.core.db import SessionFactory, build_engine, build_session_factory
+from app.core.metrics import ClaimMetrics, MetricStage
 from app.extraction.extractor import BedrockExtractor, ExpenseExtractor
 from app.extraction.queue import SqsUploadQueue, UploadMessage, UploadQueue
 from app.extraction.service import process_upload
@@ -30,6 +31,7 @@ class ExtractionWorker:
         extractor: ExpenseExtractor,
         reviews: ReviewRequests,
         notification_service: NotificationService,
+        metrics: ClaimMetrics,
     ) -> None:
         self._settings = settings
         self._queue = queue
@@ -38,6 +40,7 @@ class ExtractionWorker:
         self._extractor = extractor
         self._reviews = reviews
         self._notification_service = notification_service
+        self._metrics = metrics
 
     async def run(self, stop: asyncio.Event) -> None:
         logger.info("extraction worker started")
@@ -60,6 +63,7 @@ class ExtractionWorker:
                         session,
                         self._storage,
                         self._extractor,
+                        self._metrics,
                         uploaded,
                         today=datetime.now(UTC).date(),
                         receive_count=message.receive_count,
@@ -72,6 +76,7 @@ class ExtractionWorker:
                     # if this fails -> the redelivery requests it again
                     await self._reviews.request_review(finished_claim.claim_id)
                 else:
+                    self._metrics.claim_failed(MetricStage.EXTRACTION, finished_claim.claim_id)
                     await notify_claim_failed(
                         self._sessions, self._notification_service, finished_claim.claim_id
                     )
@@ -97,6 +102,7 @@ async def run_worker() -> None:
         BedrockExtractor(settings),
         SqsReviewQueue(settings),
         SqsNotificationService(settings),
+        ClaimMetrics(settings.app_env),
     )
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
