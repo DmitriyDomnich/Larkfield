@@ -62,12 +62,6 @@ variable "db_password_version" {
   default = 1
 }
 
-variable "apply_db_password" {
-  description = "false in the pull request plan, whose role can't read the password secret."
-  type        = bool
-  default     = true
-}
-
 variable "image_tag" {
   description = "Git SHA of the image the deploy pushed to ECR."
   type        = string

@@ -13,7 +13,7 @@ variable "github_repo" {
 }
 
 variable "environments" {
-  description = "One deploy role, plan role and boundary per environment; each has a Terraform root."
+  description = "One deploy role and boundary per environment; each has a Terraform root."
   type        = list(string)
   default     = ["dev", "prod"]
 }

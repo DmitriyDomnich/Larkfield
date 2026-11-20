@@ -26,7 +26,6 @@ class TokenUsage:
 
 
 class ClaimMetrics:
-
     def __init__(self, app_env: str, stream: TextIO | None = None) -> None:
         self.namespace = f"{NAMESPACE_PREFIX}/{app_env}"
         self._stream = stream

@@ -137,7 +137,6 @@ module "database" {
   runtime_enabled  = var.runtime_enabled
   restore_snapshot = var.restore_db_snapshot
   password_version = var.db_password_version
-  apply_password   = var.apply_db_password
   vpc_id           = module.network.vpc_id
   subnet_ids       = module.network.private_subnet_ids
 }
