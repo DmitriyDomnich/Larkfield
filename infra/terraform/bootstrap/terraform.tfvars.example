@@ -1,0 +1,4 @@
+# read automatically by `terraform plan/apply`
+aws_region          = "<region>"
+github_repo         = "<owner>/<repo>"
+state_bucket        = "larkfield-tfstate-<suffix>"

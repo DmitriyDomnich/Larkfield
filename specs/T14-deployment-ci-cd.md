@@ -10,11 +10,10 @@ Multi-AZ / high availability, automatic secret rotation.
 |---|---|---|
 | A merge to main builds, deploys and runs a smoke request without manual steps | `deploy.yml` on push to `main` (→ `prod`) or `dev` (→ `dev`): CI, image to ECR, `terraform apply`, KB ingestion, migration task, ECS deploy of API + workers, frontend release, smoke `GET /api/health` + `GET /` through CloudFront; a failed smoke rolls back. Stopped environment: base + image only, noted in the summary | `tests/test_workflows.py` (triggers, job order, environment per branch); manual run on `dev` and `prod` (Results) |
 | Pull requests run lint, type check, tests with coverage ≥ 80%, evals against fakes, and frontend lint and type check | `ci.yml` on `pull_request` + `workflow_call`: `lint`, `typecheck`, `test` (`fail_under = 80`), `evals` (`tests/evals`), `frontend`, `actionlint`, `terraform` (validate + read-only plan) | `tests/test_workflows.py` (jobs present, PR trigger); the PR's own checks |
-| GitHub holds no long-lived AWS keys | GitHub OIDC → `<project>-<env>-deploy`, `<project>-<env>-plan`, `<project>-ci-review`, trusted per repo + environment / event; 1-hour sessions; repo secrets hold no AWS values | `tests/test_workflows.py` (every `configure-aws-credentials` uses `role-to-assume`, no `aws-access-key-id`, `id-token: write` only on jobs that assume a role); manual: `gh secret list` empty of AWS keys |
+| GitHub holds no long-lived AWS keys | GitHub OIDC → `<project>-<env>-deploy`, `<project>-<env>-plan`, trusted per repo + environment / event; 1-hour sessions; repo secrets hold no AWS values | `tests/test_workflows.py` (every `configure-aws-credentials` uses `role-to-assume`, no `aws-access-key-id`, `id-token: write` only on jobs that assume a role); manual: `gh secret list` empty of AWS keys |
 | Infrastructure changes deploy through the pipeline, not from a laptop | `deploy.yml` applies the environment roots; the state bucket policy lets only each deploy role write its state and lock; `Start`/`Stop` are workflows; `bootstrap` is the one admin-applied root | manual: a local `terraform apply` on `dev` fails on the lock; `tests/test_workflows.py` |
 | docs/pipeline.md describes every pipeline step and why it is there | One section per workflow, one entry per job/step: what, why, what failing means. Bootstrap, start/stop and rollback runbooks | `tests/test_workflows.py`: every job id and step `name` in `.github/workflows/*.yml` appears in `docs/pipeline.md` |
 | An alarm fires on failed claims; Bedrock tokens per claim are visible as a metric | EMF lines from the workers: `ClaimsFailed{Stage}` → alarm → SNS email; `BedrockInputTokens`/`OutputTokens{Stage}` per claim on the `<project>-<env>` dashboard; DLQ alarms | `tests/core/test_metrics.py`, `tests/extraction/test_worker_db.py`, `tests/review/test_review_db.py`; manual: an invalid upload → `failed` → alarm email |
-| Claude Code runs headless in GitHub Actions to review pull requests | `claude-review.yml`: `claude -p` via Bedrock (OIDC), read-only tools + `gh pr comment --edit-last`, advisory | `tests/test_workflows.py` (allowed tools, permissions, no API key); manual: the T14 PR gets a review comment |
 
 ## Flow
 
@@ -113,17 +112,20 @@ sequenceDiagram
   `infra/terraform/bootstrap` (OIDC provider, the deploy roles, the boundary) is applied once by an
   admin from a laptop, the one documented exception: it is what lets the pipeline in, so the
   pipeline can't be allowed to change it. Existing roles and policies move under the IAM path
-  (replaced once). The deploy role can only delete roles under that path, so the first move is an
-  admin's: apply `dev` once from a laptop (`runtime_enabled = false`), then apply `bootstrap`, whose
-  state bucket policy then blocks laptop writes. *Rejected:* `AdministratorAccess` (it can rewrite its own policy, so merging to
+  (replaced once, with the boundary attached). The new roles need the boundary, which only exists
+  after `bootstrap`, so `bootstrap` is applied first and the first pipeline deploy of `dev` does the
+  move: besides its path, the deploy role may only *delete* the old root-path roles and policies
+  named `<project>-<env>-*` (no create, change or pass; its own and the plan role are explicit
+  denies). *Rejected:* an admin moving them from a laptop (three steps with `-target`, since the
+  state bucket policy blocks laptop writes once `bootstrap` is applied). *Rejected:* `AdministratorAccess` (it can rewrite its own policy, so merging to
   main means owning the account), `PowerUserAccess` + IAM (escalation reopens unless boundaries are
   added anyway).
 - **`terraform plan` on PRs with a read-only role:** `<project>-<env>-plan`, trusted for
   `repo:…:pull_request` (same-repo branches only; forks get no OIDC token). It can describe/list,
   read its state key and write only the `.tflock`. Its only other object reads are the policies and
   clauses buckets (policy text; refreshing `aws_s3_object` calls HeadObject, which needs
-  `s3:GetObject`), never the documents or site bucket, and no secret values (if refreshing the DB
-  secret's version needs `GetSecretValue`, that one secret is allowed and noted in Known gaps). The
+  `s3:GetObject`), never the documents or site bucket, and no secret values (with
+  `secret_string_wo` the provider refreshes the version through `ListSecretVersionIds` only). The
   PR plans against the environment its base branch deploys to, and the plan goes to the job
   summary. The plan job declares no GitHub environment (that would change the OIDC `sub` to
   `environment:<env>`, and the environment's branch rule rejects PR refs), so what it needs lives
@@ -155,18 +157,6 @@ sequenceDiagram
   review or notification DLQ (closes T12's DLQ gap), with missing data treated as OK. The alarms live
   with the runtime, so a stopped environment never alarms. *Rejected:* failed claims only (DLQs
   unwatched), no target (nobody is told).
-- **Claude Code reviews PRs headless, through Bedrock, advisory:** `claude-review.yml` on
-  `pull_request` (opened, synchronize; same-repo only) installs the CLI and runs `claude -p` with
-  `CLAUDE_CODE_USE_BEDROCK=1`. Credentials come from OIDC to `<project>-ci-review` (bootstrap),
-  which may only call `bedrock:InvokeModel*` on one Claude `eu.` inference profile, so there is no
-  API key anywhere and it bills to the AWS credits. The prompt is CLAUDE.md's rules + the linked
-  spec + the diff; tools are limited by `--allowedTools` to `Read`, `Grep`, `Glob` and
-  `Bash(gh pr view/diff/comment:*)`, with a `GITHUB_TOKEN` of `contents: read`,
-  `pull-requests: write`. It posts one summary comment and edits it on each push
-  (`gh pr comment --edit-last`). Not a required check: PR text is untrusted input, and the most it
-  can do is post a misleading comment. *Rejected:* `ANTHROPIC_API_KEY` (a long-lived key, separate
-  bill), a required check (merges would depend on a nondeterministic reviewer and the quota),
-  inline comments per finding (noisy on every push).
 - **CI is reused by the deploy:** `ci.yml` runs on `pull_request` and as a `workflow_call`.
   `deploy.yml` (push to `dev`/`main`) calls it first, so the merge commit itself is tested before
   it ships. The evals against fakes (`tests/evals`: scoring, the recorded runs' reports and
@@ -210,15 +200,19 @@ sequenceDiagram
   The uncomfortable part: within its environment it can do anything the app can, plus delete it.
   It can read every receipt and secret, drop the database, or run code as a boundary-capped role.
   So whoever can push to `main` (or `dev`) holds that power, and branch protection with a required
-  PR and green CI on both branches is part of the control. Dev's role can't touch prod (name
-  prefix, separate state key), but both share one account; separate accounts would make that a
-  hard boundary (Known gaps).
+  PR and green CI on both branches is part of the control. Dev's role can't touch prod: name
+  prefixes where the ARN has a name, a separate state key, and for services addressed by id (EC2,
+  CloudFront, Cognito, SES, Bedrock) an explicit deny on any resource or request tagged with
+  another `Environment` (every resource carries its root's `default_tags`). Both share one
+  account, though; separate accounts would make that a hard boundary (Known gaps). The pipeline
+  roles, their policies and the boundaries sit under the IAM path `/<project>-bootstrap/`, outside
+  every environment's path.
 
 ## Configuration
 
 - **Terraform `infra/terraform/bootstrap`** (admin, once): GitHub OIDC provider; per environment
-  the `deploy` and `plan` roles and the `boundary` policy; `<project>-ci-review`; the state bucket
-  (imported) and its policy. Variables: `github_repo`, `environments`, `review_bot_model_id`.
+  the `deploy` and `plan` roles and the `boundary` policy; the state bucket (imported) and its
+  policy. Variables: `github_repo`, `environments`, `state_bucket`.
 - **`environments/prod`:** a new root like `dev`, state key `prod/terraform.tfstate`, only the
   `clause` KB, Cognito with `enable_password_auth = false`.
 - **New modules:** `network` (VPC, 2 public + 2 private subnets, IGW, S3 gateway endpoint on the
@@ -248,16 +242,18 @@ sequenceDiagram
   `AWS_ROLE_ARN` (the deploy role). Repo variables, readable by the PR plan job too: `AWS_REGION`,
   `TF_STATE_BUCKET`, `DEV_PLAN_ROLE_ARN`, `PROD_PLAN_ROLE_ARN`, `DEV_TFVARS`, `PROD_TFVARS` (JSON of
   today's `terraform.tfvars` values: sender/recipient/alarm emails, inference profiles; written to
-  `ci.auto.tfvars.json` by both plan and deploy), `CLAUDE_REVIEW_ROLE_ARN`. No secrets. Branch protection on `main` and `dev`: PR required, CI green.
+  `ci.auto.tfvars.json` by both plan and deploy). No secrets. Branch protection on `main` and `dev`: PR required, CI green.
 - **Workflows:** `ci.yml` (changed: `pull_request` + `workflow_call`, new `evals`, `actionlint`,
-  plan), `deploy.yml`, `environment.yml` (Start/Stop), `claude-review.yml`.
+  plan), `deploy.yml`, `environment.yml` (Start/Stop).
 - **Code:** `app/core/metrics.py`, calls in both workers, `docs/pipeline.md`; `pyyaml` as a dev
   dependency for `tests/test_workflows.py`.
 
 ## Known gaps
 
 - `bootstrap` is applied from a laptop by an admin; changing the deploy roles or the boundary is
-  manual by design. So is the first `dev` apply that moves today's IAM roles under the new path.
+  manual by design.
+- The deploy role can delete the pre-T14 root-path roles and policies named `<project>-<env>-*`
+  (needed once, for the move); deleting is within what it can already do to its environment.
 - The PR plan role can read the policy and clause files (needed to refresh their `aws_s3_object`s).
 - Dev and prod share one AWS account: the boundary and name prefixes separate them, but an IAM
   mistake in a boundary affects both. Separate accounts would make it a hard boundary.
@@ -273,15 +269,13 @@ sequenceDiagram
 - Stop/start loses nothing in the DB but takes about 10–15 min to start; RDS snapshots bill for
   storage. Messages arriving while stopped wait in SQS (4-day default retention, 14 for DLQs).
 - No password rotation: rotating means bumping `db_password_version` and redeploying.
-- Claude review comments can be steered by text in the PR (prompt injection); they are advisory
-  and the bot can only comment.
 
 ## Testing
 
 - **Unit:** the EMF line (namespace, dimensions, units, `claim_id` property); workers emit
   `ClaimsFailed` on each failure path and one token metric per claim per stage (fake Bedrock and
   agent results); `tests/test_workflows.py` parses the workflows: triggers, job graph, environment
-  per branch, OIDC only, no AWS keys, the `evals` job, Claude's allowed tools, and every job/step
+  per branch, OIDC only, no AWS keys, the `evals` job, and every job/step
   documented in `docs/pipeline.md`.
 - **Integration:** the existing worker DB tests extended with the metric assertions
   (`tests/extraction/test_worker_db.py`, `tests/review/test_review_db.py`).
@@ -289,17 +283,15 @@ sequenceDiagram
   commit whose API fails `/health`, see the circuit breaker roll back; break the smoke request (bad
   CloudFront path), see the job restore the revisions and frontend; a local `terraform apply`
   fails on the lock; an invalid upload → `failed` → alarm email, and tokens on the dashboard
-  after a claim reaches `in_review`; Stop, then Start, data still there; merge to `main` → prod; the
-  T14 PR gets a Claude review comment.
+  after a claim reaches `in_review`; Stop, then Start, data still there; merge to `main` → prod.
 
 ## Results
 
 ## Commit plan
 
 - [x] 1. EMF metrics module; `ClaimsFailed` on every path to `failed` and Bedrock token metrics once per claim per stage in both workers — alarm/tokens (code part) — `add emf metrics module, claims failed and bedrock token metrics per claim from both workers, tests`
-- [ ] 2. `bootstrap` root: GitHub OIDC provider, per-environment deploy and plan roles with the permissions boundary, `ci-review` role, imported state bucket and its policy; Terraform `>= 1.11`; existing roles and policies under `/<project>-<env>/` — no long-lived keys, infra through the pipeline — `add terraform bootstrap root with github oidc, deploy and plan roles, permissions boundary, review bot role, state bucket policy, iam paths`
+- [x] 2. `bootstrap` root: GitHub OIDC provider, per-environment deploy and plan roles with the permissions boundary, imported state bucket and its policy; Terraform `>= 1.11`; existing roles and policies under `/<project>-<env>/` — no long-lived keys, infra through the pipeline — `add terraform bootstrap root with github oidc, deploy and plan roles, permissions boundary, state bucket policy, iam paths`
 - [ ] 3. `network`, `database`, `runtime` modules behind `runtime_enabled`, wired into `dev`: VPC, NAT, S3 endpoint, RDS with write-only password, ECR, ECS cluster + services + migration task, internal ALB — merge deploys (infra) — `add network, database and runtime terraform modules behind the runtime toggle, wire into dev`
 - [ ] 4. `edge` and `monitoring` modules, `environments/prod`: site bucket, CloudFront with OAC, VPC origin, functions, headers policy; SNS, alarms, dashboard — merge deploys (infra), alarm/tokens (infra) — `add edge and monitoring terraform modules, prod environment root`
 - [ ] 5. `ci.yml` on `pull_request` + `workflow_call` with `evals`, `actionlint`, terraform validate of every root + read-only plan; `tests/test_workflows.py`, `docs/pipeline.md` CI section, `pyyaml` — PR checks, docs, no long-lived keys — `add evals, actionlint and terraform plan ci jobs, reusable ci, workflow tests, pipeline docs`
 - [ ] 6. `deploy.yml` and `environment.yml` (Start/Stop), runbooks (bootstrap, start/stop, rollback), workflow tests — merge deploys, infra through the pipeline, docs, no long-lived keys — `add deploy workflow with migration, ecs deploy, frontend release, smoke and rollback, start/stop workflow, runbooks, tests`
-- [ ] 7. `claude-review.yml`, docs, workflow tests — Claude PR review — `add claude code pr review workflow through bedrock oidc, docs, tests`

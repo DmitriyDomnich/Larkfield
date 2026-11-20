@@ -2,9 +2,15 @@ variable "aws_region" {
   type = string
 }
 
-variable "project_name" {
+variable "project" {
   type    = string
-  default = "larkfield-dev"
+  default = "larkfield"
+}
+
+variable "environment" {
+  description = "Prefixes every resource (<project>-<environment>-*) and tags it; the deploy role is scoped by both."
+  type        = string
+  default     = "dev"
 }
 
 variable "frontend_origins" {

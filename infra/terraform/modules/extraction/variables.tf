@@ -26,3 +26,9 @@ variable "review_queue_arn" {
   description = "The review queue the worker sends a request to once a claim is extracted."
   type        = string
 }
+
+variable "iam_path" {
+  description = "IAM path of the module's roles and policies; the deploy role manages only this path."
+  type        = string
+  default     = "/"
+}

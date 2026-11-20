@@ -1,0 +1,3 @@
+# read by `terraform init -backend-config=backend.hcl`: the same state bucket as the environments
+bucket = "larkfield-tfstate-<suffix>"
+region = "<region>"

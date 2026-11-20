@@ -55,3 +55,15 @@ variable "chunking_strategies" {
     error_message = "A chunking strategy's source is documents or clauses."
   }
 }
+
+variable "iam_path" {
+  description = "IAM path of the module's roles and policies; the deploy role manages only this path."
+  type        = string
+  default     = "/"
+}
+
+variable "permissions_boundary_arn" {
+  description = "Boundary every role must carry for the deploy role to create it."
+  type        = string
+  default     = null
+}
