@@ -51,7 +51,10 @@ sequenceDiagram
   creates or destroys only what bills by the hour: the ALB, the VPC origin and CloudFront's `/api/*`
   behavior, RDS, the ECS services and the NAT gateway with its Elastic IP. Cognito, the buckets, SQS, Lambdas, SES
   identities, the KBs, ECR, IAM and the CloudFront distribution stay, so users, verified emails and
-  the URL survive. Stop snapshots RDS (`<project>-latest`); start restores from it. `Start` and
+  the URL survive. Stop deletes the previous `<project>-latest` snapshot and takes a new one as the
+  instance's final snapshot; start restores from it (`restore_db_snapshot`, set by the workflows
+  when that snapshot exists, since Terraform can't look it up without failing when it's missing;
+  `snapshot_identifier` is ignored after create, so a deploy never replaces the database). `Start` and
   `Stop` are `workflow_dispatch` runs per environment that write `/<project>/runtime_enabled`
   (SSM) and apply; start then deploys the newest image of the branch. A push while the environment
   is stopped applies the base and pushes the image, then skips migrate/deploy/smoke with a notice in
@@ -131,11 +134,17 @@ sequenceDiagram
   `environment:<env>`, and the environment's branch rule rejects PR refs), so what it needs lives
   in repo variables (Configuration). *Rejected:* no AWS on PRs (the first plan anyone sees is the one being
   applied), plan behind a label (solo repo).
-- **DB password write-only, never in state:** an `ephemeral "random_password"` feeds a base
-  Secrets Manager secret (`secret_string_wo`) and RDS (`password_wo` + `password_wo_version`), so
-  neither the state nor the plan, which the PR role reads, contains it. ECS injects it as
+- **DB password write-only, never in state:** an `ephemeral "random_password"` is written once to a
+  base Secrets Manager secret (`secret_string_wo`, a new value only when `db_password_version`
+  changes). The secret is the source of truth: RDS reads it through an ephemeral
+  `aws_secretsmanager_secret_version` into `password_wo` (+ `password_wo_version`), so an
+  instance created by any later Start, or restored from the snapshot, gets the same value. Neither
+  the state nor the plan contains it. The PR plan passes `apply_db_password = false` (its role can't
+  read the secret; write-only values never show in a plan anyway). ECS injects it as
   `PGPASSWORD`, and libpq uses it because `DATABASE_URL` has none, so no code change. The secret
-  survives stop/start and matches the restored snapshot. *Rejected:* the RDS-managed password
+  survives stop/start and matches the restored snapshot. *Rejected:* the random value written to
+  both the secret and RDS in one apply (RDS is created in a later apply than the secret, with a
+  new random value the secret doesn't hold), the RDS-managed password
   (7-day rotation breaks running tasks; deleted with the instance on stop; can't be set on a
   PostgreSQL snapshot restore), `random_password` (in state).
 - **Metrics as Embedded Metric Format log lines:** a small `app/core/metrics.py` prints one EMF
@@ -231,7 +240,8 @@ sequenceDiagram
   is renamed. SSM `/larkfield-<env>/runtime_enabled`, snapshot `larkfield-<env>-latest`, IAM path
   `/larkfield-<env>/`, roles `larkfield-<env>-deploy|plan`, metrics namespace `Larkfield/<env>`.
 - **New variables:** `environment`, `runtime_enabled` (also SSM `/larkfield-<env>/runtime_enabled`),
-  `alarm_email`, `db_password_version`. `frontend_origins` becomes the distribution's origin (+ localhost in
+  `alarm_email`, `db_password_version`, `restore_db_snapshot`, `apply_db_password`, `image_tag`
+  (the SHA the deploy pushed; the base task definitions point at it). `frontend_origins` becomes the distribution's origin (+ localhost in
   dev). IAM roles and policies move under `/<project>-<env>/`.
 - **Task environment:** what compose sets today, from Terraform outputs; `APP_ENV` = `dev`/`prod`,
   `DATABASE_URL` without a password, `PGPASSWORD` from the secret, `FRONTEND_ORIGINS` = the
@@ -291,7 +301,7 @@ sequenceDiagram
 
 - [x] 1. EMF metrics module; `ClaimsFailed` on every path to `failed` and Bedrock token metrics once per claim per stage in both workers — alarm/tokens (code part) — `add emf metrics module, claims failed and bedrock token metrics per claim from both workers, tests`
 - [x] 2. `bootstrap` root: GitHub OIDC provider, per-environment deploy and plan roles with the permissions boundary, imported state bucket and its policy; Terraform `>= 1.11`; existing roles and policies under `/<project>-<env>/` — no long-lived keys, infra through the pipeline — `add terraform bootstrap root with github oidc, deploy and plan roles, permissions boundary, state bucket policy, iam paths`
-- [ ] 3. `network`, `database`, `runtime` modules behind `runtime_enabled`, wired into `dev`: VPC, NAT, S3 endpoint, RDS with write-only password, ECR, ECS cluster + services + migration task, internal ALB — merge deploys (infra) — `add network, database and runtime terraform modules behind the runtime toggle, wire into dev`
+- [x] 3. `network`, `database`, `runtime` modules behind `runtime_enabled`, wired into `dev`: VPC, NAT, S3 endpoint, RDS with write-only password, ECR, ECS cluster + services + migration task, internal ALB — merge deploys (infra) — `add network, database and runtime terraform modules behind the runtime toggle, wire into dev`
 - [ ] 4. `edge` and `monitoring` modules, `environments/prod`: site bucket, CloudFront with OAC, VPC origin, functions, headers policy; SNS, alarms, dashboard — merge deploys (infra), alarm/tokens (infra) — `add edge and monitoring terraform modules, prod environment root`
 - [ ] 5. `ci.yml` on `pull_request` + `workflow_call` with `evals`, `actionlint`, terraform validate of every root + read-only plan; `tests/test_workflows.py`, `docs/pipeline.md` CI section, `pyyaml` — PR checks, docs, no long-lived keys — `add evals, actionlint and terraform plan ci jobs, reusable ci, workflow tests, pipeline docs`
 - [ ] 6. `deploy.yml` and `environment.yml` (Start/Stop), runbooks (bootstrap, start/stop, rollback), workflow tests — merge deploys, infra through the pipeline, docs, no long-lived keys — `add deploy workflow with migration, ecs deploy, frontend release, smoke and rollback, start/stop workflow, runbooks, tests`

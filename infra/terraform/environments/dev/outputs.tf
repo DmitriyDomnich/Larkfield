@@ -61,3 +61,31 @@ output "notification_dlq_url" {
 output "notification_sender_policy_arn" {
   value = module.notifications.sender_policy_arn
 }
+
+output "ecr_repository_url" {
+  value = module.runtime.repository_url
+}
+
+output "ecs_cluster" {
+  value = module.runtime.cluster_name
+}
+
+output "ecs_services" {
+  value = module.runtime.service_names
+}
+
+output "task_families" {
+  value = module.runtime.task_families
+}
+
+output "migration_subnet_ids" {
+  value = module.runtime.migration_subnet_ids
+}
+
+output "migration_security_group_id" {
+  value = module.runtime.migration_security_group_id
+}
+
+output "db_snapshot" {
+  value = module.database.latest_snapshot
+}

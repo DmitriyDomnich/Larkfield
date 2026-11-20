@@ -10,6 +10,10 @@ terraform {
       source  = "hashicorp/archive"
       version = "~> 2.7"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.7"
+    }
   }
 
   backend "s3" {
@@ -118,4 +122,71 @@ module "notifications" {
   user_pool_arn            = module.cognito.user_pool_arn
   sender_email             = var.ses_sender_email
   recipient_emails         = var.ses_recipient_emails
+}
+
+module "network" {
+  source          = "../../modules/network"
+  project_name    = local.name_prefix
+  runtime_enabled = var.runtime_enabled
+}
+
+module "database" {
+  source           = "../../modules/database"
+  project_name     = local.name_prefix
+  runtime_enabled  = var.runtime_enabled
+  restore_snapshot = var.restore_db_snapshot
+  password_version = var.db_password_version
+  apply_password   = var.apply_db_password
+  vpc_id           = module.network.vpc_id
+  subnet_ids       = module.network.private_subnet_ids
+}
+
+module "runtime" {
+  source                       = "../../modules/runtime"
+  project_name                 = local.name_prefix
+  runtime_enabled              = var.runtime_enabled
+  image_tag                    = var.image_tag
+  iam_path                     = local.iam_path
+  permissions_boundary_arn     = local.boundary_arn
+  vpc_id                       = module.network.vpc_id
+  private_subnet_ids           = module.network.private_subnet_ids
+  database_url                 = module.database.url_without_password
+  database_password_secret_arn = module.database.password_secret_arn
+  database_security_group_id   = module.database.security_group_id
+  user_pool_arn                = module.cognito.user_pool_arn
+
+  shared_environment = {
+    APP_ENV                = var.environment
+    LOG_LEVEL              = "INFO"
+    AWS_REGION             = var.aws_region
+    COGNITO_REGION         = var.aws_region
+    COGNITO_USER_POOL_ID   = module.cognito.user_pool_id
+    COGNITO_APP_CLIENT_ID  = module.cognito.app_client_id
+    DOCUMENTS_BUCKET       = module.documents.bucket_name
+    REVIEW_QUEUE_URL       = module.review.queue_url
+    NOTIFICATION_QUEUE_URL = module.notifications.queue_url
+    FRONTEND_ORIGINS       = jsonencode(var.frontend_origins)
+  }
+  extraction_environment = {
+    EXTRACTION_QUEUE_URL = module.extraction.queue_url
+    BEDROCK_MODEL_ID     = var.bedrock_inference_profile_id
+  }
+  review_environment = {
+    REVIEW_MODEL_ID = var.review_inference_profile_id
+    POLICY_KB_ID    = module.knowledge_base.knowledge_base_ids["clause"]
+  }
+
+  api_policy_arns = {
+    documents     = module.documents.api_policy_arn
+    review        = module.review.api_policy_arn
+    notifications = module.notifications.sender_policy_arn
+  }
+  extraction_policy_arns = {
+    worker        = module.extraction.worker_policy_arn
+    notifications = module.notifications.sender_policy_arn
+  }
+  review_policy_arns = {
+    worker        = module.review.worker_policy_arn
+    notifications = module.notifications.sender_policy_arn
+  }
 }

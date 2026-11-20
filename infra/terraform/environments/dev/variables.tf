@@ -38,3 +38,32 @@ variable "ses_recipient_emails" {
   type        = list(string)
   default     = []
 }
+
+variable "runtime_enabled" {
+  description = "false = stopped: no NAT, ALB, RDS or ECS services. The workflows read it from SSM /<project>-<env>/runtime_enabled."
+  type        = bool
+  default     = false
+}
+
+variable "restore_db_snapshot" {
+  description = "Create the database from the snapshot Stop took; the workflows set it when that snapshot exists."
+  type        = bool
+  default     = false
+}
+
+variable "db_password_version" {
+  type    = number
+  default = 1
+}
+
+variable "apply_db_password" {
+  description = "false in the pull request plan, whose role can't read the password secret."
+  type        = bool
+  default     = true
+}
+
+variable "image_tag" {
+  description = "Git SHA of the image the deploy pushed to ECR."
+  type        = string
+  default     = "none"
+}
