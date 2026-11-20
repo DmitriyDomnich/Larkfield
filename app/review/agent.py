@@ -3,7 +3,7 @@ import logging
 import uuid
 from collections import defaultdict
 from collections.abc import Awaitable, Iterable
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from decimal import Decimal
 from typing import Any, Protocol
 
@@ -12,6 +12,7 @@ from strands.models.model import Model
 from strands.types.content import SystemContentBlock
 from strands.types.tools import ToolContext
 
+from app.core.metrics import TokenUsage
 from app.review.claim_data import ClaimUnderReview
 from app.review.claims_history import ClaimsHistory
 from app.review.policy import PolicyChunk, PolicyRetriever
@@ -36,6 +37,7 @@ class ValidProposal:
     proposal: ReviewProposal
     retrieved_clauses: list[str]
     model: str
+    usage: TokenUsage = field(default=TokenUsage(), compare=False)
 
 
 @dataclass(frozen=True)
@@ -43,6 +45,7 @@ class NoValidProposal:
     """`detail` is for the log"""
 
     detail: str
+    usage: TokenUsage = field(default=TokenUsage(), compare=False)
 
 
 ReviewOutcome = ValidProposal | NoValidProposal
@@ -92,10 +95,12 @@ class StrandsReviewAgent:
         )
         if run.failure is not None:
             raise ToolFailedError("a review tool failed") from run.failure
+        accumulated = result.metrics.accumulated_usage
+        usage = TokenUsage(accumulated["inputTokens"], accumulated["outputTokens"])
         if not isinstance(result.structured_output, ReviewProposal):
-            return NoValidProposal(f"no valid proposal, stop reason {result.stop_reason}")
+            return NoValidProposal(f"no valid proposal, stop reason {result.stop_reason}", usage)
         return ValidProposal(
-            result.structured_output, list(run.retrieved_clause_ids), self._model_name
+            result.structured_output, list(run.retrieved_clause_ids), self._model_name, usage
         )
 
 

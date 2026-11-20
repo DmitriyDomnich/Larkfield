@@ -20,6 +20,7 @@ from app.claims.service import (
 from app.claims.status import ClaimStatus
 from app.claims.storage import ObjectStorage
 from app.core.hashing import file_sha256
+from app.core.metrics import ClaimMetrics, MetricStage
 from app.extraction.extractor import (
     ExpenseExtractor,
     InvalidExtraction,
@@ -58,6 +59,7 @@ async def process_upload(
     session: AsyncSession,
     storage: ObjectStorage,
     extractor: ExpenseExtractor,
+    metrics: ClaimMetrics,
     uploaded: UploadedObject,
     *,
     today: date,
@@ -73,7 +75,7 @@ async def process_upload(
     try:
         data = await storage.read(document.s3_key, document.version_id)
         document.sha256 = await file_sha256(data)
-        result = await _extract_expense(extractor, document, data, max_pages)
+        result = await _extract_expense(extractor, metrics, document, data, max_pages)
         if isinstance(result, ValidExtraction):
             await _store_extraction(session, document, result, today)
             return FinishedClaim(claim_id, ClaimStatus.EXTRACTED)
@@ -131,7 +133,11 @@ async def _start_extraction(
 
 
 async def _extract_expense(
-    extractor: ExpenseExtractor, document: Document, data: bytes, max_pages: int
+    extractor: ExpenseExtractor,
+    metrics: ClaimMetrics,
+    document: Document,
+    data: bytes,
+    max_pages: int,
 ) -> ValidExtraction | str:
     try:
         pages = await asyncio.to_thread(document_to_images, data, document.content_type, max_pages)
@@ -139,6 +145,7 @@ async def _extract_expense(
         return f"{exc.reason}. {RESUBMIT_ADVICE}"
 
     outcome = await extractor.extract_expense(pages)
+    metrics.bedrock_tokens(MetricStage.EXTRACTION, document.claim_id, outcome.usage)
     match outcome:
         case ValidExtraction():
             return outcome
