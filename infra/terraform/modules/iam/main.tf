@@ -1,5 +1,7 @@
 resource "aws_iam_role" "lambda" {
-  name = "${var.project_name}-lambda"
+  name                 = "${var.project_name}-lambda"
+  path                 = var.iam_path
+  permissions_boundary = var.permissions_boundary_arn
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{

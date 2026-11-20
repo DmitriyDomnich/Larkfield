@@ -107,7 +107,9 @@ resource "aws_s3vectors_index" "policies" {
 }
 
 resource "aws_iam_role" "knowledge_base" {
-  name = "${var.project_name}-policies-kb"
+  name                 = "${var.project_name}-policies-kb"
+  path                 = var.iam_path
+  permissions_boundary = var.permissions_boundary_arn
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{

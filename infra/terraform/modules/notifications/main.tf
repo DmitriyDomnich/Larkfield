@@ -42,7 +42,9 @@ data "archive_file" "send_notification" {
 }
 
 resource "aws_iam_role" "send_notification" {
-  name = "${var.project_name}-send-notification"
+  name                 = "${var.project_name}-send-notification"
+  path                 = var.iam_path
+  permissions_boundary = var.permissions_boundary_arn
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -119,6 +121,7 @@ resource "aws_lambda_event_source_mapping" "notifications" {
 # the API and workers enqueue notifications (NOTIFICATION_QUEUE_URL)
 resource "aws_iam_policy" "sender" {
   name = "${var.project_name}-notification-sender"
+  path = var.iam_path
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{

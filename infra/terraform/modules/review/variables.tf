@@ -17,3 +17,9 @@ variable "max_receives" {
   type        = number
   default     = 3
 }
+
+variable "iam_path" {
+  description = "IAM path of the module's roles and policies; the deploy role manages only this path."
+  type        = string
+  default     = "/"
+}
