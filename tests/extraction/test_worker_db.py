@@ -15,7 +15,7 @@ from sqlalchemy.orm import selectinload
 from app.claims.models import Claim, Document
 from app.claims.service import transition
 from app.claims.status import ClaimStatus
-from app.core.metrics import TokenUsage
+from app.core.metrics import BedrockRunError, TokenUsage
 from app.extraction.extractor import (
     ExtractionOutcome,
     InvalidExtraction,
@@ -821,3 +821,28 @@ async def test_an_error_is_counted_as_failed_only_on_the_last_delivery(
 
     assert metrics.values("ClaimsFailed") == [("extraction", str(document.claim_id), 1)]
     assert metrics.values("BedrockInputTokens") == []
+
+
+async def test_tokens_of_a_failed_bedrock_run_are_recorded_before_the_retry(
+    db_session: AsyncSession,
+    storage: FakeStorage,
+    queue: FakeQueue,
+    worker_settings: WorkerSettings,
+) -> None:
+    document = await uploaded_file(db_session, storage, document_bytes("D01.pdf"))
+    metrics = RecordingMetrics()
+    worker, _ = make_worker(
+        db_session,
+        worker_settings,
+        queue,
+        storage,
+        BedrockRunError(TokenUsage(4000, 600)),
+        metrics=metrics,
+    )
+
+    await worker.handle_message(event(document))
+
+    claim_id = str(document.claim_id)
+    assert metrics.values("BedrockInputTokens") == [("extraction", claim_id, 4000)]
+    assert metrics.values("ClaimsFailed") == []
+    assert queue.deleted == []

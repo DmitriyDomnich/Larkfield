@@ -20,7 +20,7 @@ from app.claims.service import (
 from app.claims.status import ClaimStatus
 from app.claims.storage import ObjectStorage
 from app.core.hashing import file_sha256
-from app.core.metrics import ClaimMetrics, MetricStage
+from app.core.metrics import BedrockRunError, ClaimMetrics, MetricStage
 from app.extraction.extractor import (
     ExpenseExtractor,
     InvalidExtraction,
@@ -144,8 +144,12 @@ async def _extract_expense(
     except UnusableFileError as exc:
         return f"{exc.reason}. {RESUBMIT_ADVICE}"
 
-    outcome = await extractor.extract_expense(pages)
-    metrics.bedrock_tokens(MetricStage.EXTRACTION, document.claim_id, outcome.usage)
+    try:
+        outcome = await extractor.extract_expense(pages)
+    except BedrockRunError as exc:
+        await metrics.bedrock_tokens(MetricStage.EXTRACTION, document.claim_id, exc.usage)
+        raise
+    await metrics.bedrock_tokens(MetricStage.EXTRACTION, document.claim_id, outcome.usage)
     match outcome:
         case ValidExtraction():
             return outcome

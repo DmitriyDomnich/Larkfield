@@ -75,7 +75,7 @@ class ReviewWorker:
                 )
                 return
             if finished_claim_status is ClaimStatus.FAILED:
-                self._metrics.claim_failed(MetricStage.REVIEW, message.claim_id)
+                await self._metrics.claim_failed(MetricStage.REVIEW, message.claim_id)
                 await notify_claim_failed(
                     self._sessions, self._notification_service, message.claim_id
                 )

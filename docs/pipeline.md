@@ -82,8 +82,8 @@ check). If it fails, nothing is deployed.
 ### `deploy`
 
 Runs in the GitHub environment of the branch (`dev` / `prod`) and assumes that environment's
-deploy role. The first six steps always run; the rest only while the environment is running
-(`runtime_enabled`). Logs of the tasks: CloudWatch log groups `/ecs/larkfield-<env>/<task>`.
+deploy role. The steps up to `sync the policy knowledge base` always run; the rest only while the
+environment is running (`runtime_enabled`). Logs of the tasks: CloudWatch log groups `/ecs/larkfield-<env>/<task>`.
 
 | Step | What | Why | If it fails |
 |---|---|---|---|
@@ -91,29 +91,32 @@ deploy role. The first six steps always run; the rest only while the environment
 | `image to ECR` | `infra/scripts/push-image.sh`: builds the image, pushes `larkfield-<env>:<sha>`; skips an existing tag | the services and the migration run this exact image | a Docker build error; on the very first deploy it only notes that the repository doesn't exist yet |
 | `build the clause files` | `make kb-build` → `build/kb-clauses` | Terraform uploads them to the clause KB's bucket | a clause file couldn't be built from `inputs/kb` |
 | `terraform variables` | `infra/scripts/terraform-vars.sh`: tfvars from the environment variable `TFVARS`, `runtime_enabled` from SSM, `restore_db_snapshot`, `image_tag` | Terraform gets what `terraform.tfvars` gives it locally; Start/Stop decide the runtime, not the push | `TFVARS` isn't valid JSON, or SSM can't be read |
-| `terraform apply` | applies the environment root; registers new task definition revisions with the image | infrastructure changes ship through the pipeline only | read the Terraform error; the state is unchanged for anything that failed. A held lock waits 10 min |
+| `terraform init` | the S3 backend, state key `<env>/terraform.tfstate` | reads the current state | the repo variable `TF_STATE_BUCKET` or `AWS_REGION` is missing |
+| `record the live release` | from the state before the apply: the services' current task definition revisions (services with tasks only) and the frontend release in `live/release.txt` | what a rollback restores; before the apply because a Start's apply creates the services, so nothing came before them | AWS couldn't be read; nothing was changed |
+| `terraform apply` | applies the environment root; registers new task definition revisions with the image. New services (a Start) get 0 tasks | infrastructure changes ship through the pipeline only; no new code runs before the migration | read the Terraform error; the state is unchanged for anything that failed. A held lock waits 10 min |
 | `image to ECR (first deploy)` | the push again, only if the repository didn't exist before the apply | the repository is created by Terraform | as `image to ECR` |
 | `read the terraform outputs` | cluster, services, task families, KB ids, site bucket, distribution, `NEXT_PUBLIC_*` into the job's environment | the later steps address what Terraform created | an output is missing from the root |
 | `sync the policy knowledge base` | `start-ingestion-job` on the `clause` data source, waits for `COMPLETE` | the review agent searches the policy text that was just uploaded; unchanged files cost nothing | the ingestion job failed: see it in the Bedrock console |
 | `note a stopped environment` | a note in the run summary | a push while stopped only applies the base and pushes the image | never fails |
-| `record the live release` | the services' current task definition revisions and the frontend release in `live/release.txt` | what a rollback restores | a service is missing (the apply didn't create it) |
 | `run the migration` | `alembic upgrade head` as a one-off ECS task with the new image; must exit 0 | the new code expects the new schema; migrations are forward-only and backward compatible | the migration failed: its log is in `/ecs/larkfield-<env>/migrate`; nothing was deployed |
-| `deploy the API and workers` | points each service at the revision the apply registered, waits for steady state, checks the new revision stayed | rolls out the image; the circuit breaker puts the old revision back if new tasks don't start or fail `/health` | the circuit breaker rolled a service back (the app is still on the old version): see the service's events and task logs |
-| `release the frontend` | `next build` with the environment's values, uploads to `releases/<sha>/`, copies it to `live/`, invalidates CloudFront | the site is served from `live/`; keeping each release makes a rollback a copy | a build or upload error; the old release is still live |
+| `deploy the API and workers` | points each service at the revision the apply registered (with 1 task), waits for steady state, checks the new revision stayed | rolls out the image; the circuit breaker puts the old revision back if new tasks don't start or fail `/health` | the circuit breaker rolled a service back (the app is still on the old version): see the service's events and task logs |
+| `release the frontend` | `next build` with the environment's values, uploads to `releases/<sha>/`, then `infra/scripts/publish-release.sh` copies every object over `live/`, removes the rest and invalidates CloudFront | the site is served from `live/`; keeping each release makes a rollback a copy | a build or upload error; the old release is still live |
 | `smoke request` | through CloudFront, for up to 3 minutes: `GET /api/health` must say `database: ok`, `GET /` must return the app | proves the whole path a user takes: CloudFront → VPC origin → ALB → new API task → RDS | the new release doesn't serve: `roll back` runs |
-| `roll back` | only after a failed smoke request: the recorded revisions back on the services, the recorded frontend release back in `live/`; the run fails | the app doesn't stay broken until someone reverts | the recorded release couldn't be restored: follow the rollback runbook |
+| `roll back` | when any step after a successful migration fails (services, frontend or smoke request): the recorded revisions back on the services, the recorded frontend release published again; the run fails. After a first Start there is nothing earlier to go back to, and the summary says so | the app doesn't stay half-deployed or broken until someone reverts | the recorded release couldn't be restored: follow the rollback runbook |
 
 ## `environment.yml`: Environment (Start / Stop)
 
 Run by hand from the Actions tab on `dev` (for `dev`) or `main` (for `prod`), input `start` or
-`stop`. Shares the deploy's queue, so it never runs during a deploy.
+`stop`. It has its own queue (in the deploy's, a push could cancel a waiting Stop, since GitHub
+keeps one pending run per queue). The flag it writes is what every later deploy applies, so a
+deploy running at the same time can't undo it.
 
 ### `switch`
 
 | Step | What | Why | If it fails |
 |---|---|---|---|
 | `assume the deploy role` | OIDC → `larkfield-<env>-deploy` | as in the deploy | as in the deploy |
-| `drop the previous snapshot` | Stop only, and only while the database exists: deletes `larkfield-<env>-latest` | the stop's final snapshot reuses that name; on a stopped environment it is the only copy, so it stays | the snapshot couldn't be deleted; nothing was stopped |
+| `drop the previous snapshot` | Stop only, and only while the database exists: deletes `larkfield-<env>-latest` | the stop's final snapshot reuses that name; on a stopped environment it is the only copy, so it stays | a lookup failed for a reason other than "not found", or the snapshot couldn't be deleted; nothing was stopped |
 | `switch the runtime flag` | writes `true`/`false` to SSM `/larkfield-<env>/runtime_enabled` | every deploy reads the flag, so a push never starts or stops an environment | SSM write denied: check the deploy role |
 | `run the deploy` | `gh workflow run deploy.yml` on the same branch | the deploy applies the change: Start creates NAT, RDS (from the snapshot), ALB, VPC origin and services, then deploys the branch's newest commit; Stop snapshots RDS and removes them | the dispatch failed: run the Deploy workflow by hand |
 
@@ -174,10 +177,12 @@ Changing a deploy role or the boundary later: edit `bootstrap`, apply it again f
 
 ### Rollback
 
-- **A new task doesn't start or fails `/health`:** the circuit breaker puts the old revision back;
-  the deploy fails at `deploy the API and workers`. Nothing to do but fix the commit.
-- **The smoke request fails:** the deploy's `roll back` step restores the services' previous
-  revisions and the previous frontend release, then fails the run.
+- **A new task doesn't start or fails `/health`:** the circuit breaker puts that service's old
+  revision back; the deploy fails at `deploy the API and workers` and `roll back` returns the other
+  services too. Nothing to do but fix the commit.
+- **A later step fails (a service, the frontend or the smoke request):** the deploy's `roll back`
+  step restores the services' previous revisions and the previous frontend release, then fails the
+  run.
 - **A problem found later:** revert the commit with a PR; its deploy ships the previous code. To
   go back faster, re-run the last good Deploy run (`gh run rerun <id>`): it redeploys that
   commit's image, infrastructure and frontend.

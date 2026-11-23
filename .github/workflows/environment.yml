@@ -10,7 +10,7 @@ on:
         required: true
 
 concurrency:
-  group: deploy-${{ github.ref_name }}
+  group: environment-${{ github.ref_name }}
   cancel-in-progress: false
 
 permissions:
@@ -39,16 +39,21 @@ jobs:
       - name: drop the previous snapshot
         if: inputs.action == 'stop'
         run: |
-          # only while the database exists: on a stopped environment the snapshot is the only copy
-          if ! aws rds describe-db-instances --db-instance-identifier "larkfield-${ENVIRONMENT}-db" > /dev/null 2>&1; then
+          # only while the database exists: on a stopped environment the snapshot is the only copy.
+          # Any error other than "not found" stops here.
+          if ! aws rds describe-db-instances --db-instance-identifier "larkfield-${ENVIRONMENT}-db" \
+            > /dev/null 2> rds-error.txt; then
+            grep -q DBInstanceNotFound rds-error.txt || { cat rds-error.txt >&2; exit 1; }
             echo "no database running; keeping the snapshot"
             exit 0
           fi
           snapshot="larkfield-${ENVIRONMENT}-latest"
-          if aws rds describe-db-snapshots --db-snapshot-identifier "$snapshot" > /dev/null 2>&1; then
+          if aws rds describe-db-snapshots --db-snapshot-identifier "$snapshot" > /dev/null 2> rds-error.txt; then
             aws rds delete-db-snapshot --db-snapshot-identifier "$snapshot" > /dev/null
             aws rds wait db-snapshot-deleted --db-snapshot-identifier "$snapshot"
             echo "deleted ${snapshot}; the stop takes a new one"
+          else
+            grep -q DBSnapshotNotFound rds-error.txt || { cat rds-error.txt >&2; exit 1; }
           fi
       - name: switch the runtime flag
         run: |

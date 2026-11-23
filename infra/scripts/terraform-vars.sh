@@ -22,11 +22,16 @@ if ! runtime_enabled=$(aws ssm get-parameter --name "/${prefix}/runtime_enabled"
 fi
 rm -f ssm-error.txt
 
-if aws rds describe-db-snapshots --db-snapshot-identifier "${prefix}-latest" > /dev/null 2>&1; then
+# an error other than "not found" must fail: on Start it would create an empty database
+if aws rds describe-db-snapshots --db-snapshot-identifier "${prefix}-latest" > /dev/null 2> rds-error.txt; then
   restore_db_snapshot=true
-else
+elif grep -q DBSnapshotNotFound rds-error.txt; then
   restore_db_snapshot=false
+else
+  cat rds-error.txt >&2
+  exit 1
 fi
+rm -f rds-error.txt
 
 extra_vars="${EXTRA_VARS:-}"
 jq -n \

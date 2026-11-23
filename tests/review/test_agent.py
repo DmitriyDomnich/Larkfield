@@ -6,7 +6,7 @@ from decimal import Decimal
 
 import pytest
 
-from app.core.metrics import TokenUsage
+from app.core.metrics import BedrockRunError, TokenUsage
 from app.review.agent import (
     NoValidProposal,
     StrandsReviewAgent,
@@ -197,10 +197,11 @@ async def test_a_failing_knowledge_base_stops_the_review(failing_turn: Turn) -> 
         retriever=FakeRetriever(error=RuntimeError("throttled")),
     )
 
-    with pytest.raises(ToolFailedError):
+    with pytest.raises(ToolFailedError) as raised:
         await agent.review(claim_for_case("D01"))
 
     assert len(model.calls) == 1
+    assert raised.value.usage == TokenUsage(10, 5)
 
 
 async def test_a_failing_claims_history_stops_the_review() -> None:
@@ -405,3 +406,14 @@ async def test_every_tool_call_is_logged_with_what_it_found(
         prefix + f"find_duplicate_claims() found ['{earlier}']",
         prefix + "get_training_spend() found 1 claims, total 120.00 EUR",
     ]
+
+
+async def test_a_failing_model_call_reports_the_tokens_the_earlier_turns_spent() -> None:
+    # the scripted model raises when called a second time
+    agent, model = make_agent(SEARCH)
+
+    with pytest.raises(BedrockRunError) as raised:
+        await agent.review(claim_for_case("D01"))
+
+    assert len(model.calls) == 2
+    assert raised.value.usage == TokenUsage(10, 5)
