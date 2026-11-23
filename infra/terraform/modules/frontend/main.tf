@@ -116,6 +116,11 @@ resource "aws_cloudfront_vpc_origin" "api" {
       quantity = 1
     }
   }
+
+  lifecycle {
+    # on Stop the distribution must drop this origin before CloudFront lets it be deleted
+    create_before_destroy = true
+  }
 }
 
 # created by CloudFront with the first VPC origin; admitting it lets only this account's
