@@ -334,3 +334,4 @@ sequenceDiagram
 - [x] 9. deploy roles trust the repository's immutable OIDC subject (owner and repository ids) — no long-lived keys — `trust the immutable github oidc subject in the deploy roles`
 - [x] 10. fixes from the first dev deploy: security group description without `'`, deploy role may tag Lambda event source mappings, dashboard metric rows — merge deploys, alarm/tokens — `fix first deploy errors: security group description, tag permission for lambda triggers, dashboard metric rows`
 - [x] 11. database access: ECS Exec on the api service, its session channel in the task role and the boundary, runbook — docs — `add ecs exec on the api service for a database tunnel through session manager, runbook`
+- [x] 12. fix from the first dev Stop: the VPC origin is deleted after the distribution drops it (`create_before_destroy`) — merge deploys — `fix stop order: delete the cloudfront vpc origin after the distribution drops it`
