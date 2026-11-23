@@ -1,0 +1,212 @@
+name: Deploy
+
+on:
+  push:
+    branches: [dev, main]
+  # run by the Environment workflow after Start / Stop
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    if: github.event_name == 'push'
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    needs: ci
+    if: ${{ !cancelled() && (needs.ci.result == 'success' || needs.ci.result == 'skipped') && (github.ref_name == 'dev' || github.ref_name == 'main') }}
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'prod' || 'dev' }}
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      ENVIRONMENT: ${{ github.ref_name == 'main' && 'prod' || 'dev' }}
+      IMAGE_TAG: ${{ github.sha }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      ROOT: infra/terraform/environments/${{ github.ref_name == 'main' && 'prod' || 'dev' }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.2
+        with:
+          enable-cache: true
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.17.0
+          terraform_wrapper: false
+      - name: assume the deploy role
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          role-session-name: deploy-${{ github.run_id }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: image to ECR
+        id: image
+        run: infra/scripts/push-image.sh
+      - name: build the clause files
+        run: uv sync --frozen && make kb-build
+      - name: terraform variables
+        id: vars
+        working-directory: ${{ env.ROOT }}
+        env:
+          TFVARS: ${{ vars.TFVARS }}
+          EXTRA_VARS: '{"image_tag": "${{ github.sha }}"}'
+        run: |
+          "$GITHUB_WORKSPACE/infra/scripts/terraform-vars.sh"
+      - name: terraform apply
+        working-directory: ${{ env.ROOT }}
+        run: |
+          terraform init -input=false \
+            -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" -backend-config="region=${AWS_REGION}"
+          terraform apply -input=false -auto-approve -lock-timeout=10m
+      - name: image to ECR (first deploy)
+        if: steps.image.outputs.pushed != 'true'
+        run: infra/scripts/push-image.sh
+      - name: read the terraform outputs
+        working-directory: ${{ env.ROOT }}
+        run: |
+          terraform output -json > "$RUNNER_TEMP/outputs.json"
+          output() { jq -r "$1" "$RUNNER_TEMP/outputs.json"; }
+          {
+            echo "CLUSTER=$(output .ecs_cluster.value)"
+            echo "ECS_SERVICES=$(output '.ecs_services.value | join(" ")')"
+            echo "MIGRATE_FAMILY=$(output .task_families.value.migrate)"
+            echo "MIGRATE_SUBNETS=$(output '.migration_subnet_ids.value | join(",")')"
+            echo "MIGRATE_SECURITY_GROUP=$(output .migration_security_group_id.value)"
+            echo "KB_ID=$(output .policy_knowledge_base_ids.value.clause)"
+            echo "KB_SOURCE_ID=$(output .policy_data_source_ids.value.clause)"
+            echo "SITE_BUCKET=$(output .site_bucket.value)"
+            echo "DISTRIBUTION_ID=$(output .distribution_id.value)"
+            echo "SITE_URL=$(output .site_url.value)"
+            output '.frontend_build_env.value | to_entries[] | "\(.key)=\(.value)"'
+          } >> "$GITHUB_ENV"
+      - name: sync the policy knowledge base
+        run: |
+          job=$(aws bedrock-agent start-ingestion-job --knowledge-base-id "$KB_ID" \
+            --data-source-id "$KB_SOURCE_ID" --query ingestionJob.ingestionJobId --output text)
+          for _ in $(seq 60); do
+            status=$(aws bedrock-agent get-ingestion-job --knowledge-base-id "$KB_ID" \
+              --data-source-id "$KB_SOURCE_ID" --ingestion-job-id "$job" \
+              --query ingestionJob.status --output text)
+            case "$status" in
+              COMPLETE) echo "ingestion complete"; exit 0 ;;
+              FAILED | STOPPED) echo "::error::ingestion job ${job} ${status}"; exit 1 ;;
+            esac
+            sleep 10
+          done
+          echo "::error::ingestion job ${job} still running after 10 minutes"
+          exit 1
+
+      - name: note a stopped environment
+        if: steps.vars.outputs.runtime_enabled != 'true'
+        run: |
+          {
+            echo "### ${ENVIRONMENT} is stopped"
+            echo "Infrastructure applied and image pushed; migration, deploy and smoke request skipped."
+            echo "Run the Environment workflow (start) on \`${GITHUB_REF_NAME}\` to deploy."
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: record the live release
+        if: steps.vars.outputs.runtime_enabled == 'true'
+        run: |
+          read -ra services <<< "$ECS_SERVICES"
+          aws ecs describe-services --cluster "$CLUSTER" --services "${services[@]}" \
+            --query 'services[].[serviceName,taskDefinition]' --output text \
+            > "$RUNNER_TEMP/previous-revisions.txt"
+          cat "$RUNNER_TEMP/previous-revisions.txt"
+          previous=$(aws s3 cp "s3://${SITE_BUCKET}/live/release.txt" - 2> /dev/null || true)
+          echo "PREVIOUS_RELEASE=${previous}" >> "$GITHUB_ENV"
+          echo "live frontend release: ${previous:-none}"
+      - name: run the migration
+        if: steps.vars.outputs.runtime_enabled == 'true'
+        run: |
+          task=$(aws ecs run-task --cluster "$CLUSTER" --task-definition "$MIGRATE_FAMILY" \
+            --launch-type FARGATE --query 'tasks[0].taskArn' --output text \
+            --network-configuration "awsvpcConfiguration={subnets=[${MIGRATE_SUBNETS}],securityGroups=[${MIGRATE_SECURITY_GROUP}],assignPublicIp=DISABLED}")
+          aws ecs wait tasks-stopped --cluster "$CLUSTER" --tasks "$task"
+          exit_code=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$task" \
+            --query 'tasks[0].containers[0].exitCode' --output text)
+          echo "migration exit code ${exit_code}; logs in /ecs/larkfield-${ENVIRONMENT}/migrate"
+          [ "$exit_code" = "0" ]
+      - name: deploy the API and workers
+        if: steps.vars.outputs.runtime_enabled == 'true'
+        run: |
+          read -ra services <<< "$ECS_SERVICES"
+          : > "$RUNNER_TEMP/target-revisions.txt"
+          for service in "${services[@]}"; do
+            # terraform apply registered this revision with the new image
+            revision=$(aws ecs describe-task-definition --task-definition "larkfield-${ENVIRONMENT}-${service}" \
+              --query taskDefinition.taskDefinitionArn --output text)
+            aws ecs update-service --cluster "$CLUSTER" --service "$service" \
+              --task-definition "$revision" > /dev/null
+            echo "${service} ${revision}" >> "$RUNNER_TEMP/target-revisions.txt"
+          done
+          aws ecs wait services-stable --cluster "$CLUSTER" --services "${services[@]}"
+          # a circuit breaker rollback also ends stable, on the old revision
+          while read -r service revision; do
+            primary=$(aws ecs describe-services --cluster "$CLUSTER" --services "$service" \
+              --query "services[0].deployments[?status=='PRIMARY'].taskDefinition | [0]" --output text)
+            if [ "$primary" != "$revision" ]; then
+              echo "::error::the circuit breaker rolled ${service} back to ${primary}"
+              exit 1
+            fi
+          done < "$RUNNER_TEMP/target-revisions.txt"
+      - uses: actions/setup-node@v7
+        if: steps.vars.outputs.runtime_enabled == 'true'
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: release the frontend
+        if: steps.vars.outputs.runtime_enabled == 'true'
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+          echo "$GITHUB_SHA" > out/release.txt
+          release="s3://${SITE_BUCKET}/releases/${GITHUB_SHA}"
+          aws s3 sync out "$release" --exclude "*.txt" --only-show-errors
+          # the router's payloads; Next.js reloads the page when their type isn't text/x-component
+          aws s3 sync out "$release" --exclude "*" --include "*.txt" \
+            --content-type text/x-component --only-show-errors
+          aws s3 sync "$release" "s3://${SITE_BUCKET}/live" --delete --only-show-errors
+          aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID" --paths "/*" > /dev/null
+      - name: smoke request
+        id: smoke
+        if: steps.vars.outputs.runtime_enabled == 'true'
+        run: |
+          for _ in $(seq 18); do
+            if curl -fsS "${SITE_URL}/api/health" | jq -e '.database == "ok"' > /dev/null \
+              && curl -fsS "${SITE_URL}/" | grep -q '<html'; then
+              echo "### ${ENVIRONMENT} deployed: ${SITE_URL}" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::GET /api/health or GET / through CloudFront kept failing for 3 minutes"
+          exit 1
+      - name: roll back
+        if: failure() && steps.smoke.outcome == 'failure'
+        run: |
+          while read -r service revision; do
+            aws ecs update-service --cluster "$CLUSTER" --service "$service" \
+              --task-definition "$revision" > /dev/null
+          done < "$RUNNER_TEMP/previous-revisions.txt"
+          if [ -n "$PREVIOUS_RELEASE" ]; then
+            aws s3 sync "s3://${SITE_BUCKET}/releases/${PREVIOUS_RELEASE}" "s3://${SITE_BUCKET}/live" \
+              --delete --only-show-errors
+            aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID" --paths "/*" > /dev/null
+          fi
+          read -ra services <<< "$ECS_SERVICES"
+          aws ecs wait services-stable --cluster "$CLUSTER" --services "${services[@]}"
+          {
+            echo "### ${ENVIRONMENT} rolled back"
+            echo "Services back on their previous revisions, frontend on release ${PREVIOUS_RELEASE:-(none)}."
+            echo "Revert the commit for a permanent fix."
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -92,12 +92,16 @@ sequenceDiagram
   gets in ([VPC origins](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-vpc-origins.html)).
   *Rejected:* a public ALB on HTTP behind a prefix list + secret header (tokens and receipts in
   cleartext on the internet between edge and origin).
-- **Terraform for infrastructure, ECS actions for the app:** images go to ECR tagged with the git
+- **Terraform for infrastructure, ECS service updates for the app:** images go to ECR tagged with the git
   SHA (immutable tags). Terraform owns the cluster, services and a base task definition per service
   (`lifecycle { ignore_changes = [task_definition] }`). The deploy job runs `terraform apply`, then
   the migration task (`alembic upgrade head`, new image, one-off `run-task`, must exit 0), then
-  `amazon-ecs-render-task-definition` + `amazon-ecs-deploy-task-definition` for the API and both
-  workers, waiting for steady state. *Rejected:* Terraform deploying the image too (migrations need
+  points the API and both workers at the revision the apply registered (the base task definitions
+  carry `image_tag`, so each apply registers one with the new image and the current env;
+  `aws ecs update-service`), waits for steady state and checks the new revision stayed (a circuit
+  breaker rollback also ends stable). Start and Stop dispatch this same deploy after writing the
+  flag. *Rejected:* `amazon-ecs-render-task-definition` + `amazon-ecs-deploy-task-definition`
+  (they register a second, identical revision next to Terraform's), Terraform deploying the image too (migrations need
   to run between infrastructure and rollout, which takes two applies; an ECS rollback drifts the
   state), ECS blue/green (the workers have no traffic to shift).
 - **Rollback: circuit breaker, then auto-rollback on a failed smoke request.** Each service has the
@@ -286,7 +290,8 @@ sequenceDiagram
   documented in `docs/pipeline.md`.
 - **Integration:** the existing worker DB tests extended with the metric assertions
   (`tests/extraction/test_worker_db.py`, `tests/review/test_review_db.py`).
-- **Manual:** apply `bootstrap`; merge to `dev`, watch the deploy reach the smoke request; push a
+- **Manual:** apply `bootstrap` and set up GitHub (runbook in `docs/pipeline.md`); merge to `dev`
+  (base applied, environment stopped), Start `dev`, watch the deploy reach the smoke request; push a
   commit whose API fails `/health`, see the circuit breaker roll back; break the smoke request (bad
   CloudFront path), see the job restore the revisions and frontend; a local `terraform apply`
   fails on the lock; an invalid upload → `failed` → alarm email, and tokens on the dashboard
@@ -301,4 +306,4 @@ sequenceDiagram
 - [x] 3. `network`, `database`, `runtime` modules behind `runtime_enabled`, wired into `dev`: VPC, NAT, S3 endpoint, RDS with write-only password, ECR, ECS cluster + services + migration task, internal ALB — merge deploys (infra) — `add network, database and runtime terraform modules behind the runtime toggle, wire into dev`
 - [x] 4. `frontend` and `monitoring` modules, `environments/prod`: site bucket, CloudFront with OAC, VPC origin, functions, headers policy; SNS, alarms, dashboard — merge deploys (infra), alarm/tokens (infra) — `add frontend and monitoring terraform modules, prod environment root, ses identities owned by dev`
 - [x] 5. `ci.yml` on `pull_request` + `workflow_call` with `evals`, `actionlint`, terraform fmt + validate of every root, removal of the plan roles and `apply_db_password`; `tests/test_workflows.py`, `docs/pipeline.md` CI section, `pyyaml` — PR checks, docs, no long-lived keys — `add evals and actionlint ci jobs, validate every terraform root, reusable ci, workflow tests, pipeline docs, remove plan roles`
-- [ ] 6. `deploy.yml` and `environment.yml` (Start/Stop), runbooks (bootstrap, start/stop, rollback), workflow tests — merge deploys, infra through the pipeline, docs, no long-lived keys — `add deploy workflow with migration, ecs deploy, frontend release, smoke and rollback, start/stop workflow, runbooks, tests`
+- [x] 6. `deploy.yml` and `environment.yml` (Start/Stop), runbooks (bootstrap, start/stop, rollback), workflow tests — merge deploys, infra through the pipeline, docs, no long-lived keys — `add deploy workflow with migration, ecs deploy, frontend release, smoke and rollback, start/stop workflow, runbooks, tests`
