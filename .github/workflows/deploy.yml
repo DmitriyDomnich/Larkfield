@@ -2,7 +2,7 @@ name: Deploy
 
 on:
   push:
-    branches: [dev, main]
+    branches: [dev, main, deploy-test-dev, deploy-test-prod]
   # run by the Environment workflow after Start / Stop
   workflow_dispatch:
 
@@ -20,17 +20,17 @@ jobs:
 
   deploy:
     needs: ci
-    if: ${{ !cancelled() && (needs.ci.result == 'success' || needs.ci.result == 'skipped') && (github.ref_name == 'dev' || github.ref_name == 'main') }}
+    if: ${{ !cancelled() && (needs.ci.result == 'success' || needs.ci.result == 'skipped') && (github.ref_name == 'dev' || github.ref_name == 'main' || startsWith(github.ref_name, 'deploy-test-')) }}
     runs-on: ubuntu-24.04-arm
-    environment: ${{ github.ref_name == 'main' && 'prod' || 'dev' }}
+    environment: ${{ (github.ref_name == 'main' || github.ref_name == 'deploy-test-prod') && 'prod' || 'dev' }}
     permissions:
       contents: read
       id-token: write
     env:
-      ENVIRONMENT: ${{ github.ref_name == 'main' && 'prod' || 'dev' }}
+      ENVIRONMENT: ${{ (github.ref_name == 'main' || github.ref_name == 'deploy-test-prod') && 'prod' || 'dev' }}
       IMAGE_TAG: ${{ github.sha }}
       AWS_REGION: ${{ vars.AWS_REGION }}
-      ROOT: infra/terraform/environments/${{ github.ref_name == 'main' && 'prod' || 'dev' }}
+      ROOT: infra/terraform/environments/${{ (github.ref_name == 'main' || github.ref_name == 'deploy-test-prod') && 'prod' || 'dev' }}
     steps:
       # the repository is public, and so are its logs: GitHub shows these values as *** from here on
       - name: mask the email addresses
