@@ -7,8 +7,8 @@ variable "project" {
   default = "larkfield"
 }
 
-variable "github_repo" {
-  description = "owner/name of the repository whose workflows may assume the roles."
+variable "github_subject_prefix" {
+  description = "The repository's OIDC subject prefix, e.g. repo:<owner>@<owner id>/<repo>@<repo id> with immutable subjects: gh api repos/<owner>/<repo>/actions/oidc/customization/sub (sub_claim_prefix)."
   type        = string
 }
 
