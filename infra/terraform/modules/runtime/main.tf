@@ -118,9 +118,10 @@ resource "aws_ecs_service" "service" {
   name            = each.key
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.task[each.key].arn
-  desired_count   = 1
-  launch_type     = "FARGATE"
-  propagate_tags  = "SERVICE"
+  # no tasks until the deploy has run the migration; it then sets 1
+  desired_count  = 0
+  launch_type    = "FARGATE"
+  propagate_tags = "SERVICE"
 
   network_configuration {
     subnets          = var.private_subnet_ids
@@ -146,7 +147,7 @@ resource "aws_ecs_service" "service" {
 
   lifecycle {
     # the deploy workflow rolls out new revisions; Terraform only creates the service
-    ignore_changes = [task_definition]
+    ignore_changes = [task_definition, desired_count]
   }
 
   depends_on = [aws_lb_listener.api]

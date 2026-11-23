@@ -9,7 +9,7 @@ from app.claims.models import Claim
 from app.claims.service import ConcurrentTransitionError, InvalidTransitionError, transition
 from app.claims.status import ClaimStatus
 from app.core.db import SessionFactory
-from app.core.metrics import ClaimMetrics, MetricStage
+from app.core.metrics import BedrockRunError, ClaimMetrics, MetricStage
 from app.review.agent import NoValidProposal, ReviewAgent, ValidProposal
 from app.review.claim_data import load_extracted_claim
 from app.review.models import ClaimAnswer, Proposal, ReviewerDecision
@@ -42,12 +42,14 @@ async def review_claim(
 
     try:
         outcome = await agent.review(claim)
-    except Exception:
+    except Exception as exc:
+        if isinstance(exc, BedrockRunError):
+            await metrics.bedrock_tokens(MetricStage.REVIEW, claim_id, exc.usage)
         if receive_count < max_receives:
             raise
         logger.exception("review of claim %s failed on the last delivery", claim_id)
         return await _finish_claim(sessions, claim_id, None, TECHNICAL_FAILURE_REASON)
-    metrics.bedrock_tokens(MetricStage.REVIEW, claim_id, outcome.usage)
+    await metrics.bedrock_tokens(MetricStage.REVIEW, claim_id, outcome.usage)
 
     match outcome:
         case ValidProposal():

@@ -7,16 +7,24 @@
 set -euo pipefail
 
 repository="larkfield-${ENVIRONMENT:?}"
-if ! aws ecr describe-repositories --repository-names "$repository" > /dev/null 2>&1; then
-  echo "pushed=false" >> "${GITHUB_OUTPUT:-/dev/null}"
-  echo "no repository ${repository} yet"
-  exit 0
+errors=$(mktemp)
+if ! aws ecr describe-repositories --repository-names "$repository" > /dev/null 2> "$errors"; then
+  if grep -q RepositoryNotFoundException "$errors"; then
+    echo "pushed=false" >> "${GITHUB_OUTPUT:-/dev/null}"
+    echo "no repository ${repository} yet"
+    exit 0
+  fi
+  cat "$errors" >&2
+  exit 1
 fi
 
 registry="$(aws sts get-caller-identity --query Account --output text).dkr.ecr.${AWS_REGION:?}.amazonaws.com"
 image="${registry}/${repository}:${IMAGE_TAG:?}"
-if aws ecr describe-images --repository-name "$repository" --image-ids "imageTag=${IMAGE_TAG}" > /dev/null 2>&1; then
+if aws ecr describe-images --repository-name "$repository" --image-ids "imageTag=${IMAGE_TAG}" > /dev/null 2> "$errors"; then
   echo "${image} already pushed"
+elif ! grep -q ImageNotFoundException "$errors"; then
+  cat "$errors" >&2
+  exit 1
 else
   aws ecr get-login-password | docker login --username AWS --password-stdin "$registry"
   docker build --tag "$image" .

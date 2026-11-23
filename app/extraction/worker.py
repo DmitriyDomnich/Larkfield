@@ -76,7 +76,9 @@ class ExtractionWorker:
                     # if this fails -> the redelivery requests it again
                     await self._reviews.request_review(finished_claim.claim_id)
                 else:
-                    self._metrics.claim_failed(MetricStage.EXTRACTION, finished_claim.claim_id)
+                    await self._metrics.claim_failed(
+                        MetricStage.EXTRACTION, finished_claim.claim_id
+                    )
                     await notify_claim_failed(
                         self._sessions, self._notification_service, finished_claim.claim_id
                     )

@@ -60,12 +60,40 @@ jobs:
           EXTRA_VARS: '{"image_tag": "${{ github.sha }}"}'
         run: |
           "$GITHUB_WORKSPACE/infra/scripts/terraform-vars.sh"
-      - name: terraform apply
+      - name: terraform init
         working-directory: ${{ env.ROOT }}
         run: |
           terraform init -input=false \
             -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" -backend-config="region=${AWS_REGION}"
-          terraform apply -input=false -auto-approve -lock-timeout=10m
+      # before the apply: on a Start the apply creates the services, so there is nothing before it
+      - name: record the live release
+        id: record
+        working-directory: ${{ env.ROOT }}
+        run: |
+          : > "$RUNNER_TEMP/previous-revisions.txt"
+          terraform output -json > "$RUNNER_TEMP/previous-outputs.json"
+          previous() { jq -r "$1 // empty" "$RUNNER_TEMP/previous-outputs.json"; }
+          cluster=$(previous .ecs_cluster.value)
+          if [ -n "$cluster" ]; then
+            read -ra services <<< "$(previous '.ecs_services.value | join(" ")')"
+            aws ecs describe-services --cluster "$cluster" --services "${services[@]}" --output text \
+              --query "services[?status=='ACTIVE' && desiredCount > \`0\`].[serviceName,taskDefinition]" \
+              > "$RUNNER_TEMP/previous-revisions.txt"
+          fi
+          echo "service revisions: $(cat "$RUNNER_TEMP/previous-revisions.txt")"
+          previous_release=""
+          site_bucket=$(previous .site_bucket.value)
+          if [ -n "$site_bucket" ]; then
+            if ! previous_release=$(aws s3 cp "s3://${site_bucket}/live/release.txt" - 2> "$RUNNER_TEMP/s3-error.txt"); then
+              grep -q "(404)" "$RUNNER_TEMP/s3-error.txt" || { cat "$RUNNER_TEMP/s3-error.txt" >&2; exit 1; }
+              previous_release=""
+            fi
+          fi
+          echo "PREVIOUS_RELEASE=${previous_release}" >> "$GITHUB_ENV"
+          echo "frontend release: ${previous_release:-none}"
+      - name: terraform apply
+        working-directory: ${{ env.ROOT }}
+        run: terraform apply -input=false -auto-approve -lock-timeout=10m
       - name: image to ECR (first deploy)
         if: steps.image.outputs.pushed != 'true'
         run: infra/scripts/push-image.sh
@@ -112,18 +140,8 @@ jobs:
             echo "Infrastructure applied and image pushed; migration, deploy and smoke request skipped."
             echo "Run the Environment workflow (start) on \`${GITHUB_REF_NAME}\` to deploy."
           } >> "$GITHUB_STEP_SUMMARY"
-      - name: record the live release
-        if: steps.vars.outputs.runtime_enabled == 'true'
-        run: |
-          read -ra services <<< "$ECS_SERVICES"
-          aws ecs describe-services --cluster "$CLUSTER" --services "${services[@]}" \
-            --query 'services[].[serviceName,taskDefinition]' --output text \
-            > "$RUNNER_TEMP/previous-revisions.txt"
-          cat "$RUNNER_TEMP/previous-revisions.txt"
-          previous=$(aws s3 cp "s3://${SITE_BUCKET}/live/release.txt" - 2> /dev/null || true)
-          echo "PREVIOUS_RELEASE=${previous}" >> "$GITHUB_ENV"
-          echo "live frontend release: ${previous:-none}"
       - name: run the migration
+        id: migrate
         if: steps.vars.outputs.runtime_enabled == 'true'
         run: |
           task=$(aws ecs run-task --cluster "$CLUSTER" --task-definition "$MIGRATE_FAMILY" \
@@ -144,7 +162,7 @@ jobs:
             revision=$(aws ecs describe-task-definition --task-definition "larkfield-${ENVIRONMENT}-${service}" \
               --query taskDefinition.taskDefinitionArn --output text)
             aws ecs update-service --cluster "$CLUSTER" --service "$service" \
-              --task-definition "$revision" > /dev/null
+              --task-definition "$revision" --desired-count 1 > /dev/null
             echo "${service} ${revision}" >> "$RUNNER_TEMP/target-revisions.txt"
           done
           aws ecs wait services-stable --cluster "$CLUSTER" --services "${services[@]}"
@@ -175,8 +193,7 @@ jobs:
           # the router's payloads; Next.js reloads the page when their type isn't text/x-component
           aws s3 sync out "$release" --exclude "*" --include "*.txt" \
             --content-type text/x-component --only-show-errors
-          aws s3 sync "$release" "s3://${SITE_BUCKET}/live" --delete --only-show-errors
-          aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID" --paths "/*" > /dev/null
+          "$GITHUB_WORKSPACE/infra/scripts/publish-release.sh" "$GITHUB_SHA"
       - name: smoke request
         id: smoke
         if: steps.vars.outputs.runtime_enabled == 'true'
@@ -191,22 +208,31 @@ jobs:
           done
           echo "::error::GET /api/health or GET / through CloudFront kept failing for 3 minutes"
           exit 1
+      # anything that fails after the migration: services, frontend or the smoke request
       - name: roll back
-        if: failure() && steps.smoke.outcome == 'failure'
+        if: failure() && steps.migrate.outcome == 'success'
         run: |
-          while read -r service revision; do
-            aws ecs update-service --cluster "$CLUSTER" --service "$service" \
-              --task-definition "$revision" > /dev/null
-          done < "$RUNNER_TEMP/previous-revisions.txt"
-          if [ -n "$PREVIOUS_RELEASE" ]; then
-            aws s3 sync "s3://${SITE_BUCKET}/releases/${PREVIOUS_RELEASE}" "s3://${SITE_BUCKET}/live" \
-              --delete --only-show-errors
-            aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID" --paths "/*" > /dev/null
+          if [ -s "$RUNNER_TEMP/previous-revisions.txt" ]; then
+            services=()
+            while read -r service revision; do
+              aws ecs update-service --cluster "$CLUSTER" --service "$service" \
+                --task-definition "$revision" > /dev/null
+              services+=("$service")
+            done < "$RUNNER_TEMP/previous-revisions.txt"
+            aws ecs wait services-stable --cluster "$CLUSTER" --services "${services[@]}"
+            services_note="Services back on their previous revisions."
+          else
+            services_note="No earlier service revisions (first Start): the services stay on this release."
           fi
-          read -ra services <<< "$ECS_SERVICES"
-          aws ecs wait services-stable --cluster "$CLUSTER" --services "${services[@]}"
+          if [ -n "$PREVIOUS_RELEASE" ]; then
+            "$GITHUB_WORKSPACE/infra/scripts/publish-release.sh" "$PREVIOUS_RELEASE"
+            frontend_note="Frontend back on release ${PREVIOUS_RELEASE}."
+          else
+            frontend_note="No earlier frontend release to restore."
+          fi
           {
-            echo "### ${ENVIRONMENT} rolled back"
-            echo "Services back on their previous revisions, frontend on release ${PREVIOUS_RELEASE:-(none)}."
+            echo "### ${ENVIRONMENT}: deploy failed after the migration"
+            echo "$services_note"
+            echo "$frontend_note"
             echo "Revert the commit for a permanent fix."
           } >> "$GITHUB_STEP_SUMMARY"

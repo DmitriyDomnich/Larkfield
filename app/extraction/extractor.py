@@ -8,7 +8,7 @@ import boto3
 from botocore.config import Config
 from pydantic import ValidationError
 
-from app.core.metrics import TokenUsage
+from app.core.metrics import BedrockRunError, TokenUsage
 from app.extraction.pages import PageImage
 from app.extraction.prompts import (
     NO_TOOL_FEEDBACK,
@@ -83,7 +83,10 @@ class BedrockExtractor:
         errors = ""
         total_usage = TokenUsage()
         for attempt in range(1, MAX_EXTRACTION_ATTEMPTS + 1):
-            response = await asyncio.to_thread(self._call_converse, messages)
+            try:
+                response = await asyncio.to_thread(self._call_converse, messages)
+            except Exception as exc:
+                raise BedrockRunError(total_usage) from exc
             message = response["output"]["message"]
             usage = response["usage"]
             total_usage += TokenUsage(usage["inputTokens"], usage["outputTokens"])

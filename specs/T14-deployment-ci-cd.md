@@ -94,25 +94,31 @@ sequenceDiagram
   cleartext on the internet between edge and origin).
 - **Terraform for infrastructure, ECS service updates for the app:** images go to ECR tagged with the git
   SHA (immutable tags). Terraform owns the cluster, services and a base task definition per service
-  (`lifecycle { ignore_changes = [task_definition] }`). The deploy job runs `terraform apply`, then
+  (`lifecycle { ignore_changes = [task_definition, desired_count] }`; a service is created with 0
+  tasks, so on a Start no new code runs before the migration). The deploy job runs `terraform apply`, then
   the migration task (`alembic upgrade head`, new image, one-off `run-task`, must exit 0), then
   points the API and both workers at the revision the apply registered (the base task definitions
   carry `image_tag`, so each apply registers one with the new image and the current env;
-  `aws ecs update-service`), waits for steady state and checks the new revision stayed (a circuit
-  breaker rollback also ends stable). Start and Stop dispatch this same deploy after writing the
-  flag. *Rejected:* `amazon-ecs-render-task-definition` + `amazon-ecs-deploy-task-definition`
+  `aws ecs update-service`, 1 task), waits for steady state and checks the new revision stayed (a
+  circuit breaker rollback also ends stable). Start and Stop dispatch this same deploy after
+  writing the flag; they have their own queue, since GitHub keeps one pending run per queue and in
+  the deploy's a push could cancel a waiting Stop. *Rejected:* `amazon-ecs-render-task-definition` + `amazon-ecs-deploy-task-definition`
   (they register a second, identical revision next to Terraform's), Terraform deploying the image too (migrations need
   to run between infrastructure and rollout, which takes two applies; an ECS rollback drifts the
   state), ECS blue/green (the workers have no traffic to shift).
-- **Rollback: circuit breaker, then auto-rollback on a failed smoke request.** Each service has the
+- **Rollback: circuit breaker, then auto-rollback on any failure after the migration.** Each service has the
   deployment circuit breaker with `rollback = true`, so new tasks that don't start or fail the
   ALB's `/health` check put the previous revision back
   ([circuit breaker](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/deployment-circuit-breaker.html)).
-  Before deploying, the job records each service's current task-definition revision and the live
-  frontend release. If the smoke request then fails, it redeploys those revisions, restores that
-  frontend release, and fails the run. The frontend is kept per release in
-  `site/releases/<sha>/` and copied to `site/live/` (CloudFront's origin path) with an
-  invalidation, so restoring is a copy. Migrations are forward-only and backward-compatible
+  Before `terraform apply` (a Start's apply creates the services, so nothing earlier exists then),
+  the job records each running service's task-definition revision and the live frontend release.
+  If a service, the frontend release or the smoke request then fails, it redeploys those
+  revisions, publishes that frontend release again, and fails the run; after a first Start there
+  is nothing to go back to and the summary says so. The frontend is kept per release in
+  `site/releases/<sha>/` and published to `site/live/` (CloudFront's origin path) with an
+  invalidation, so restoring is a copy: every object is copied over `live/`, then what the
+  release lacks is removed (an S3-to-S3 sync would skip same-size files whose copy in `live/` is
+  newer, which is all of them when going back). Migrations are forward-only and backward-compatible
   (expand, deploy, contract in a later release), so the previous image runs on the new schema; the
   schema itself is never rolled back. A `git revert` on main is the permanent fix. *Rejected:*
   circuit breaker only (a failed smoke test leaves the app broken until someone reverts), blue/green
@@ -151,9 +157,10 @@ sequenceDiagram
   - `BedrockInputTokens`, `BedrockOutputTokens` once per claim per stage: extraction sums
     Converse's `usage` over its attempts, review takes Strands' `result.metrics.accumulated_usage`.
     "Per claim" is the Average / p90 statistic; a dashboard `<project>-<env>` shows both stages and
-    their sum.
+    their sum. A run that raises after spending tokens (a throttled second attempt, a failing tool)
+    raises `BedrockRunError` carrying what it spent, and the worker records that before the retry.
 
-  No IAM, no extra API call, nothing blocking. *Rejected:* `PutMetricData` (an IAM grant and a call
+  No IAM, no extra API call; the line is written with `asyncio.to_thread`, off the event loop. *Rejected:* `PutMetricData` (an IAM grant and a call
   per claim that can fail), metric filters on log text (they break when a message is reworded).
 - **Alarms by email:** one SNS topic per environment, with an email subscription (`alarm_email`,
   confirmed once). `ClaimsFailed` Sum ≥ 1 in 5 minutes, and any visible message in the extraction,
@@ -255,7 +262,8 @@ sequenceDiagram
 - **Code:** `app/core/metrics.py`, calls in both workers, `docs/pipeline.md`; `pyyaml` as a dev
   dependency for `tests/test_workflows.py`; `infra/scripts/terraform-vars.sh`, shared by the
   deploy and Start/Stop jobs (tfvars from the environment variable, `runtime_enabled` from SSM,
-  `restore_db_snapshot`).
+  `restore_db_snapshot`; a lookup error other than "not found" fails the job rather than starting
+  an empty database), `infra/scripts/push-image.sh`, `infra/scripts/publish-release.sh`.
 
 ## Known gaps
 
@@ -307,3 +315,4 @@ sequenceDiagram
 - [x] 4. `frontend` and `monitoring` modules, `environments/prod`: site bucket, CloudFront with OAC, VPC origin, functions, headers policy; SNS, alarms, dashboard — merge deploys (infra), alarm/tokens (infra) — `add frontend and monitoring terraform modules, prod environment root, ses identities owned by dev`
 - [x] 5. `ci.yml` on `pull_request` + `workflow_call` with `evals`, `actionlint`, terraform fmt + validate of every root, removal of the plan roles and `apply_db_password`; `tests/test_workflows.py`, `docs/pipeline.md` CI section, `pyyaml` — PR checks, docs, no long-lived keys — `add evals and actionlint ci jobs, validate every terraform root, reusable ci, workflow tests, pipeline docs, remove plan roles`
 - [x] 6. `deploy.yml` and `environment.yml` (Start/Stop), runbooks (bootstrap, start/stop, rollback), workflow tests — merge deploys, infra through the pipeline, docs, no long-lived keys — `add deploy workflow with migration, ecs deploy, frontend release, smoke and rollback, start/stop workflow, runbooks, tests`
+- [x] 7. code review fixes: frontend published by copying every object, rollback after any failure past the migration, previous release recorded before the apply and services created with 0 tasks, "not found" told apart from other errors in the scripts, Start/Stop in their own queue, tokens of failed Bedrock runs, metrics written off the event loop — merge deploys, alarm/tokens — `fix review findings: frontend publish copies every object, rollback after any failure past the migration, services start with 0 tasks, lookup errors fail, own queue for start/stop, tokens of failed bedrock runs, metrics off the event loop, tests`

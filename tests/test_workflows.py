@@ -160,9 +160,10 @@ def test_the_deploy_steps_run_in_order(deploy: dict[str, Any]) -> None:
         "image to ECR",
         "build the clause files",
         "terraform variables",
+        "terraform init",
+        "record the live release",
         "terraform apply",
         "sync the policy knowledge base",
-        "record the live release",
         "run the migration",
         "deploy the API and workers",
         "release the frontend",
@@ -175,7 +176,7 @@ def test_the_deploy_steps_run_in_order(deploy: dict[str, Any]) -> None:
 
 def test_a_stopped_environment_gets_infrastructure_and_image_only(deploy: dict[str, Any]) -> None:
     job_steps = named_steps(deploy["jobs"]["deploy"])
-    for name in ["image to ECR", "terraform apply", "sync the policy knowledge base"]:
+    for name in ["image to ECR", "record the live release", "terraform apply"]:
         assert "if" not in job_steps[name]
     for name in ["run the migration", "deploy the API and workers", "release the frontend"]:
         assert job_steps[name]["if"] == RUNTIME_ONLY
@@ -183,9 +184,10 @@ def test_a_stopped_environment_gets_infrastructure_and_image_only(deploy: dict[s
     assert "runtime_enabled != 'true'" in job_steps["note a stopped environment"]["if"]
 
 
-def test_a_failed_smoke_request_rolls_back(deploy: dict[str, Any]) -> None:
+def test_any_failure_after_the_migration_rolls_back(deploy: dict[str, Any]) -> None:
     job_steps = named_steps(deploy["jobs"]["deploy"])
-    assert job_steps["roll back"]["if"] == "failure() && steps.smoke.outcome == 'failure'"
+    assert job_steps["run the migration"]["id"] == "migrate"
+    assert job_steps["roll back"]["if"] == "failure() && steps.migrate.outcome == 'success'"
     assert "previous-revisions.txt" in job_steps["record the live release"]["run"]
     assert "previous-revisions.txt" in job_steps["roll back"]["run"]
     assert "PREVIOUS_RELEASE" in job_steps["roll back"]["run"]
@@ -204,13 +206,14 @@ def test_the_smoke_request_goes_through_cloudfront(deploy: dict[str, Any]) -> No
     assert '"${SITE_URL}/"' in run
 
 
-def test_start_and_stop_are_dispatched_per_branch_and_share_the_deploy_queue(
+def test_start_and_stop_are_dispatched_per_branch_in_their_own_queue(
     switch: dict[str, Any], deploy: dict[str, Any]
 ) -> None:
     workflow = load(WORKFLOWS / "environment.yml")
     assert workflow["on"]["workflow_dispatch"]["inputs"]["action"]["options"] == ["start", "stop"]
     assert ENVIRONMENT_PER_BRANCH in switch["environment"]
-    assert workflow["concurrency"]["group"] == deploy["concurrency"]["group"]
+    # one pending run per group: in the deploy's queue a push would cancel a waiting Stop
+    assert workflow["concurrency"]["group"] != deploy["concurrency"]["group"]
 
 
 def test_start_and_stop_write_the_flag_and_run_the_deploy(switch: dict[str, Any]) -> None:
@@ -227,3 +230,19 @@ def test_stop_drops_the_old_snapshot_only_while_the_database_exists(switch: dict
     assert drop["if"] == "inputs.action == 'stop'"
     run = drop["run"]
     assert run.index("describe-db-instances") < run.index("delete-db-snapshot")
+
+
+def test_services_get_tasks_only_from_the_deploy_after_the_migration(
+    deploy: dict[str, Any],
+) -> None:
+    run = named_steps(deploy["jobs"]["deploy"])["deploy the API and workers"]["run"]
+    assert "--desired-count 1" in run
+    runtime = (TERRAFORM / "modules/runtime/main.tf").read_text("utf-8")
+    assert re.search(r"desired_count\s+= 0", runtime)
+    assert "ignore_changes = [task_definition, desired_count]" in runtime
+
+
+def test_the_frontend_release_and_its_rollback_publish_the_same_way(deploy: dict[str, Any]) -> None:
+    job_steps = named_steps(deploy["jobs"]["deploy"])
+    for name in ["release the frontend", "roll back"]:
+        assert "infra/scripts/publish-release.sh" in job_steps[name]["run"]

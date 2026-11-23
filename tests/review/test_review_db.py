@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.claims.models import Claim
 from app.claims.status import ClaimStatus as S
-from app.core.metrics import TokenUsage
+from app.core.metrics import BedrockRunError, TokenUsage
 from app.review.agent import NoValidProposal, ReviewOutcome, ValidProposal
 from app.review.claim_data import ClaimUnderReview
 from app.review.models import Decision, Proposal
@@ -427,3 +427,24 @@ async def test_a_claim_that_is_not_extracted_counts_nothing(
     await worker.handle_message(request(claim_id))
 
     assert metrics.lines() == []
+
+
+async def test_tokens_of_a_failed_bedrock_run_are_recorded_before_the_retry(
+    db_session: AsyncSession, review_settings: ReviewWorkerSettings
+) -> None:
+    claim_id = await extracted_claim(db_session, "D01")
+    queue = FakeReviewQueue()
+    metrics = RecordingMetrics()
+    worker, _ = make_worker(
+        db_session,
+        review_settings,
+        queue,
+        BedrockRunError(TokenUsage(20000, 1500)),
+        metrics=metrics,
+    )
+
+    await worker.handle_message(request(claim_id))
+
+    assert metrics.values("BedrockInputTokens") == [("review", str(claim_id), 20000)]
+    assert metrics.values("ClaimsFailed") == []
+    assert queue.deleted == []

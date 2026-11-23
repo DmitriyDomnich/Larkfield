@@ -5,7 +5,7 @@ import boto3
 import pytest
 from botocore.stub import Stubber
 
-from app.core.metrics import TokenUsage
+from app.core.metrics import BedrockRunError, TokenUsage
 from app.extraction.extractor import (
     BedrockExtractor,
     InvalidExtraction,
@@ -232,3 +232,17 @@ async def test_unreadable_reason_is_tidied_for_the_employee(
     stubber.add_response("converse", answer(tool_use("report_unreadable", {"reason": reason})))
 
     assert await extractor.extract_expense(PAGES) == UnreadableDocument(expected)
+
+
+async def test_a_failing_call_reports_the_tokens_the_earlier_attempts_spent(
+    stubbed: tuple[BedrockExtractor, Stubber],
+) -> None:
+    extractor, stubber = stubbed
+    stubber.add_response("converse", answer({"text": "Here it is."}))
+    stubber.add_client_error("converse", service_error_code="ThrottlingException")
+
+    with pytest.raises(BedrockRunError) as raised:
+        await extractor.extract_expense(PAGES)
+
+    assert raised.value.usage == TokenUsage(4000, 600)
+    assert "ThrottlingException" in str(raised.value.__cause__)
