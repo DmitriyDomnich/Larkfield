@@ -32,6 +32,14 @@ jobs:
       AWS_REGION: ${{ vars.AWS_REGION }}
       ROOT: infra/terraform/environments/${{ github.ref_name == 'main' && 'prod' || 'dev' }}
     steps:
+      # the repository is public, and so are its logs: GitHub shows these values as *** from here on
+      - name: mask the email addresses
+        env:
+          TFVARS: ${{ vars.TFVARS }}
+        run: |
+          jq -r '.. | strings | select(test("@"))' <<< "$TFVARS" | while read -r value; do
+            echo "::add-mask::${value}"
+          done
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.3.2
         with:

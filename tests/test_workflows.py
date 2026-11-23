@@ -156,6 +156,7 @@ def test_main_deploys_prod_and_dev_deploys_dev(deploy: dict[str, Any]) -> None:
 
 def test_the_deploy_steps_run_in_order(deploy: dict[str, Any]) -> None:
     order = [
+        "mask the email addresses",
         "assume the deploy role",
         "image to ECR",
         "build the clause files",
@@ -246,3 +247,10 @@ def test_the_frontend_release_and_its_rollback_publish_the_same_way(deploy: dict
     job_steps = named_steps(deploy["jobs"]["deploy"])
     for name in ["release the frontend", "roll back"]:
         assert "infra/scripts/publish-release.sh" in job_steps[name]["run"]
+
+
+def test_the_email_addresses_are_masked_before_anything_is_logged(deploy: dict[str, Any]) -> None:
+    first = steps(deploy["jobs"]["deploy"])[0]
+    assert first["name"] == "mask the email addresses"
+    assert first["env"]["TFVARS"] == "${{ vars.TFVARS }}"
+    assert "::add-mask::" in first["run"]
