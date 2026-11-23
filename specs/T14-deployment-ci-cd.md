@@ -256,7 +256,9 @@ sequenceDiagram
 - **GitHub:** environments `dev` (branch `dev`) and `prod` (branch `main`), each with the
   variables `AWS_ROLE_ARN` (the deploy role) and `TFVARS` (JSON of today's `terraform.tfvars`
   values: sender/recipient/alarm emails, inference profiles; written to `ci.auto.tfvars.json`).
-  Repo variables `AWS_REGION`, `TF_STATE_BUCKET`. No secrets. Branch protection on `main` and `dev`: PR required, CI green.
+  Repo variables `AWS_REGION`, `TF_STATE_BUCKET`. No secrets. The repository and its run logs are
+  public, so the deploy's first step masks every email address in `TFVARS` (`::add-mask::`); the
+  Terraform output stays readable otherwise. Branch protection on `main` and `dev`: PR required, CI green.
 - **Workflows:** `ci.yml` (changed: `pull_request` + `workflow_call`, new `evals`, `actionlint`,
   all Terraform roots), `deploy.yml`, `environment.yml` (Start/Stop).
 - **Code:** `app/core/metrics.py`, calls in both workers, `docs/pipeline.md`; `pyyaml` as a dev
@@ -316,3 +318,4 @@ sequenceDiagram
 - [x] 5. `ci.yml` on `pull_request` + `workflow_call` with `evals`, `actionlint`, terraform fmt + validate of every root, removal of the plan roles and `apply_db_password`; `tests/test_workflows.py`, `docs/pipeline.md` CI section, `pyyaml` — PR checks, docs, no long-lived keys — `add evals and actionlint ci jobs, validate every terraform root, reusable ci, workflow tests, pipeline docs, remove plan roles`
 - [x] 6. `deploy.yml` and `environment.yml` (Start/Stop), runbooks (bootstrap, start/stop, rollback), workflow tests — merge deploys, infra through the pipeline, docs, no long-lived keys — `add deploy workflow with migration, ecs deploy, frontend release, smoke and rollback, start/stop workflow, runbooks, tests`
 - [x] 7. code review fixes: frontend published by copying every object, rollback after any failure past the migration, previous release recorded before the apply and services created with 0 tasks, "not found" told apart from other errors in the scripts, Start/Stop in their own queue, tokens of failed Bedrock runs, metrics written off the event loop — merge deploys, alarm/tokens — `fix review findings: frontend publish copies every object, rollback after any failure past the migration, services start with 0 tasks, lookup errors fail, own queue for start/stop, tokens of failed bedrock runs, metrics off the event loop, tests`
+- [x] 8. mask the `TFVARS` email addresses in the deploy logs (public repository) — merge deploys — `mask the tfvars email addresses in the public deploy logs, test, docs`

@@ -87,6 +87,7 @@ environment is running (`runtime_enabled`). Logs of the tasks: CloudWatch log gr
 
 | Step | What | Why | If it fails |
 |---|---|---|---|
+| `mask the email addresses` | registers every email address in `TFVARS` with `::add-mask::` | the repository and its run logs are public, and `terraform apply` prints the SES identities, the Lambda's sender and the alarm subscription | `TFVARS` isn't valid JSON |
 | `assume the deploy role` | OIDC → `larkfield-<env>-deploy` (1 hour) | AWS access without stored keys | the environment variable `AWS_ROLE_ARN` is missing, `bootstrap` isn't applied, or the run isn't on `dev`/`main` |
 | `image to ECR` | `infra/scripts/push-image.sh`: builds the image, pushes `larkfield-<env>:<sha>`; skips an existing tag | the services and the migration run this exact image | a Docker build error; on the very first deploy it only notes that the repository doesn't exist yet |
 | `build the clause files` | `make kb-build` → `build/kb-clauses` | Terraform uploads them to the clause KB's bucket | a clause file couldn't be built from `inputs/kb` |
