@@ -190,7 +190,9 @@ sequenceDiagram
 
 - **What can the deploy role do?** One role per environment, `<project>-<env>-deploy`, assumed only
   through GitHub OIDC with `aud = sts.amazonaws.com` and
-  `sub = repo:DmitriyDomnich/Larkfield:environment:<env>`. The GitHub environment's branch rule
+  `sub = repo:DmitriyDomnich@30810623/Larkfield@1430908221:environment:<env>` (the repository uses
+  immutable OIDC subjects, which carry the owner and repository ids, so a renamed or re-created
+  repository can't assume it). The GitHub environment's branch rule
   allows `prod` only from `main` and `dev` only from `dev`, so a feature branch or PR can't assume
   it ([GitHub OIDC in AWS](https://docs.github.com/en/actions/security-for-github-actions/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services)).
   Sessions last 1 hour. It may manage the services Terraform uses (VPC/EC2 networking, ECS, ECR,
@@ -221,7 +223,7 @@ sequenceDiagram
 
 - **Terraform `infra/terraform/bootstrap`** (admin, once): GitHub OIDC provider; per environment
   the `deploy` role and the `boundary` policy; the state bucket (imported) and its
-  policy. Variables: `github_repo`, `environments`, `state_bucket`.
+  policy. Variables: `github_subject_prefix`, `environments`, `state_bucket`.
 - **`environments/prod`:** a new root like `dev`, state key `prod/terraform.tfstate`, only the
   `clause` KB, Cognito with `enable_password_auth = false` and deletion protection, and
   `manage_email_identities = false`: SES identities belong to the account, not an environment, so
@@ -319,3 +321,4 @@ sequenceDiagram
 - [x] 6. `deploy.yml` and `environment.yml` (Start/Stop), runbooks (bootstrap, start/stop, rollback), workflow tests — merge deploys, infra through the pipeline, docs, no long-lived keys — `add deploy workflow with migration, ecs deploy, frontend release, smoke and rollback, start/stop workflow, runbooks, tests`
 - [x] 7. code review fixes: frontend published by copying every object, rollback after any failure past the migration, previous release recorded before the apply and services created with 0 tasks, "not found" told apart from other errors in the scripts, Start/Stop in their own queue, tokens of failed Bedrock runs, metrics written off the event loop — merge deploys, alarm/tokens — `fix review findings: frontend publish copies every object, rollback after any failure past the migration, services start with 0 tasks, lookup errors fail, own queue for start/stop, tokens of failed bedrock runs, metrics off the event loop, tests`
 - [x] 8. mask the `TFVARS` email addresses in the deploy logs (public repository) — merge deploys — `mask the tfvars email addresses in the public deploy logs, test, docs`
+- [x] 9. deploy roles trust the repository's immutable OIDC subject (owner and repository ids) — no long-lived keys — `trust the immutable github oidc subject in the deploy roles`

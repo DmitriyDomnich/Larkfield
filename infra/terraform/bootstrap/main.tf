@@ -44,7 +44,7 @@ resource "aws_iam_openid_connect_provider" "github" {
 }
 
 data "aws_iam_policy_document" "github_trust" {
-  for_each = { for env in var.environments : "${env}-deploy" => "repo:${var.github_repo}:environment:${env}" }
+  for_each = { for env in var.environments : "${env}-deploy" => "${var.github_subject_prefix}:environment:${env}" }
 
   statement {
     actions = ["sts:AssumeRoleWithWebIdentity"]

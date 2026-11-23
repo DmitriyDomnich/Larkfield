@@ -137,7 +137,7 @@ in `environments/dev/backend.hcl`), the `gh` CLI.
    ```sh
    cd infra/terraform/bootstrap
    cp backend.hcl.example backend.hcl            # state bucket + region
-   cp terraform.tfvars.example terraform.tfvars  # region, owner/repo, state bucket
+   cp terraform.tfvars.example terraform.tfvars  # region, OIDC subject prefix, state bucket
    terraform init -backend-config=backend.hcl
    terraform apply
    terraform output deploy_role_arns

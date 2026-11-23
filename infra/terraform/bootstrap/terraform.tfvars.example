@@ -1,4 +1,4 @@
 # read automatically by `terraform plan/apply`
-aws_region          = "<region>"
-github_repo         = "<owner>/<repo>"
-state_bucket        = "larkfield-tfstate-<suffix>"
+aws_region            = "<region>"
+github_subject_prefix = "<sub_claim_prefix from: gh api repos/<owner>/<repo>/actions/oidc/customization/sub>"
+state_bucket          = "larkfield-tfstate-<suffix>"
