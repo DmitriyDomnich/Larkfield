@@ -113,3 +113,117 @@ def test_every_job_and_named_step_is_documented() -> None:
         if f"`{item}`" not in docs
     ]
     assert missing == []
+
+
+ENVIRONMENT_PER_BRANCH = "github.ref_name == 'main' && 'prod' || 'dev'"
+RUNTIME_ONLY = "steps.vars.outputs.runtime_enabled == 'true'"
+
+
+@pytest.fixture(scope="module")
+def deploy() -> dict[str, Any]:
+    return load(WORKFLOWS / "deploy.yml")
+
+
+@pytest.fixture(scope="module")
+def switch() -> dict[str, Any]:
+    job: dict[str, Any] = load(WORKFLOWS / "environment.yml")["jobs"]["switch"]
+    return job
+
+
+def named_steps(job: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    return {step["name"]: step for step in steps(job) if "name" in step}
+
+
+def test_a_push_to_dev_or_main_deploys(deploy: dict[str, Any]) -> None:
+    assert deploy["on"]["push"]["branches"] == ["dev", "main"]
+    assert "workflow_dispatch" in deploy["on"]
+
+
+def test_the_deploy_runs_ci_first_on_a_push(deploy: dict[str, Any]) -> None:
+    assert deploy["jobs"]["ci"]["uses"] == "./.github/workflows/ci.yml"
+    assert deploy["jobs"]["ci"]["if"] == "github.event_name == 'push'"
+    job = deploy["jobs"]["deploy"]
+    assert job["needs"] == "ci"
+    assert "needs.ci.result == 'success'" in job["if"]
+
+
+def test_main_deploys_prod_and_dev_deploys_dev(deploy: dict[str, Any]) -> None:
+    job = deploy["jobs"]["deploy"]
+    assert ENVIRONMENT_PER_BRANCH in job["environment"]
+    assert ENVIRONMENT_PER_BRANCH in job["env"]["ENVIRONMENT"]
+    assert deploy["concurrency"]["cancel-in-progress"] is False
+
+
+def test_the_deploy_steps_run_in_order(deploy: dict[str, Any]) -> None:
+    order = [
+        "assume the deploy role",
+        "image to ECR",
+        "build the clause files",
+        "terraform variables",
+        "terraform apply",
+        "sync the policy knowledge base",
+        "record the live release",
+        "run the migration",
+        "deploy the API and workers",
+        "release the frontend",
+        "smoke request",
+        "roll back",
+    ]
+    names = list(named_steps(deploy["jobs"]["deploy"]))
+    assert [name for name in names if name in order] == order
+
+
+def test_a_stopped_environment_gets_infrastructure_and_image_only(deploy: dict[str, Any]) -> None:
+    job_steps = named_steps(deploy["jobs"]["deploy"])
+    for name in ["image to ECR", "terraform apply", "sync the policy knowledge base"]:
+        assert "if" not in job_steps[name]
+    for name in ["run the migration", "deploy the API and workers", "release the frontend"]:
+        assert job_steps[name]["if"] == RUNTIME_ONLY
+    assert job_steps["smoke request"]["if"] == RUNTIME_ONLY
+    assert "runtime_enabled != 'true'" in job_steps["note a stopped environment"]["if"]
+
+
+def test_a_failed_smoke_request_rolls_back(deploy: dict[str, Any]) -> None:
+    job_steps = named_steps(deploy["jobs"]["deploy"])
+    assert job_steps["roll back"]["if"] == "failure() && steps.smoke.outcome == 'failure'"
+    assert "previous-revisions.txt" in job_steps["record the live release"]["run"]
+    assert "previous-revisions.txt" in job_steps["roll back"]["run"]
+    assert "PREVIOUS_RELEASE" in job_steps["roll back"]["run"]
+
+
+def test_the_migration_must_exit_0_and_the_new_revision_must_stick(deploy: dict[str, Any]) -> None:
+    job_steps = named_steps(deploy["jobs"]["deploy"])
+    assert '[ "$exit_code" = "0" ]' in job_steps["run the migration"]["run"]
+    assert "deployments[?status=='PRIMARY']" in job_steps["deploy the API and workers"]["run"]
+
+
+def test_the_smoke_request_goes_through_cloudfront(deploy: dict[str, Any]) -> None:
+    run = named_steps(deploy["jobs"]["deploy"])["smoke request"]["run"]
+    assert '"${SITE_URL}/api/health"' in run
+    assert '.database == "ok"' in run
+    assert '"${SITE_URL}/"' in run
+
+
+def test_start_and_stop_are_dispatched_per_branch_and_share_the_deploy_queue(
+    switch: dict[str, Any], deploy: dict[str, Any]
+) -> None:
+    workflow = load(WORKFLOWS / "environment.yml")
+    assert workflow["on"]["workflow_dispatch"]["inputs"]["action"]["options"] == ["start", "stop"]
+    assert ENVIRONMENT_PER_BRANCH in switch["environment"]
+    assert workflow["concurrency"]["group"] == deploy["concurrency"]["group"]
+
+
+def test_start_and_stop_write_the_flag_and_run_the_deploy(switch: dict[str, Any]) -> None:
+    job_steps = named_steps(switch)
+    assert (
+        "/larkfield-${ENVIRONMENT}/runtime_enabled" in job_steps["switch the runtime flag"]["run"]
+    )
+    assert "gh workflow run deploy.yml" in job_steps["run the deploy"]["run"]
+    assert switch["permissions"]["actions"] == "write"
+
+
+def test_stop_drops_the_old_snapshot_only_while_the_database_exists(switch: dict[str, Any]) -> None:
+    drop = named_steps(switch)["drop the previous snapshot"]
+    assert drop["if"] == "inputs.action == 'stop'"
+    run = drop["run"]
+    assert run.index("describe-db-instances") < run.index("delete-db-snapshot")

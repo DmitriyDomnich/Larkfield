@@ -1,0 +1,65 @@
+name: Environment
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "start: NAT, RDS (from the last snapshot), ALB, ECS, then deploy. stop: snapshot, then remove them."
+        type: choice
+        options: [start, stop]
+        required: true
+
+concurrency:
+  group: deploy-${{ github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  switch:
+    # dev branch -> dev, main -> prod, like the deploy
+    if: github.ref_name == 'dev' || github.ref_name == 'main'
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'prod' || 'dev' }}
+    permissions:
+      contents: read
+      id-token: write
+      actions: write
+    env:
+      ENVIRONMENT: ${{ github.ref_name == 'main' && 'prod' || 'dev' }}
+      ACTION: ${{ inputs.action }}
+    steps:
+      - name: assume the deploy role
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          role-session-name: environment-${{ github.run_id }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: drop the previous snapshot
+        if: inputs.action == 'stop'
+        run: |
+          # only while the database exists: on a stopped environment the snapshot is the only copy
+          if ! aws rds describe-db-instances --db-instance-identifier "larkfield-${ENVIRONMENT}-db" > /dev/null 2>&1; then
+            echo "no database running; keeping the snapshot"
+            exit 0
+          fi
+          snapshot="larkfield-${ENVIRONMENT}-latest"
+          if aws rds describe-db-snapshots --db-snapshot-identifier "$snapshot" > /dev/null 2>&1; then
+            aws rds delete-db-snapshot --db-snapshot-identifier "$snapshot" > /dev/null
+            aws rds wait db-snapshot-deleted --db-snapshot-identifier "$snapshot"
+            echo "deleted ${snapshot}; the stop takes a new one"
+          fi
+      - name: switch the runtime flag
+        run: |
+          value=$([ "$ACTION" = start ] && echo true || echo false)
+          aws ssm put-parameter --name "/larkfield-${ENVIRONMENT}/runtime_enabled" \
+            --type String --value "$value" --overwrite > /dev/null
+          echo "/larkfield-${ENVIRONMENT}/runtime_enabled = ${value}"
+      - name: run the deploy
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh workflow run deploy.yml --ref "$GITHUB_REF_NAME"
+          echo "### ${ENVIRONMENT}: ${ACTION} requested; the Deploy run applies it" >> "$GITHUB_STEP_SUMMARY"
