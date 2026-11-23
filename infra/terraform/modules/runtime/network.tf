@@ -1,6 +1,6 @@
 resource "aws_security_group" "alb" {
   name        = "${var.project_name}-alb"
-  description = "Internal ALB; CloudFront's VPC origin is the only client"
+  description = "Internal ALB, reached only by the CloudFront VPC origin"
   vpc_id      = var.vpc_id
 }
 

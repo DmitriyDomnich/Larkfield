@@ -148,6 +148,12 @@ resource "aws_iam_policy" "deploy_resources" {
         }
       },
       {
+        Sid      = "TagTriggers"
+        Effect   = "Allow"
+        Action   = ["lambda:TagResource", "lambda:UntagResource", "lambda:ListTags"]
+        Resource = "arn:aws:lambda:${local.region}:${local.account_id}:event-source-mapping:*"
+      },
+      {
         Sid    = "TaskDefinitions"
         Effect = "Allow"
         Action = [
