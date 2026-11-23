@@ -66,6 +66,25 @@ resource "aws_iam_role_policy" "api_user_groups" {
   })
 }
 
+# ECS Exec: the session channel for the database tunnel
+resource "aws_iam_role_policy" "api_ecs_exec" {
+  name = "ecs-exec"
+  role = aws_iam_role.api.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "ssmmessages:CreateControlChannel",
+        "ssmmessages:CreateDataChannel",
+        "ssmmessages:OpenControlChannel",
+        "ssmmessages:OpenDataChannel",
+      ]
+      Resource = "*"
+    }]
+  })
+}
+
 resource "aws_iam_role" "extraction_worker" {
   name                 = "${var.project_name}-extraction-task"
   path                 = var.iam_path
