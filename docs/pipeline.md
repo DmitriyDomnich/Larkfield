@@ -176,6 +176,31 @@ Changing a deploy role or the boundary later: edit `bootstrap`, apply it again f
 - Messages that arrive while stopped wait in SQS (4 days; 14 in the DLQs) and are processed after
   a Start.
 
+### Connect to the database
+
+The database has no public endpoint. While the environment is started, Session Manager forwards a
+local port through the running api task (ECS Exec) to RDS. Needs the Session Manager plugin
+(`brew install --cask session-manager-plugin`) and an IAM user allowed `ecs:ExecuteCommand` and
+`ssm:StartSession`; the deploy roles aren't. Sessions are logged in CloudTrail.
+
+```
+env=dev
+task=$(aws ecs list-tasks --cluster larkfield-$env --service-name api --query 'taskArns[0]' --output text)
+runtime=$(aws ecs describe-tasks --cluster larkfield-$env --tasks "$task" \
+  --query 'tasks[0].containers[?name==`app`].runtimeId | [0]' --output text)
+host=$(aws rds describe-db-instances --db-instance-identifier larkfield-$env-db \
+  --query 'DBInstances[0].Endpoint.Address' --output text)
+aws ssm start-session --target "ecs:larkfield-${env}_${task##*/}_${runtime}" \
+  --document-name AWS-StartPortForwardingSessionToRemoteHost \
+  --parameters "host=$host,portNumber=5432,localPortNumber=5433"
+```
+
+Then connect a client (DBeaver, psql) to `localhost:5433`, database and user `larkfield`, password:
+`aws secretsmanager get-secret-value --secret-id larkfield-$env-db-password --query SecretString
+--output text`. The tunnel lasts while `start-session` runs. A task started before ECS Exec was
+enabled has no agent: replace it once with `aws ecs update-service --cluster larkfield-$env
+--service api --force-new-deployment`.
+
 ### Rollback
 
 - **A new task doesn't start or fails `/health`:** the circuit breaker puts that service's old

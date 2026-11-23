@@ -122,6 +122,8 @@ resource "aws_ecs_service" "service" {
   desired_count  = 0
   launch_type    = "FARGATE"
   propagate_tags = "SERVICE"
+  # only the api, for the database tunnel
+  enable_execute_command = each.key == "api"
 
   network_configuration {
     subnets          = var.private_subnet_ids

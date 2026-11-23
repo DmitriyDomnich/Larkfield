@@ -185,6 +185,13 @@ sequenceDiagram
   `database: ok` (CloudFront → VPC origin → ALB → a new API task → RDS), and `GET /` must return
   the app shell, retried for up to 3 minutes. The workers have no endpoint: a worker that can't
   start fails steady state and trips its circuit breaker.
+- **Database access through the api task:** the api service has ECS Exec enabled, so an admin can
+  forward a local port through the running task to RDS with Session Manager and use any client
+  (DBeaver, psql). No public endpoint, no extra instance; access is IAM (`ecs:ExecuteCommand`,
+  `ssm:StartSession`, which the deploy roles don't have) and every session is in CloudTrail. Works
+  only while the environment is started. *Rejected:* a public RDS endpoint limited to one IP (a
+  password-only database on the internet), a jump instance (another resource to run and patch),
+  Client VPN (cost).
 
 ## Questions
 
@@ -292,6 +299,8 @@ sequenceDiagram
 - Stop/start loses nothing in the DB but takes about 10–15 min to start; RDS snapshots bill for
   storage. Messages arriving while stopped wait in SQS (4-day default retention, 14 for DLQs).
 - No password rotation: rotating means bumping `db_password_version` and redeploying.
+- Whoever can open an ECS Exec session on the api task gets a shell with the api's role and can
+  reach the database; in prod that is a read of real receipts. Only admin IAM users have it.
 
 ## Testing
 
@@ -307,7 +316,8 @@ sequenceDiagram
   commit whose API fails `/health`, see the circuit breaker roll back; break the smoke request (bad
   CloudFront path), see the job restore the revisions and frontend; a local `terraform apply`
   fails on the lock; an invalid upload → `failed` → alarm email, and tokens on the dashboard
-  after a claim reaches `in_review`; Stop, then Start, data still there; merge to `main` → prod.
+  after a claim reaches `in_review`; Stop, then Start, data still there; a DBeaver connection through the database tunnel
+  (runbook); merge to `main` → prod.
 
 ## Results
 
@@ -323,3 +333,4 @@ sequenceDiagram
 - [x] 8. mask the `TFVARS` email addresses in the deploy logs (public repository) — merge deploys — `mask the tfvars email addresses in the public deploy logs, test, docs`
 - [x] 9. deploy roles trust the repository's immutable OIDC subject (owner and repository ids) — no long-lived keys — `trust the immutable github oidc subject in the deploy roles`
 - [x] 10. fixes from the first dev deploy: security group description without `'`, deploy role may tag Lambda event source mappings, dashboard metric rows — merge deploys, alarm/tokens — `fix first deploy errors: security group description, tag permission for lambda triggers, dashboard metric rows`
+- [x] 11. database access: ECS Exec on the api service, its session channel in the task role and the boundary, runbook — docs — `add ecs exec on the api service for a database tunnel through session manager, runbook`
