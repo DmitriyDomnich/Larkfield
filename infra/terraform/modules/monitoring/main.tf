@@ -84,13 +84,10 @@ resource "aws_cloudwatch_dashboard" "main" {
             stat   = local.token_widgets[title]
             period = 3600
             view   = "timeSeries"
+            # one row per metric: [namespace, name, dimension, value, options]
             metrics = concat(
-              flatten([
-                for stage in local.stages : [
-                  [local.namespace, "BedrockInputTokens", "Stage", stage, { id = "${stage}_in", label = "${stage} input" }],
-                  [local.namespace, "BedrockOutputTokens", "Stage", stage, { id = "${stage}_out", label = "${stage} output" }],
-                ]
-              ]),
+              [for stage in local.stages : [local.namespace, "BedrockInputTokens", "Stage", stage, { id = "${stage}_in", label = "${stage} input" }]],
+              [for stage in local.stages : [local.namespace, "BedrockOutputTokens", "Stage", stage, { id = "${stage}_out", label = "${stage} output" }]],
               [[{
                 expression = join(" + ", flatten([for stage in local.stages : ["FILL(${stage}_in, 0)", "FILL(${stage}_out, 0)"]]))
                 label      = "both stages, input + output"
