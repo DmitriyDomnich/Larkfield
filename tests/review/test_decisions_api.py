@@ -5,11 +5,14 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 
 from app.auth.dependencies import get_token_verifier
 from app.core.config import Settings
+from app.review.claim_data import with_corrections
 from app.review.schemas import AnswerCreate, ExpenseCorrections
 from tests.claims.fakes import auth
+from tests.extraction.fakes import expense
 from tests.tokens import make_verifier
 
 CLAIM = "/claims/00000000-0000-0000-0000-000000000000"
@@ -101,6 +104,21 @@ def test_corrections_keep_only_the_fields_sent_and_may_clear_nullable_ones() -> 
 
     assert corrections.dump_corrected_fields() == {"total": "42.50", "tip_amount": None}
     assert ExpenseCorrections().dump_corrected_fields() is None
+
+
+def test_corrections_are_laid_over_the_extraction() -> None:
+    corrected = with_corrections(expense("D01"), {"total": "99.99", "category": "other"})
+
+    assert str(corrected.total) == "99.99"
+    assert corrected.category == "other"
+    assert corrected.vendor_name == expense("D01").vendor_name
+
+
+def test_corrections_that_break_the_expense_are_refused() -> None:
+    card_slip = expense("D01", document_type="card_slip", line_items=[])
+
+    with pytest.raises(ValidationError):
+        with_corrections(card_slip, {"document_type": "receipt"})
 
 
 def test_an_answer_changes_only_the_claim_fields_it_sends() -> None:

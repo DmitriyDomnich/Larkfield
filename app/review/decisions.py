@@ -1,6 +1,8 @@
+import logging
 import uuid
 from typing import Any
 
+from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -11,6 +13,7 @@ from app.claims.models import Claim
 from app.claims.service import ClaimNotFoundError, InvalidTransitionError, get_claim, transition
 from app.claims.status import ClaimStatus
 from app.notifications.queue import ClaimNotification, NotifiedStatus, build_notification
+from app.review.claim_data import load_expense, with_corrections
 from app.review.models import ClaimAnswer, Decision, Proposal, ReviewerDecision
 from app.review.schemas import (
     AnswerCreate,
@@ -21,6 +24,8 @@ from app.review.schemas import (
     ReviewerDecisionRead,
     ReviewRound,
 )
+
+logger = logging.getLogger(__name__)
 
 DECIDED_STATUS: dict[Decision, NotifiedStatus] = {
     Decision.APPROVE: ClaimStatus.APPROVED,
@@ -38,6 +43,10 @@ class CommentRequiredError(Exception):
     """The decision differs from the proposal or is reject or needs_info, and has no comment."""
 
 
+class InvalidCorrectionsError(Exception):
+    """The extraction with the corrections laid over it is not a valid expense."""
+
+
 async def decide_claim(
     session: AsyncSession, reviewer: CurrentUser, claim_id: uuid.UUID, data: DecisionCreate
 ) -> tuple[ReviewerDecision, ClaimNotification]:
@@ -53,15 +62,17 @@ async def decide_claim(
     differs = data.decision != proposal.decision
     if (differs or data.decision in COMMENT_REQUIRED_DECISIONS) and not data.comment:
         raise CommentRequiredError(claim_id)
+    corrections = data.corrected_fields
+    corrected_fields = corrections.dump_corrected_fields() if corrections else None
+    if corrected_fields:
+        await _check_corrections(session, claim_id, corrected_fields)
 
     decision = ReviewerDecision(
         proposal_id=proposal.id,
         reviewer_sub=reviewer.sub,
         decision=data.decision,
         comment=data.comment or None,
-        corrected_fields=data.corrected_fields.dump_corrected_fields()
-        if data.corrected_fields
-        else None,
+        corrected_fields=corrected_fields,
     )
     session.add(decision)
     await session.flush()
@@ -122,6 +133,19 @@ async def get_claim_review(
             )
         )
     return ClaimReview(claim_id=claim_id, rounds=rounds)
+
+
+async def _check_corrections(
+    session: AsyncSession, claim_id: uuid.UUID, corrected_fields: dict[str, Any]
+) -> None:
+    expense = await load_expense(session, claim_id)
+    if expense is None:
+        raise InvalidCorrectionsError(claim_id)
+    try:
+        with_corrections(expense, corrected_fields)
+    except ValidationError as exc:
+        logger.info("corrections refused for claim %s: %s", claim_id, exc.errors())
+        raise InvalidCorrectionsError(claim_id) from exc
 
 
 async def _lock_claim(

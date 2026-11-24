@@ -690,7 +690,7 @@
             }
           },
           "422": {
-            "description": "Invalid request, or a comment is missing where one is required",
+            "description": "Invalid request, a comment is missing where one is required, or the corrections do not make a valid expense",
             "content": {
               "application/json": {
                 "schema": {
@@ -789,7 +789,7 @@
             }
           },
           "422": {
-            "description": "Invalid request, or a comment is missing where one is required",
+            "description": "Invalid request, a comment is missing where one is required, or the corrections do not make a valid expense",
             "content": {
               "application/json": {
                 "schema": {

@@ -3,17 +3,19 @@ import logging
 import uuid
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 
 import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.claims.models import Claim
+from app.claims.service import transition
 from app.claims.status import ClaimStatus as S
 from app.core.metrics import BedrockRunError, TokenUsage
 from app.review.agent import NoValidProposal, ReviewOutcome, ValidProposal
 from app.review.claim_data import ClaimUnderReview
-from app.review.models import Decision, Proposal
+from app.review.models import ClaimAnswer, Decision, Proposal, ReviewerDecision
 from app.review.proposal import ReviewProposal
 from app.review.queue import ReviewMessage
 from app.review.service import NO_VALID_PROPOSAL_REASON, TECHNICAL_FAILURE_REASON
@@ -448,3 +450,71 @@ async def test_tokens_of_a_failed_bedrock_run_are_recorded_before_the_retry(
     assert metrics.values("BedrockInputTokens") == [("review", str(claim_id), 20000)]
     assert metrics.values("ClaimsFailed") == []
     assert queue.deleted == []
+
+
+async def answered_round(
+    db_session: AsyncSession,
+    claim_id: uuid.UUID,
+    corrected_fields: dict[str, object] | None,
+    created_at: datetime,
+) -> None:
+    """A needs_info round the employee answered, with the reviewer's corrections"""
+    proposal = Proposal(
+        claim_id=claim_id,
+        decision=Decision.NEEDS_INFO,
+        reasons=[{"clause_id": "2.2", "quote": "q", "explanation": "e"}],
+        missing_information=["Attendees"],
+        ai_model=MODEL,
+        created_at=created_at,
+    )
+    db_session.add(proposal)
+    await db_session.flush()
+    decision = ReviewerDecision(
+        proposal_id=proposal.id,
+        reviewer_sub="reviewer-1",
+        decision=Decision.NEEDS_INFO,
+        comment="Who attended?",
+        corrected_fields=corrected_fields,
+        created_at=created_at,
+    )
+    db_session.add(decision)
+    await db_session.flush()
+    db_session.add(ClaimAnswer(reviewer_decision_id=decision.id, message="Just me."))
+    await db_session.flush()
+
+
+async def test_the_second_round_reviews_the_newest_corrections_with_recomputed_warnings(
+    db_session: AsyncSession, review_settings: ReviewWorkerSettings
+) -> None:
+    claim_id = await extracted_claim(db_session, "D01", status=S.NEEDS_INFO)
+    first, second = datetime(2026, 11, 1, tzinfo=UTC), datetime(2026, 11, 2, tzinfo=UTC)
+    await answered_round(db_session, claim_id, {"total": "50.00"}, first)
+    await answered_round(db_session, claim_id, {"total": "99.99", "category": "other"}, second)
+    await transition(db_session, claim_id, S.EXTRACTED)
+    await db_session.commit()
+    worker, agent = make_worker(db_session, review_settings, FakeReviewQueue(), valid())
+
+    await worker.handle_message(request(claim_id))
+
+    [reviewed] = agent.reviewed
+    assert str(reviewed.expense.total) == "99.99"
+    assert reviewed.expense.category == "other"
+    assert reviewed.expense.vendor_name == "Brauhaus am Markt"
+    assert [warning["code"] for warning in reviewed.warnings] == ["sum_mismatch"]
+    assert "99.99" in reviewed.warnings[0]["message"]
+
+
+async def test_a_round_without_corrections_reviews_the_extraction_as_stored(
+    db_session: AsyncSession, review_settings: ReviewWorkerSettings
+) -> None:
+    claim_id = await extracted_claim(db_session, "D01", status=S.NEEDS_INFO)
+    await answered_round(db_session, claim_id, None, datetime(2026, 11, 1, tzinfo=UTC))
+    await transition(db_session, claim_id, S.EXTRACTED)
+    await db_session.commit()
+    worker, agent = make_worker(db_session, review_settings, FakeReviewQueue(), valid())
+
+    await worker.handle_message(request(claim_id))
+
+    [reviewed] = agent.reviewed
+    assert str(reviewed.expense.total) == "18.50"
+    assert reviewed.warnings == []
