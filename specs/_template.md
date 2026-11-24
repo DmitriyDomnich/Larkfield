@@ -6,11 +6,12 @@ deferred while writing this spec, with the ticket it moves to>.
 ## Acceptance criteria
 
 <!-- One row per acceptance criterion in the ticket, worded as in the ticket. "How" is the mechanism
-(endpoint, component, rule), "Tested by" the test files that prove it. Every row needs a test. -->
+(endpoint, component, rule), "Tested by" the test files that prove it. Every row needs a test.
+"Browser": `Yes — E2E n`, `UI part — E2E n (<other part>: tests only)` or `No`. -->
 
-| Criterion | How | Tested by |
-|---|---|---|
-| | | |
+| Criterion | How | Tested by | Browser |
+|---|---|---|---|
+| | | | |
 
 ## Flow
 
@@ -50,6 +51,14 @@ docs that back an answer. No question may stay open. -->
 - **Unit:** <what is covered without a DB or AWS>.
 - **Integration:** <what needs PostgreSQL, marked `@pytest.mark.integration`>.
 - **Manual:** <the end-to-end check run before the PR>.
+
+## E2E scenarios
+
+<!-- One per `E2E n` in the Browser column, run by `/e2e TNN`: starting data, what the user does,
+what they should see, and what to check read-only in the database or network log. Delete if no
+criterion needs a browser. `/e2e` adds a dated `## E2E` section with the results after this one. -->
+
+1. **<Behaviour> (AC n).** <Starting data.> <User> <does…>. Sees <…>. DB: <…>.
 
 ## Results
 

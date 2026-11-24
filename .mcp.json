@@ -19,6 +19,10 @@
     "larkfield-review": {
       "command": "uv",
       "args": ["run", "--env-file", ".env", "python", "-m", "app.review.mcp_server"]
+    },
+    "playwright": {
+      "command": "sh",
+      "args": [".claude/mcp/playwright.sh"]
     }
   }
 }
