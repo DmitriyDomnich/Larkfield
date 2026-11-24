@@ -7,13 +7,19 @@ from pydantic import BaseModel
 
 from app.auth.dependencies import ClaimsUser
 from app.claims import service
-from app.claims.schemas import ClaimCreate, ClaimCreated, ClaimPage, ClaimRead, FileLink
+from app.claims.schemas import (
+    ClaimCreate,
+    ClaimCreated,
+    ClaimListQuery,
+    ClaimPage,
+    ClaimRead,
+    FileLink,
+)
 from app.claims.service import (
     ClaimNotFoundError,
     FileNotAvailableError,
     InvalidTransitionError,
 )
-from app.claims.status import ClaimStatus
 from app.claims.storage import ObjectStorage, get_storage
 from app.core.config import Settings, get_settings
 from app.core.db import SessionDep
@@ -72,22 +78,23 @@ async def create_claim(
     "",
     response_model=ClaimPage,
     summary="List claims",
-    description=("Employees see their own claims, reviewers all claims; newest first"),
+    description=(
+        "Employees see their own claims, reviewers all claims; newest first. "
+        "`submitted_after` (inclusive) and `submitted_before` (exclusive) need a time zone."
+    ),
     responses=_errors(422),
 )
 async def list_claims(
     user: ClaimsUser,
     session: SessionDep,
-    status_filter: Annotated[list[ClaimStatus] | None, Query(alias="status")] = None,
-    limit: Annotated[int, Query(ge=1, le=100)] = 20,
-    offset: Annotated[int, Query(ge=0)] = 0,
+    query: Annotated[ClaimListQuery, Query()],
 ) -> ClaimPage:
-    claims, total = await service.list_claims(session, user, status_filter or [], limit, offset)
+    claims, total = await service.list_claims(session, user, query)
     return ClaimPage(
         items=[ClaimRead.model_validate(claim) for claim in claims],
         total=total,
-        limit=limit,
-        offset=offset,
+        limit=query.limit,
+        offset=query.offset,
     )
 
 

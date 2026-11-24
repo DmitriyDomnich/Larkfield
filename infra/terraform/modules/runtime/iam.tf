@@ -47,7 +47,7 @@ resource "aws_iam_role_policy_attachment" "api" {
   policy_arn = each.value
 }
 
-# role changes from the users endpoints
+# for users endpoints
 resource "aws_iam_role_policy" "api_user_groups" {
   name = "manage-user-groups"
   role = aws_iam_role.api.id
@@ -60,6 +60,7 @@ resource "aws_iam_role_policy" "api_user_groups" {
         "cognito-idp:AdminRemoveUserFromGroup",
         "cognito-idp:AdminListGroupsForUser",
         "cognito-idp:AdminGetUser",
+        "cognito-idp:ListUsersInGroup",
       ]
       Resource = var.user_pool_arn
     }]

@@ -1,5 +1,4 @@
 import uuid
-from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import ColumnElement, Select, func, select, update
@@ -17,7 +16,7 @@ from app.claims.files import (
     content_matches_type,
 )
 from app.claims.models import Claim, Document
-from app.claims.schemas import ClaimCreate, FileLink, UploadForm
+from app.claims.schemas import ClaimCreate, ClaimListQuery, FileLink, UploadForm
 from app.claims.status import ClaimStatus
 from app.claims.storage import ObjectStorage
 from app.core.config import Settings
@@ -96,23 +95,25 @@ async def get_claim(session: AsyncSession, user: CurrentUser, claim_id: uuid.UUI
 
 
 async def list_claims(
-    session: AsyncSession,
-    user: CurrentUser,
-    statuses: Sequence[ClaimStatus],
-    limit: int,
-    offset: int,
+    session: AsyncSession, user: CurrentUser, query: ClaimListQuery
 ) -> tuple[list[Claim], int]:
     filters = _visible_to(user)
-    if statuses:
-        filters.append(Claim.status.in_(statuses))
+    if query.status:
+        filters.append(Claim.status.in_(query.status))
+    if query.submitted_after is not None:
+        filters.append(Claim.submitted_at >= query.submitted_after)
+    if query.submitted_before is not None:
+        filters.append(Claim.submitted_at < query.submitted_before)
+    if query.employee_sub is not None:
+        filters.append(Claim.employee_sub == query.employee_sub)
 
     total = await session.scalar(select(func.count()).select_from(Claim).where(*filters)) or 0
     claims = await session.scalars(
         _with_document()
         .where(*filters)
         .order_by(Claim.submitted_at.desc(), Claim.id.desc())
-        .limit(limit)
-        .offset(offset)
+        .limit(query.limit)
+        .offset(query.offset)
     )
     return list(claims), total
 
