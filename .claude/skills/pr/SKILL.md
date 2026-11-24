@@ -18,7 +18,9 @@ The developer creates the PR; you write its text. Never push, create the PR or r
   - uncommitted changes (`git status`),
   - unticked slices in the spec's Commit plan (before step 2 deletes it),
   - acceptance-criteria rows whose "Tested by" files don't exist,
-  - a new setting missing from `.env.example`.
+  - a new setting missing from `.env.example`,
+  - E2E scenarios with no `## E2E` run, or a FAIL or BLOCKED in the newest run (run `/e2e TNN`),
+  - commits after the newest E2E run that touch the frontend (the run may be stale).
 - Spec link: `git remote get-url origin` → `https://github.com/<owner>/<repo>/blob/<branch>/specs/<file>`.
 - If neither the spec's Results nor the commits say what was verified by hand (manual end-to-end
   run, a review), ask the developer before writing the Result section.
@@ -41,6 +43,9 @@ size) before writing the PR:
 - **Configuration:** what changed, not instructions to the developer,
   which are done by now.
 - **Testing:** one line each for Unit and Integration; keep Manual.
+- **E2E scenarios:** one line each (behaviour, starting data, what is seen); keep the numbers the
+  "Browser" column refers to.
+- **E2E:** keep only the newest dated run, its table and findings.
 - **Results:** their own `## Results` section at the end: the manual run and the reviews.
 - **Commit plan:** delete it (the commits and the PR record the slices).
 
@@ -63,7 +68,8 @@ Spec: [specs/<file>](<link>)
   frontend, infra/Terraform, tests; nest bullets for several items)
 
 ### Result
-<what was verified by hand and how it went; review findings and where they were fixed>
+<E2E run (date, scenarios passed, risks found and their new tests); what was verified by hand and
+how it went; review findings and where they were fixed>
 
 ### Setup
 <new env vars, `make migrate`, `terraform apply`, npm install, anything a reviewer runs first;
