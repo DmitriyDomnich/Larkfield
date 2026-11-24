@@ -7,10 +7,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.claims.models import Claim
+from app.claims.models import Claim, Document
 from app.claims.status import ClaimStatus
 from app.extraction.models import Extraction
-from app.extraction.schemas import ExtractedExpense, LineItem
+from app.extraction.schemas import ExtractedExpense, LineItem, validate_expense_warnings
 from app.review.models import ClaimAnswer, Decision, Proposal, ReviewerDecision
 
 
@@ -73,15 +73,21 @@ async def _load_claim(
     )
     if extraction is None:
         return None
+    expense, warnings = map_expense(extraction), extraction.warnings
+    corrected_fields = await _load_newest_corrections(session, claim.id)
+    if corrected_fields:
+        expense = with_corrections(expense, corrected_fields)
+        today = datetime.now(UTC).date()
+        warnings = [warning.model_dump() for warning in validate_expense_warnings(expense, today)]
     return ClaimUnderReview(
         claim_id=claim.id,
         employee_sub=claim.employee_sub,
         purpose=claim.purpose,
         preapproval_ref=claim.preapproval_ref,
         submitted_at=claim.submitted_at,
-        expense=map_expense(extraction),
+        expense=expense,
         attendees=claim.attendees,
-        warnings=extraction.warnings,
+        warnings=warnings,
         document_sha256=claim.document.sha256,
         answered_requests=await _load_answered_requests(session, claim.id),
     )
@@ -101,6 +107,35 @@ async def _load_answered_requests(
         AnsweredRequest(list(missing_information), comment, message)
         for missing_information, comment, message in rows
     ]
+
+
+async def _load_newest_corrections(
+    session: AsyncSession, claim_id: uuid.UUID
+) -> dict[str, Any] | None:
+    corrected_fields: dict[str, Any] | None = await session.scalar(
+        select(ReviewerDecision.corrected_fields)
+        .join(ReviewerDecision.proposal)
+        .where(Proposal.claim_id == claim_id)
+        .order_by(ReviewerDecision.created_at.desc(), ReviewerDecision.id.desc())
+        .limit(1)
+    )
+    return corrected_fields
+
+
+async def load_expense(session: AsyncSession, claim_id: uuid.UUID) -> ExtractedExpense | None:
+    extraction = await session.scalar(
+        select(Extraction)
+        .join(Document, Document.id == Extraction.document_id)
+        .where(Document.claim_id == claim_id)
+        .options(selectinload(Extraction.line_items))
+    )
+    return map_expense(extraction) if extraction is not None else None
+
+
+def with_corrections(
+    expense: ExtractedExpense, corrected_fields: dict[str, Any]
+) -> ExtractedExpense:
+    return ExtractedExpense.model_validate(expense.model_dump(mode="json") | corrected_fields)
 
 
 def map_expense(extraction: Extraction) -> ExtractedExpense:

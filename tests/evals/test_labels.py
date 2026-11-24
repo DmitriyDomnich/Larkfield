@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from app.claims.files import content_matches_type
-from app.extraction.schemas import expense_warnings
+from app.extraction.schemas import validate_expense_warnings
 from evals.extraction.documents import CONTENT_TYPES
 from evals.generator.build import DOCUMENTS_DIR, load_label
 from evals.generator.render import RENDER
@@ -39,7 +39,7 @@ def test_label_is_valid_and_adds_up(doc_id: str) -> None:
     label = load_label(doc_id)
 
     assert label is not None
-    assert expense_warnings(label, date.today()) == []
+    assert validate_expense_warnings(label, date.today()) == []
 
 
 def test_e10_has_no_label_so_extraction_is_expected_to_fail() -> None:

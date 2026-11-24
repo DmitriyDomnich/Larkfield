@@ -9,7 +9,7 @@ from app.claims.service import ClaimNotFoundError
 from app.core.db import SessionDep
 from app.notifications.queue import NotificationService, get_notification_service, send_notification
 from app.review import decisions
-from app.review.decisions import CommentRequiredError, OwnClaimError
+from app.review.decisions import CommentRequiredError, InvalidCorrectionsError, OwnClaimError
 from app.review.queue import ReviewRequests, get_review_requests, send_review_request
 from app.review.schemas import (
     AnswerCreate,
@@ -24,7 +24,10 @@ ERROR_DESCRIPTIONS = {
     403: "The caller's role may not use this endpoint, or a reviewer decides their own claim",
     404: "No such claim, or the caller may not see it (the two are indistinguishable)",
     409: "The claim's status does not allow this",
-    422: "Invalid request, or a comment is missing where one is required",
+    422: (
+        "Invalid request, a comment is missing where one is required, or the corrections do "
+        "not make a valid expense"
+    ),
 }
 
 
@@ -72,6 +75,12 @@ async def decide_claim(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             "A comment is required for reject and needs_info, and when the decision differs from "
             "the proposal",
+        ) from None
+    except InvalidCorrectionsError:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "The corrected fields do not make a valid expense together with the extracted ones, "
+            "e.g. line items are required unless the document is a card slip",
         ) from None
     background_tasks.add_task(send_notification, notification_service, notification)
     return ReviewerDecisionRead.model_validate(decision)

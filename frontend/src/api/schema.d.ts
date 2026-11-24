@@ -1120,7 +1120,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
-            /** @description Invalid request, or a comment is missing where one is required */
+            /** @description Invalid request, a comment is missing where one is required, or the corrections do not make a valid expense */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -1191,7 +1191,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
-            /** @description Invalid request, or a comment is missing where one is required */
+            /** @description Invalid request, a comment is missing where one is required, or the corrections do not make a valid expense */
             422: {
                 headers: {
                     [name: string]: unknown;

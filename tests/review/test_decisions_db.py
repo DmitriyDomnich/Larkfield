@@ -15,11 +15,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_token_verifier
-from app.claims.models import Claim
+from app.claims.models import Claim, Document
 from app.claims.service import transition
 from app.claims.status import ClaimStatus as S
 from app.core.config import Settings
 from app.core.db import get_session
+from app.extraction.models import Extraction
 from app.main import create_app
 from app.notifications.queue import get_notification_service
 from app.review.agent import ValidProposal
@@ -144,6 +145,17 @@ async def load_claim(session: AsyncSession, claim_id: uuid.UUID) -> Claim:
     )
     assert claim is not None
     return claim
+
+
+async def load_extraction(session: AsyncSession, claim_id: uuid.UUID) -> Extraction:
+    extraction = await session.scalar(
+        select(Extraction)
+        .join(Document, Document.id == Extraction.document_id)
+        .where(Document.claim_id == claim_id)
+        .execution_options(populate_existing=True)
+    )
+    assert extraction is not None
+    return extraction
 
 
 async def list_decisions(session: AsyncSession, claim_id: uuid.UUID) -> list[ReviewerDecision]:
@@ -277,6 +289,33 @@ async def test_corrected_fields_are_stored_as_sent_and_the_extraction_is_kept(
     assert response.json()["corrected_fields"] == expected
     [decision] = await list_decisions(db_session, claim_id)
     assert decision.corrected_fields == expected
+    extraction = await load_extraction(db_session, claim_id)
+    assert (str(extraction.total), extraction.tip_amount) == ("190.00", None)
+    assert extraction.vendor_name != "Lumen"
+
+
+async def test_corrections_that_break_the_expense_are_refused_and_nothing_changes(
+    api: AsyncClient,
+    db_session: AsyncSession,
+    reviewer: dict[str, str],
+    notification_service: FakeNotificationService,
+) -> None:
+    claim_id = await extracted_claim(db_session, "D04", document_type="card_slip", line_items=[])
+    await add_proposal(db_session, claim_id, "approve")
+    await transition(db_session, claim_id, S.IN_REVIEW)
+    await db_session.commit()
+
+    response = await api.post(
+        f"/claims/{claim_id}/decision",
+        json={"decision": "approve", "corrected_fields": {"document_type": "receipt"}},
+        headers=reviewer,
+    )
+
+    assert response.status_code == 422
+    assert "card slip" in response.json()["detail"]
+    assert (await load_claim(db_session, claim_id)).status is S.IN_REVIEW
+    assert await list_decisions(db_session, claim_id) == []
+    assert notification_service.sent == []
 
 
 async def test_a_reviewer_cannot_decide_their_own_claim(
