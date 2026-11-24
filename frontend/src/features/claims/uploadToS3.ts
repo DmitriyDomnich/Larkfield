@@ -6,15 +6,37 @@ export class UploadFailedError extends Error {
   }
 }
 
-export async function uploadToS3(upload: UploadForm, file: File): Promise<void> {
+export type UploadProgressListener = (percent: number) => void;
+
+export function uploadToS3(
+  upload: UploadForm,
+  file: File,
+  onProgress?: UploadProgressListener,
+): Promise<void> {
   const form = new FormData();
   for (const [name, value] of Object.entries(upload.fields)) {
     form.append(name, value);
   }
   form.append("file", file);
 
-  const response = await fetch(upload.url, { method: "POST", body: form });
-  if (!response.ok) {
-    throw new UploadFailedError(response.status);
-  }
+  return new Promise((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open("POST", upload.url);
+    request.upload.onprogress = (event) => {
+      if (event.lengthComputable && event.total > 0) {
+        onProgress?.(Math.round((event.loaded / event.total) * 100));
+      }
+    };
+    request.onload = () => {
+      if (request.status >= 200 && request.status < 300) {
+        onProgress?.(100);
+        resolve();
+      } else {
+        reject(new UploadFailedError(request.status));
+      }
+    };
+    request.onerror = () => reject(new UploadFailedError(0));
+    request.send(form);
+    onProgress?.(0);
+  });
 }

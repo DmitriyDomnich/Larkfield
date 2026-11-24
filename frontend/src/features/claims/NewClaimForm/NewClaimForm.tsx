@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import { BackLink } from "@/components/widgets/BackLink/BackLink";
 import { FormError } from "@/components/widgets/FormError/FormError";
@@ -33,7 +34,8 @@ type FormProblems = Partial<Record<"purpose" | "attendees" | "preapprovalRef" | 
 
 export function NewClaimForm() {
   const router = useRouter();
-  const submitClaim = useSubmitClaim();
+  const [uploadPercent, setUploadPercent] = useState<number | null>(null);
+  const submitClaim = useSubmitClaim(setUploadPercent);
   const [purpose, setPurpose] = useState("");
   const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [preapprovalRef, setPreapprovalRef] = useState("");
@@ -52,6 +54,7 @@ export function NewClaimForm() {
     if (Object.values(found).some(Boolean) || !file || !isAllowedFileType(file.type)) {
       return;
     }
+    setUploadPercent(null);
     submitClaim.mutate(
       {
         purpose: purpose.trim(),
@@ -119,9 +122,23 @@ export function NewClaimForm() {
             <Button type="submit" className="self-start" disabled={submitClaim.isPending}>
               {submitClaim.isPending ? "Submitting…" : "Submit claim"}
             </Button>
+            {submitClaim.isPending && uploadPercent !== null && (
+              <UploadProgress percent={uploadPercent} />
+            )}
           </form>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function UploadProgress({ percent }: { percent: number }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <Progress value={percent} aria-label="Upload progress" />
+      <p className="text-muted-foreground text-sm" aria-live="polite">
+        Uploading the file… {percent}%
+      </p>
     </div>
   );
 }
