@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 type ClaimStatus = components["schemas"]["ClaimStatus"];
 type BadgeVariant = "default" | "secondary" | "destructive" | "outline";
 
-const STATUS_BADGES: Record<ClaimStatus, { label: string; variant: BadgeVariant }> = {
+export const STATUS_BADGES: Record<ClaimStatus, { label: string; variant: BadgeVariant }> = {
   pending_upload: { label: "Waiting for upload", variant: "outline" },
   uploaded: { label: "Uploaded", variant: "outline" },
   extracting: { label: "Reading document", variant: "outline" },
