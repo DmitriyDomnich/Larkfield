@@ -9,7 +9,7 @@ employee, saving corrections before the decision.
 | Criterion | How | Tested by | Browser |
 |---|---|---|---|
 | Upload shows progress; an unsupported file type or size is refused before the upload starts | `uploadToS3` posts the presigned form with `XMLHttpRequest`; `upload.onprogress` drives a shadcn `<Progress>` with the percentage under the submit button. `getFileProblem` (T13) still runs before `POST /claims`: not PDF/JPEG/PNG, empty or over 10 MB → inline error, no request | `uploadToS3.test.ts`, `NewClaimForm.test.tsx` | Yes — E2E 1, 2 |
-| The reviewer queue filters by status, date range and employee; the API supports the same filters | `GET /claims` gains `submitted_after`, `submitted_before`, `employee_sub` next to `status`; new `GET /users/claimants` (reviewer) feeds the employee picker and an Employee column. `/review` gets a filter bar (statuses, from/to dates, employee) and a Status column | `test_claims_api.py`, `test_claims_api_db.py`, `tests/users/test_users.py`, `tests/auth/test_cognito.py`, `ReviewQueue.test.tsx`, `QueueFilters.test.tsx` | UI part — E2E 3 (API filters: tests only) |
+| The reviewer queue filters by status, date range and employee; the API supports the same filters | `GET /claims` gains `submitted_after`, `submitted_before`, `employee_sub` next to `status`; new `GET /users` (reviewer) feeds the employee picker and an Employee column. `/review` gets a filter bar (statuses, from/to dates, employee) and a Status column | `test_claims_api.py`, `test_claims_api_db.py`, `tests/users/test_users.py`, `tests/auth/test_cognito.py`, `ReviewQueue.test.tsx`, `QueueFilters.test.tsx` | UI part — E2E 3 (API filters: tests only) |
 | Filters survive a page reload | Filter state lives in the URL query (`useQueueFilters`) | `useQueueFilters.test.tsx`, `ReviewQueue.test.tsx` | Yes — E2E 4 |
 | A reviewer can correct an extracted field. The correction is stored in `corrected_fields`; the original extraction is kept and visible | "Edit fields" turns the extraction panel into a form (12 fields, not line items); "Save decision" sends the changed fields as `corrected_fields` (T12 endpoint); the decision endpoint also checks extraction + corrections is a valid `ExtractedExpense`. The `extractions` row is never written. Corrected values show inline with the extracted value struck through, while editing and on a decided claim | `ExtractionPanel.test.tsx`, `DecisionForm.test.tsx`, `ProposalPanel.test.tsx`, `ReviewClaim.test.tsx`, `test_decisions_api.py`, `test_decisions_db.py`, `test_review_db.py` | Yes — E2E 5, 6, 7 |
 
@@ -23,7 +23,7 @@ sequenceDiagram
     participant C as Cognito
     participant W as Review worker
     R->>B: /review?status=in_review&employee=…&from=…&to=…
-    B->>API: GET /users/claimants
+    B->>API: GET /users
     API->>C: ListUsersInGroup employee, reviewer (all pages)
     B->>API: GET /claims?status=…&employee_sub=…&submitted_after=…&submitted_before=…
     R->>B: open claim, Edit fields, total 28.50 → 82.50
@@ -38,7 +38,7 @@ sequenceDiagram
 
 ## Design decisions
 
-- **Employees come from Cognito, per request:** new `GET /users/claimants` (reviewer) lists the
+- **Employees come from Cognito, per request:** new `GET /users` (reviewer) lists the
   `employee` and `reviewer` groups (both can submit claims; admins can't) with
   `ListUsersInGroup`, every page of 60, as `[{sub, email}]` sorted by email. The picker and the
   Employee column use this one list (TanStack, `staleTime` 5 min; a sub not in it shows "Unknown
@@ -64,12 +64,13 @@ sequenceDiagram
   response is the same `UploadFailedError` as today.
 - **Corrections saved with the decision:** edits stay in form state and go out as
   `corrected_fields` on `POST /claims/{id}/decision`, as contracts.md places them. Only fields that
-  differ from the values shown before editing are sent (money compared as 2-decimal strings); a
+  differ from the extraction are sent (money compared as 2-decimal strings); a
   cleared optional field is sent as `null`; required fields can't be cleared. Client checks mirror
   `ExpenseCorrections` (non-empty vendor, `^[A-Z]{3}$` currency, money ≤ 12 digits with 2 decimals,
   total > 0, tax id ≤ 64, document number ≤ 128). Each decision stores the full set of corrections
   against the extraction: on a second round the form starts from the previous decision's
-  corrections. *Rejected:* a separate `PUT /corrections` draft (a second home for corrections,
+  corrections and sends them again, edited or not; a field set back to its extracted value is
+  dropped. *Rejected:* a separate `PUT /corrections` draft (a second home for corrections,
   outside the contract).
 - **The merged expense must stay valid:** the decision endpoint validates extraction +
   `corrected_fields` as an `ExtractedExpense` (e.g. `document_type` changed away from `card_slip`
@@ -113,10 +114,10 @@ sequenceDiagram
 - Corrections are lost if the reviewer leaves the page before saving the decision.
 - The duplicate check (policy 1.4, `claims_history`) and the employee's claim page still use the
   extracted values, not corrections.
-- `GET /users/claimants` reads every page each time: past ~1,000 users (17+ calls at 30 RPS per
+- `GET /users` reads every page each time: past ~1,000 users (17+ calls at 30 RPS per
   account) it gets slow and can throttle. To scale: `GET /me`, which already calls Cognito
   `GetUser` on every app load, upserts `(sub, email, last_seen)` into a `users` table. Anyone who
-  submits a claim has loaded the app, so every claimant is in it; earlier users come from a one-off
+  submits a claim has loaded the app, so everyone who can be filtered by is in it; earlier users come from a one-off
   `ListUsers` backfill. The picker becomes an `ILIKE` search with paging and the Employee column a
   join in `GET /claims`, with no Lambda and no extra Cognito calls, and an email change shows up on
   the user's next visit. Cost: a migration and a small table.
@@ -124,7 +125,7 @@ sequenceDiagram
 
 ## Testing
 
-- **Unit:** claims filter validation (naive datetime, `after > before` → 422; OpenAPI); claimants
+- **Unit:** claims filter validation (naive datetime, `after > before` → 422; OpenAPI); users
   endpoint roles (employee and admin 403) and the Cognito paging (botocore `Stubber`, two groups,
   two pages); decision with corrections that break `ExtractedExpense` → 422; frontend: XHR
   progress and failure, refused files make no request, URL ↔ filters (defaults, `status=all`,
@@ -176,3 +177,11 @@ instructions; tool permissions stay on prompt.
    own claim (setup: R submits D01, it reaches `in_review`) there is no "Edit fields" and no form.
 
 ## Results
+
+## Commit plan
+
+- [x] 1. Claims list filters (`submitted_after`, `submitted_before`, `employee_sub`), `GET /users` with Cognito `ListUsersInGroup` paging, IAM in runtime role and boundary, `make openapi` + `gen:api` — AC 2 (API) — `add claims list filters by submission date range and employee, users endpoint from the cognito employee and reviewer groups, list users in group permission`
+- [ ] 2. Decision endpoint validates extraction + `corrected_fields` as an `ExtractedExpense` (422); the review worker's second round lays the newest corrections over the extraction and recomputes warnings — AC 4 (API), question — `add validation of corrected fields against the extraction, corrections and recomputed warnings in the second review round`
+- [ ] 3. `uploadToS3` with `XMLHttpRequest` progress, shadcn `progress` under the submit button, refused files make no request — AC 1 — `add upload progress with xhr and a progress bar on the new claim form`
+- [ ] 4. `useQueueFilters` (URL ↔ filters), `QueueFilters` bar, `useUsers`, Status and Employee columns on `/review` — AC 2 (UI), AC 3 — `add review queue filters by status, date range and employee kept in the url, status and employee columns`
+- [ ] 5. "Edit fields" form in `ExtractionPanel` with client checks, inline corrected display, `corrected_fields` in the decision body, proposal notice, second-round pre-fill, corrections on a decided claim — AC 4 (UI) — `add field corrections on the review page with inline corrected values, a notice on the proposal and second round pre-fill`

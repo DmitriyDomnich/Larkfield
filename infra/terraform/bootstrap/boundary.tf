@@ -52,6 +52,7 @@ resource "aws_iam_policy" "boundary" {
           "cognito-idp:AdminRemoveUserFromGroup",
           "cognito-idp:AdminListGroupsForUser",
           "cognito-idp:AdminGetUser",
+          "cognito-idp:ListUsersInGroup",
           "ses:SendEmail",
           "logs:CreateLogGroup",
           "logs:CreateLogStream",

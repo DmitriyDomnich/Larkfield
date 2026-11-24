@@ -50,7 +50,19 @@ def test_invalid_claim_is_422(api: TestClient, settings: Settings, body: dict[st
 
 
 @pytest.mark.parametrize(
-    "query", ["limit=0", "limit=101", "offset=-1", "status=bogus"], ids=lambda q: q
+    "query",
+    [
+        "limit=0",
+        "limit=101",
+        "offset=-1",
+        "status=bogus",
+        "submitted_after=2026-11-01T00:00:00",
+        "submitted_before=2026-11-01",
+        "submitted_after=yesterday",
+        "submitted_after=2026-11-02T00:00:00Z&submitted_before=2026-11-01T00:00:00Z",
+        "employee_sub=",
+    ],
+    ids=lambda q: q,
 )
 def test_invalid_list_query_is_422(api: TestClient, settings: Settings, query: str) -> None:
     assert api.get(f"/claims?{query}", headers=auth(settings)).status_code == 422
@@ -88,3 +100,11 @@ def test_openapi_documents_every_claims_endpoint(api: TestClient) -> None:
         operation = paths[path][method]
         assert operation["summary"]
         assert codes <= set(operation["responses"]), (path, method)
+
+
+def test_openapi_documents_the_list_filters(api: TestClient) -> None:
+    operation = api.get("/openapi.json").json()["paths"]["/claims"]["get"]
+
+    names = {parameter["name"] for parameter in operation["parameters"]}
+
+    assert {"status", "submitted_after", "submitted_before", "employee_sub"} <= names

@@ -1,6 +1,6 @@
-from app.auth.cognito import UserDirectory
+from app.auth.cognito import DirectoryUser, UserDirectory
 from app.auth.dependencies import CurrentUser
-from app.auth.roles import ASSIGNABLE_ROLES, Role
+from app.auth.roles import ASSIGNABLE_ROLES, CLAIM_SUBMITTER_ROLES, Role
 
 
 class SelfRoleChangeError(Exception):
@@ -18,3 +18,8 @@ async def set_role(directory: UserDirectory, actor: CurrentUser, sub: str, role:
     if role not in ASSIGNABLE_ROLES:
         raise RoleNotAssignableError(role)
     await directory.set_role(sub, role)
+
+
+async def list_claim_submitters(directory: UserDirectory) -> list[DirectoryUser]:
+    users = await directory.list_users_in_roles(CLAIM_SUBMITTER_ROLES)
+    return sorted(users, key=lambda user: (user.email.lower(), user.sub))

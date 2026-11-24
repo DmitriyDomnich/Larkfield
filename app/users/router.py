@@ -12,8 +12,13 @@ from app.auth.dependencies import (
 )
 from app.auth.roles import Role
 from app.auth.tokens import InvalidTokenError
-from app.users.schemas import MeResponse, RoleResponse, RoleUpdate
-from app.users.service import RoleNotAssignableError, SelfRoleChangeError, set_role
+from app.users.schemas import MeResponse, RoleResponse, RoleUpdate, UserRead
+from app.users.service import (
+    RoleNotAssignableError,
+    SelfRoleChangeError,
+    list_claim_submitters,
+    set_role,
+)
 
 router = APIRouter(tags=["users"])
 
@@ -27,6 +32,18 @@ async def me(user: CurrentUserDep, directory: DirectoryDep) -> MeResponse:
     except InvalidTokenError:
         raise unauthorized() from None
     return MeResponse(sub=user.sub, email=email, role=user.role)
+
+
+@router.get(
+    "/users",
+    response_model=list[UserRead],
+    summary="List the users who can submit claims",
+    description="Reviewers only. Employees and reviewers, sorted by email.",
+    dependencies=[Depends(require_roles(Role.REVIEWER))],
+)
+async def list_users(directory: DirectoryDep) -> list[UserRead]:
+    users = await list_claim_submitters(directory)
+    return [UserRead(sub=user.sub, email=user.email) for user in users]
 
 
 @router.put("/users/{sub}/role", response_model=RoleResponse)

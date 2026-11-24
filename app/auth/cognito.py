@@ -1,7 +1,9 @@
 """Calls to the Cognito user pool. boto3 is blocking, so every call runs in a worker thread."""
 
 import asyncio
-from typing import Protocol
+from collections.abc import Iterable
+from dataclasses import dataclass
+from typing import Any, Protocol
 
 import boto3
 
@@ -9,15 +11,25 @@ from app.auth.roles import Role
 from app.auth.tokens import InvalidTokenError
 from app.core.config import Settings
 
+LIST_USERS_PAGE_SIZE = 60  # ListUsersInGroup returns per call
+
 
 class UserNotFoundError(Exception):
     pass
+
+
+@dataclass(frozen=True)
+class DirectoryUser:
+    sub: str
+    email: str
 
 
 class UserDirectory(Protocol):
     async def get_email(self, access_token: str) -> str: ...
 
     async def set_role(self, sub: str, role: Role) -> None: ...
+
+    async def list_users_in_roles(self, roles: Iterable[Role]) -> list[DirectoryUser]: ...
 
 
 class CognitoUserDirectory:
@@ -50,3 +62,25 @@ class CognitoUserDirectory:
                     UserPoolId=self._pool_id, Username=sub, GroupName=name
                 )
         self._client.admin_add_user_to_group(UserPoolId=self._pool_id, Username=sub, GroupName=role)
+
+    async def list_users_in_roles(self, roles: Iterable[Role]) -> list[DirectoryUser]:
+        return await asyncio.to_thread(self._list_users_in_roles, list(roles))
+
+    def _list_users_in_roles(self, roles: list[Role]) -> list[DirectoryUser]:
+        users: dict[str, DirectoryUser] = {}
+        for role in roles:
+            request: dict[str, Any] = {
+                "UserPoolId": self._pool_id,
+                "GroupName": role,
+                "Limit": LIST_USERS_PAGE_SIZE,
+            }
+            while True:
+                page = self._client.list_users_in_group(**request)
+                for user in page["Users"]:
+                    attributes = {a["Name"]: a["Value"] for a in user.get("Attributes", [])}
+                    sub = attributes["sub"]
+                    users[sub] = DirectoryUser(sub=sub, email=attributes.get("email", ""))
+                if not page.get("NextToken"):
+                    break
+                request["NextToken"] = page["NextToken"]
+        return list(users.values())

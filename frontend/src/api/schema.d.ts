@@ -41,6 +41,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the users who can submit claims
+         * @description Reviewers only. Employees and reviewers, sorted by email.
+         */
+        get: operations["list_users_users_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/users/{sub}/role": {
         parameters: {
             query?: never;
@@ -67,7 +87,7 @@ export interface paths {
         };
         /**
          * List claims
-         * @description Employees see their own claims, reviewers all claims; newest first
+         * @description Employees see their own claims, reviewers all claims; newest first. `submitted_after` (inclusive) and `submitted_before` (exclusive) need a time zone.
          */
         get: operations["list_claims_claims_get"];
         put?: never;
@@ -626,6 +646,13 @@ export interface components {
              */
             expires_at: string;
         };
+        /** UserRead */
+        UserRead: {
+            /** Sub */
+            sub: string;
+            /** Email */
+            email: string;
+        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -697,6 +724,26 @@ export interface operations {
             };
         };
     };
+    list_users_users_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserRead"][];
+                };
+            };
+        };
+    };
     update_role_users__sub__role_put: {
         parameters: {
             query?: never;
@@ -735,7 +782,12 @@ export interface operations {
     list_claims_claims_get: {
         parameters: {
             query?: {
-                status?: components["schemas"]["ClaimStatus"][] | null;
+                status?: components["schemas"]["ClaimStatus"][];
+                /** @description Inclusive */
+                submitted_after?: string | null;
+                /** @description Exclusive */
+                submitted_before?: string | null;
+                employee_sub?: string | null;
                 limit?: number;
                 offset?: number;
             };
