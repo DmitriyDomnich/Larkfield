@@ -3,6 +3,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 
 import { router, setUrl } from "@/test/navigation";
 
+import { getQueuePath } from "../queueReturnPath";
+
 import {
   applyFilterChanges,
   parseQueueFilters,
@@ -137,6 +139,26 @@ describe("useQueueFilters", () => {
     act(() => result.current.changePage(4));
 
     expect(router.replace).toHaveBeenCalledWith("/review?status=all&page=4", { scroll: false });
+  });
+
+  it("remembers the filtered queue for the way back from a claim", () => {
+    const { result } = renderHook(() => useQueueFilters());
+    expect(getQueuePath()).toBe("/review?status=all&page=3");
+
+    act(() => result.current.changeFilters({ employee: "sub-a" }));
+
+    expect(getQueuePath()).toBe("/review?status=all&employee=sub-a");
+  });
+
+  it("clears every filter back to today's queue", () => {
+    setUrl("/review?status=all&from=2026-11-01&employee=sub-a&page=2");
+    const { result } = renderHook(() => useQueueFilters());
+
+    act(() => result.current.clearFilters());
+
+    expect(router.replace).toHaveBeenCalledWith("/review", { scroll: false });
+    expect(result.current.filters).toEqual(DEFAULTS);
+    expect(getQueuePath()).toBe("/review");
   });
 
   it("goes back to the bare path for the default filters", () => {

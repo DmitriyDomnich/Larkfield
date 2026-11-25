@@ -13,7 +13,6 @@ function subscribe(listener: () => void) {
   return () => listeners.delete(listener);
 }
 
-/** Where the test opens the page, e.g. setUrl("/review?status=all") */
 export function setUrl(path: string) {
   currentUrl = new URL(path, "http://test/");
   listeners.forEach((listener) => listener());

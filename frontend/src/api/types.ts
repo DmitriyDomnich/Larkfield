@@ -14,3 +14,5 @@ export type ExtractionRead = Schemas["ExtractionRead"];
 export type ReviewRound = Schemas["ReviewRound"];
 export type ProposalRead = Schemas["ProposalRead"];
 export type UserRead = Schemas["UserRead"];
+export type DocumentType = Schemas["DocumentType"];
+export type ExpenseCategory = Schemas["ExpenseCategory"];

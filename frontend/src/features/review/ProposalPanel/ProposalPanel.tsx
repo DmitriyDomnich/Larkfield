@@ -1,9 +1,10 @@
 "use client";
 
-import { ChevronDownIcon } from "lucide-react";
+import { ChevronDownIcon, HistoryIcon } from "lucide-react";
 import Link from "next/link";
 
 import type { ClaimRead, ProposalRead, ReviewRound } from "@/api/types";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { QueryState } from "@/components/widgets/QueryState/QueryState";
@@ -12,7 +13,12 @@ import { formatDateTime } from "@/lib/format";
 
 import { DECISION_LABELS } from "../decisionLabels";
 
-export function ProposalPanel({ claim }: { claim: ClaimRead }) {
+type ProposalPanelProps = {
+  claim: ClaimRead;
+  correctedSinceProposal?: string[];
+};
+
+export function ProposalPanel({ claim, correctedSinceProposal = [] }: ProposalPanelProps) {
   const review = useClaimReview(claim.id, claim.status);
   return (
     <section className="flex flex-col gap-3">
@@ -22,6 +28,14 @@ export function ProposalPanel({ claim }: { claim: ClaimRead }) {
           const [newest, ...earlier] = rounds;
           return (
             <>
+              {newest?.proposal && correctedSinceProposal.length > 0 && (
+                <Alert className="border-amber-500 text-amber-900 dark:text-amber-200">
+                  <AlertDescription>
+                    This proposal was made on the values before your corrections (
+                    {correctedSinceProposal.join(", ")}) — check its reasons.
+                  </AlertDescription>
+                </Alert>
+              )}
               {newest?.proposal ? (
                 <ProposalDetails proposal={newest.proposal} />
               ) : (
@@ -77,8 +91,11 @@ function EarlierRounds({ rounds }: { rounds: ReviewRound[] }) {
   return (
     <Collapsible>
       <CollapsibleTrigger asChild>
-        <Button variant="ghost" size="sm" className="group self-start">
-          Earlier rounds ({rounds.length})
+        <Button variant="outline" className="group w-full cursor-pointer justify-between">
+          <span className="flex items-center gap-2">
+            <HistoryIcon />
+            Earlier rounds ({rounds.length})
+          </span>
           <ChevronDownIcon className="transition-transform group-data-[state=open]:rotate-180" />
         </Button>
       </CollapsibleTrigger>

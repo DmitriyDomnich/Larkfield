@@ -8,6 +8,7 @@ import { CLAIM_ID, makeClaim } from "@/test/fixtures";
 import { renderWithClient } from "@/test/render";
 import { http, server } from "@/test/server";
 
+import { rememberQueuePath } from "../queueReturnPath";
 import { DecisionForm } from "./DecisionForm";
 
 const navigation = vi.hoisted(() => ({ push: vi.fn() }));
@@ -39,6 +40,47 @@ function renderForm(proposedDecision: Decision) {
 }
 
 describe("DecisionForm", () => {
+  it("sends the corrected fields with the decision", async () => {
+    const bodies = mockDecision();
+    renderWithClient(
+      <DecisionForm
+        claimId={CLAIM_ID}
+        proposedDecision="approve"
+        correctedFields={{ total: "99.99", category: "other" }}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Save decision" }));
+
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies).toEqual([
+      { decision: "approve", comment: null, corrected_fields: { total: "99.99", category: "other" } },
+    ]);
+  });
+
+  it("returns to the queue with the filters it was left with after saving", async () => {
+    mockDecision();
+    rememberQueuePath("status=all&from=2026-11-01");
+    renderForm("approve");
+
+    await userEvent.click(screen.getByRole("button", { name: "Save decision" }));
+
+    await waitFor(() => expect(navigation.push).toHaveBeenCalledWith("/review?status=all&from=2026-11-01"));
+  });
+
+  it("sends nothing while a corrected field is invalid", async () => {
+    const bodies = mockDecision();
+    renderWithClient(
+      <DecisionForm claimId={CLAIM_ID} proposedDecision="approve" correctedFields={{ total: "0" }} correctionsInvalid />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Save decision" }));
+
+    expect(screen.getByText("Fix the corrected fields above before saving.")).toBeInTheDocument();
+    expect(bodies).toEqual([]);
+    expect(navigation.push).not.toHaveBeenCalled();
+  });
+
   it("is preset to the proposal and needs no comment to agree with it", async () => {
     const bodies = mockDecision();
     renderForm("approve");

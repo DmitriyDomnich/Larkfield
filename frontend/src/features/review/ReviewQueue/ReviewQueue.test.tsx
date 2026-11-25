@@ -93,6 +93,21 @@ describe("ReviewQueue", () => {
     expect([last.get("employee_sub"), last.get("offset")]).toEqual(["employee-2", "0"]);
   });
 
+  it("clears the filters back to today's queue", async () => {
+    setUrl("/review?status=all&employee=employee-2&from=2026-11-01");
+    const queries = mockQueue();
+    renderWithClient(<ReviewQueue />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Clear filters" }));
+
+    expect(currentPath()).toBe("/review");
+    expect(screen.getByLabelText("Status")).toHaveDisplayValue("In review");
+    expect(screen.getByLabelText("Employee")).toHaveDisplayValue("All employees");
+    expect(screen.getByLabelText("From")).toHaveValue("");
+    expect(queries.at(-1)!.toString()).toBe("status=in_review&limit=20&offset=0");
+    expect(screen.queryByRole("button", { name: "Clear filters" })).not.toBeInTheDocument();
+  });
+
   it("pages through the queue with the page in the URL", async () => {
     setUrl("/review?status=all");
     const queries = mockQueue([makeClaim()], 25);

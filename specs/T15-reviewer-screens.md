@@ -9,9 +9,9 @@ employee, saving corrections before the decision.
 | Criterion | How | Tested by | Browser |
 |---|---|---|---|
 | Upload shows progress; an unsupported file type or size is refused before the upload starts | `uploadToS3` posts the presigned form with `XMLHttpRequest`; `upload.onprogress` drives a shadcn `<Progress>` with the percentage under the submit button. `getFileProblem` (T13) still runs before `POST /claims`: not PDF/JPEG/PNG, empty or over 10 MB → inline error, no request | `uploadToS3.test.ts`, `NewClaimForm.test.tsx` | Yes — E2E 1, 2 |
-| The reviewer queue filters by status, date range and employee; the API supports the same filters | `GET /claims` gains `submitted_after`, `submitted_before`, `employee_sub` next to `status`; new `GET /users` (reviewer) feeds the employee picker and an Employee column. `/review` gets a filter bar (statuses, from/to dates, employee) and a Status column | `test_claims_api.py`, `test_claims_api_db.py`, `tests/users/test_users.py`, `tests/auth/test_cognito.py`, `ReviewQueue.test.tsx`, `QueueFilters.test.tsx` | UI part — E2E 3 (API filters: tests only) |
-| Filters survive a page reload | Filter state lives in the URL query (`useQueueFilters`) | `useQueueFilters.test.tsx`, `ReviewQueue.test.tsx` | Yes — E2E 4 |
-| A reviewer can correct an extracted field. The correction is stored in `corrected_fields`; the original extraction is kept and visible | "Edit fields" turns the extraction panel into a form (12 fields, not line items); "Save decision" sends the changed fields as `corrected_fields` (T12 endpoint); the decision endpoint also checks extraction + corrections is a valid `ExtractedExpense`. The `extractions` row is never written. Corrected values show inline with the extracted value struck through, while editing and on a decided claim | `ExtractionPanel.test.tsx`, `DecisionForm.test.tsx`, `ProposalPanel.test.tsx`, `ReviewClaim.test.tsx`, `test_decisions_api.py`, `test_decisions_db.py`, `test_review_db.py` | Yes — E2E 5, 6, 7 |
+| The reviewer queue filters by status, date range and employee; the API supports the same filters | `GET /claims` gains `submitted_after`, `submitted_before`, `employee_sub` next to `status`; new `GET /users` (reviewer) feeds the employee picker and an Employee column. `/review` gets a filter bar (statuses, from/to dates, employee, "Clear filters" while any is set) and a Status column | `test_claims_api.py`, `test_claims_api_db.py`, `tests/users/test_users.py`, `tests/auth/test_cognito.py`, `ReviewQueue.test.tsx`, `QueueFilters.test.tsx` | UI part — E2E 3 (API filters: tests only) |
+| Filters survive a page reload, and the way back from a claim keeps them | Filter state lives in the URL query (`useQueueFilters`); the queue remembers its URL per tab (`queueReturnPath`) for the claim page's "Review queue" link and the redirect after saving a decision | `useQueueFilters.test.tsx`, `ReviewQueue.test.tsx`, `queueReturnPath.test.ts`, `ReviewClaim.test.tsx`, `DecisionForm.test.tsx` | Yes — E2E 4, 5 |
+| A reviewer can correct an extracted field. The correction is stored in `corrected_fields`; the original extraction is kept and visible | "Edit fields" turns the extraction panel into a form (12 fields, not line items); "Save decision" sends the changed fields as `corrected_fields` (T12 endpoint); the decision endpoint also checks extraction + corrections is a valid `ExtractedExpense`. The `extractions` row is never written. Corrected values show inline with the extracted value struck through, while editing and on a decided claim | `ExtractionPanel.test.tsx`, `corrections.test.ts`, `DecisionForm.test.tsx`, `ProposalPanel.test.tsx`, `ReviewClaim.test.tsx`, `test_decisions_api.py`, `test_decisions_db.py`, `test_review_db.py` | Yes — E2E 5, 6, 7 |
 
 ## Flow
 
@@ -51,9 +51,16 @@ sequenceDiagram
   read with `useSearchParams`, written with `router.replace`. Survives a reload, a filtered view is
   a link, Back from a claim returns to the same filtered queue (filter changes add no history
   entries). No `status` = `in_review` (today's queue); "All statuses" writes `status=all`. A filter
-  change resets `page`. Unknown or malformed values fall back to the default silently. *Rejected:*
+  change resets `page`; "Clear filters" goes back to `/review`. Unknown or malformed values fall back to the default silently. *Rejected:*
   a Zustand store persisted to localStorage (a new dependency, no shareable link, storage can be
   blocked), sessionStorage (one tab only).
+- **The way back keeps the filters:** the browser's Back already does (the URL). The claim page's
+  "Review queue" link and the redirect after "Save decision" go to the queue URL the tab last
+  showed, kept in `sessionStorage` (survives reloading the claim page). Only a `/review` or
+  `/review?…` value is used; storage blocked or empty → `/review`. The URL stays the filter state;
+  storage only holds the way back. *Rejected:* the queue query carried in every claim link (long
+  links, the claim URL no longer names just the claim), `router.back()` (wrong when the claim was
+  opened from a link or a new tab).
 - **Date range on `submitted_at`, in the reviewer's time zone:** the API takes
   `submitted_after` / `submitted_before`, timezone-aware datetimes, half-open (`>=`, `<`); a naive
   datetime or `after > before` → 422. The UI sends local midnight of `from` and of the day after
@@ -137,6 +144,12 @@ sequenceDiagram
   leaves the `extractions` row unchanged; the second round's `ClaimUnderReview` carries the
   corrected total and recomputed warnings.
 - **E2E:** the scenarios below, with `/e2e T15`.
+- **Manual:** on dev after the deploy (bootstrap applied first): as a reviewer, `/review` lists
+  employee emails (`GET /users` reaches Cognito through the task role and boundary); filter by an
+  employee and yesterday–today, reload, the same rows. As an employee, upload a ~9 MB PDF: the bar
+  rises to 100% (the bucket answers the preflight). As the reviewer, correct the total on a claim
+  in review, request information, answer as the employee; after the re-review the claim page
+  shows the corrected total and the proposal's reasons use it.
 
 ## E2E scenarios
 
@@ -156,15 +169,19 @@ instructions; tool permissions stay on prompt.
 3. **Queue filters (AC 2).** Setup: A has claim A1 (D01, reaches `in_review`) and A2 (created, no
    upload: `pending_upload`); B has B1 (D01, `in_review`). R opens `/review`: A1 and B1 with their
    emails in the Employee column, A2 absent. Employee = A → A1 only. Status = All → A1, A2. Status =
-   `pending_upload` → A2. From = To = yesterday → "no claims" notice; today–today → rows back. Each
+   `pending_upload` → A2. From = To = yesterday → "no claims" notice; today–today → rows back.
+   "Clear filters" → `/review`, A1 and B1, the controls back to In review / no dates / All employees,
+   and no "Clear filters" button (it shows only while a filter is set). Each
    `GET /claims` in the network log carries the matching parameters; row counts equal
    `SELECT count(*)` with the same conditions.
 4. **Filters survive reload (AC 3).** With Employee = A, Status = All, today–today: reload → the
    controls show the same values and the same rows. The URL opened in a new tab → same. Open A1,
-   Back → the same filtered queue.
-5. **Correct a field (AC 4).** R opens B1, "Edit fields": Total → 99.99, Category → Other. Both rows
-   show "Corrected" with the extracted value struck; the proposal panel names Total and Category.
-   Approve with a comment, save. Reopen B1 from the queue (Status = All): the same corrected
+   the browser's Back → the same filtered queue. Open A1 again, the page's "← Review queue" link →
+   the same filtered queue.
+5. **Correct a field (AC 4).** R filters the queue by Employee = B, opens B1, "Edit fields": Total →
+   99.99, Category → Other. Both rows show "Corrected" with the extracted value struck; the proposal
+   panel names Total and Category. Approve with a comment, save → back on the queue filtered by
+   Employee = B (AC 3). Reopen B1 from the queue (Status = All): the same corrected
    display, no form. DB: `reviewer_decisions.corrected_fields` = `{"total": "99.99", "category":
    "other"}` only; the extraction's `total` and `category` and the proposal row unchanged.
 6. **Corrections carry into round 2 (AC 4, question).** R corrects A1's total and asks for
@@ -184,4 +201,4 @@ instructions; tool permissions stay on prompt.
 - [x] 2. Decision endpoint validates extraction + `corrected_fields` as an `ExtractedExpense` (422); the review worker's second round lays the newest corrections over the extraction and recomputes warnings — AC 4 (API), question — `add validation of corrected fields against the extraction, corrections and recomputed warnings in the second review round`
 - [x] 3. `uploadToS3` with `XMLHttpRequest` progress, shadcn `progress` under the submit button, refused files make no request — AC 1 — `add upload progress with xhr and a progress bar on the new claim form`
 - [x] 4. `useQueueFilters` (URL ↔ filters), `QueueFilters` bar, `useUsers`, Status and Employee columns on `/review` — AC 2 (UI), AC 3 — `add review queue filters by status, date range and employee kept in the url, status and employee columns`
-- [ ] 5. "Edit fields" form in `ExtractionPanel` with client checks, inline corrected display, `corrected_fields` in the decision body, proposal notice, second-round pre-fill, corrections on a decided claim — AC 4 (UI) — `add field corrections on the review page with inline corrected values, a notice on the proposal and second round pre-fill`
+- [x] 5. "Edit fields" form in `ExtractionPanel` with client checks, inline corrected display, `corrected_fields` in the decision body, proposal notice, second-round pre-fill, corrections on a decided claim; the claim page's "Review queue" link and the redirect after a decision return to the last filtered queue (`queueReturnPath`); "Clear filters" on the queue — AC 4 (UI), AC 2, AC 3 — `add field corrections on the review page with inline corrected values, a notice on the proposal and second round pre-fill, the last filtered queue as the way back from a claim, clear filters`
