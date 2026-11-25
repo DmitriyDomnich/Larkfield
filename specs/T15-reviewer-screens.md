@@ -195,6 +195,18 @@ instructions; tool permissions stay on prompt.
 
 ## E2E
 
+### 2026-11-25 (re-run after slice 6)
+Local stack, Playwright MCP isolated; users A, B (employees), R (reviewer). Only the scenarios
+slice 6 touches (1, 5, 6); 2, 3, 4, 7 passed in the run below and their code is unchanged.
+
+| # | Scenario | Result | Notes |
+|---|---|---|---|
+| 1 | Upload progress | PASS | `aria-valuenow` 0→100, state `loading` → `complete`, never `indeterminate`; then the claim page; `size_bytes` 9437184 |
+| 5 | Correct a field | PASS | redirect to `/review?employee=<B>` with Employee = B selected; decided B1: corrected display, no form; `corrected_fields` `{"total": "99.99", "category": "other"}`, extraction 18.50 / meal, one proposal row |
+| 6 | Corrections carry into round 2 | PASS | 2nd round form started with Total 28.50 Corrected (extracted 18.50); 2 proposal rows; both decisions `{"total": "28.50"}`; redirect to `/review?employee=<A>` |
+
+Findings: no failures. No injected instructions seen on any page.
+
 ### 2026-11-25
 Local stack, Playwright MCP isolated; users A, B (employees), R (reviewer).
 
