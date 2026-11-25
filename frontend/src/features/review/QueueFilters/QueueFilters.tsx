@@ -1,6 +1,7 @@
 "use client";
 
 import type { ClaimStatus, UserRead } from "@/api/types";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
@@ -9,6 +10,7 @@ import { STATUS_BADGES } from "@/components/widgets/StatusBadge/StatusBadge";
 import {
   ALL_STATUSES,
   CLAIM_STATUSES,
+  isTodaysQueue,
   type FilterChanges,
   type QueueFilters as Filters,
 } from "../hooks/useQueueFilters";
@@ -20,9 +22,10 @@ type QueueFiltersProps = {
   filters: Filters;
   users: UserRead[] | undefined;
   onChange: (changes: FilterChanges) => void;
+  onClear: () => void;
 };
 
-export function QueueFilters({ filters, users, onChange }: QueueFiltersProps) {
+export function QueueFilters({ filters, users, onChange, onClear }: QueueFiltersProps) {
   const { statuses, employee } = filters;
   const statusValue =
     statuses === ALL_STATUSES ? ALL_STATUSES : statuses.length === 1 ? statuses[0] : SEVERAL_STATUSES;
@@ -95,6 +98,11 @@ export function QueueFilters({ filters, users, onChange }: QueueFiltersProps) {
           )}
         </NativeSelect>
       </div>
+      {!isTodaysQueue(filters) && (
+        <Button variant="outline" onClick={onClear}>
+          Clear filters
+        </Button>
+      )}
     </div>
   );
 }

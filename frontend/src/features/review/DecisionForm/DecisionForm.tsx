@@ -11,7 +11,9 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { FormError } from "@/components/widgets/FormError/FormError";
 
+import type { ExpenseCorrections } from "../corrections";
 import { DECISION_LABELS } from "../decisionLabels";
+import { getQueuePath } from "../queueReturnPath";
 import { useDecideClaim } from "../hooks/useDecideClaim";
 
 const DECISIONS: Decision[] = ["approve", "reject", "needs_info"];
@@ -22,15 +24,27 @@ const COMMENT_TOO_LONG = `Keep the comment to ${MAX_COMMENT_LENGTH} characters.`
 const COMMENT_MISSING =
   "Add a comment for the employee: it is required to reject, to request information, or to differ from the proposal.";
 const ALREADY_DECIDED = "This claim has already been decided. The page now shows its current state.";
+const FIX_CORRECTIONS = "Fix the corrected fields above before saving.";
 
-type DecisionFormProps = { claimId: string; proposedDecision: Decision | null };
+type DecisionFormProps = {
+  claimId: string;
+  proposedDecision: Decision | null;
+  correctedFields?: ExpenseCorrections | null;
+  correctionsInvalid?: boolean;
+};
 
-export function DecisionForm({ claimId, proposedDecision }: DecisionFormProps) {
+export function DecisionForm({
+  claimId,
+  proposedDecision,
+  correctedFields = null,
+  correctionsInvalid = false,
+}: DecisionFormProps) {
   const router = useRouter();
   const decideClaim = useDecideClaim(claimId);
   const [decision, setDecision] = useState<Decision>(proposedDecision ?? "approve");
   const [comment, setComment] = useState("");
   const [commentProblem, setCommentProblem] = useState<string | null>(null);
+  const [correctionsBlocked, setCorrectionsBlocked] = useState(false);
   const commentRequired = decision !== proposedDecision || COMMENT_REQUIRED_DECISIONS.includes(decision);
 
   function handleSubmit(event: SubmitEvent) {
@@ -43,10 +57,15 @@ export function DecisionForm({ claimId, proposedDecision }: DecisionFormProps) {
           ? COMMENT_TOO_LONG
           : null;
     setCommentProblem(problem);
-    if (problem) return;
+    setCorrectionsBlocked(correctionsInvalid);
+    if (problem || correctionsInvalid) return;
     decideClaim.mutate(
-      { decision, comment: comment.trim() || null },
-      { onSuccess: () => router.push("/review") },
+      {
+        decision,
+        comment: comment.trim() || null,
+        ...(correctedFields ? { corrected_fields: correctedFields } : {}),
+      },
+      { onSuccess: () => router.push(getQueuePath()) },
     );
   }
 
@@ -86,6 +105,7 @@ export function DecisionForm({ claimId, proposedDecision }: DecisionFormProps) {
         />
         <FormError message={commentProblem} />
       </div>
+      <FormError message={correctionsBlocked && correctionsInvalid ? FIX_CORRECTIONS : null} />
       <FormError message={submitError} />
       <Button type="submit" className="self-start" disabled={decideClaim.isPending}>
         {decideClaim.isPending ? "Saving…" : "Save decision"}

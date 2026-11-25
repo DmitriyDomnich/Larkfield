@@ -11,9 +11,15 @@ const USERS = [
   { sub: "sub-b", email: "b@example.com" },
 ];
 
-function renderFilters(filters: Partial<Filters> = {}, users: typeof USERS | undefined = USERS) {
+function renderFilters(
+  filters: Partial<Filters> = {},
+  users: typeof USERS | undefined = USERS,
+  onClear = vi.fn(),
+) {
   const onChange = vi.fn();
-  render(<QueueFilters filters={{ ...FILTERS, ...filters }} users={users} onChange={onChange} />);
+  render(
+    <QueueFilters filters={{ ...FILTERS, ...filters }} users={users} onChange={onChange} onClear={onClear} />,
+  );
   return onChange;
 }
 
@@ -59,6 +65,21 @@ describe("QueueFilters", () => {
     renderFilters({ employee: "sub-gone" });
 
     expect(screen.getByLabelText("Employee")).toHaveDisplayValue("Unknown user");
+  });
+
+  it("clears the filters", async () => {
+    const onClear = vi.fn();
+    renderFilters({ employee: "sub-a", from: "2026-11-01" }, USERS, onClear);
+
+    await userEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+
+    expect(onClear).toHaveBeenCalledOnce();
+  });
+
+  it("shows no Clear filters on today's queue", () => {
+    renderFilters();
+
+    expect(screen.queryByRole("button", { name: "Clear filters" })).not.toBeInTheDocument();
   });
 
   it("shows several statuses from a link as such", () => {

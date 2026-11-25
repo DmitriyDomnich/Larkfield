@@ -1,8 +1,9 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
+import type { ReactNode } from "react";
 
-import type { ClaimRead, ClaimStatus } from "@/api/types";
+import type { ClaimRead, ClaimStatus, Decision, ReviewRound } from "@/api/types";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { BackLink } from "@/components/widgets/BackLink/BackLink";
 import { NotFoundNotice } from "@/components/widgets/NotFoundNotice/NotFoundNotice";
@@ -13,9 +14,13 @@ import { useClaim } from "@/features/claims/hooks/useClaim";
 import { useClaimReview } from "@/features/claims/hooks/useClaimReview";
 import { formatDateTime } from "@/lib/format";
 
+import { fieldValuesOf } from "../corrections";
 import { DecisionForm } from "../DecisionForm/DecisionForm";
 import { DocumentViewer } from "../DocumentViewer/DocumentViewer";
 import { ExtractionPanel } from "../ExtractionPanel/ExtractionPanel";
+import { useCorrections } from "../hooks/useCorrections";
+import { useExtraction } from "../hooks/useExtraction";
+import { useQueuePath } from "../queueReturnPath";
 import { ProposalPanel } from "../ProposalPanel/ProposalPanel";
 
 export function ReviewClaim() {
@@ -26,18 +31,17 @@ export function ReviewClaim() {
 
 function ReviewPanels({ claimId }: { claimId: string }) {
   const claim = useClaim(claimId);
+  const queuePath = useQueuePath();
   return (
     <div className="flex flex-col gap-4">
-      <BackLink href="/review">Review queue</BackLink>
+      <BackLink href={queuePath}>Review queue</BackLink>
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="lg:sticky lg:top-4 lg:self-start">
           {claim.data && <DocumentViewer claim={claim.data} />}
         </div>
         <div className="flex flex-col gap-6">
           <QueryState query={claim}>{(data) => <ClaimPanel claim={data} />}</QueryState>
-          <ExtractionPanel claimId={claimId} />
-          {claim.data && <ProposalPanel claim={claim.data} />}
-          {claim.data && <DecisionSection claim={claim.data} />}
+          {claim.data && <ReviewWork key={claim.data.id} claim={claim.data} />}
         </div>
       </div>
     </div>
@@ -69,10 +73,68 @@ function ClaimPanel({ claim }: { claim: ClaimRead }) {
 
 const DECIDED_STATUSES: readonly ClaimStatus[] = ["approved", "rejected", "needs_info"];
 
-function DecisionSection({ claim }: { claim: ClaimRead }) {
-  const me = useMe();
-  const review = useClaimReview(claim.id, claim.status);
+function isDecidable(claim: ClaimRead, rounds: ReviewRound[] | undefined, mySub: string | undefined) {
+  const newest = rounds?.[0];
+  return (
+    claim.status === "in_review" &&
+    mySub !== undefined &&
+    mySub !== claim.employee_sub &&
+    Boolean(newest?.proposal) &&
+    !newest?.decision
+  );
+}
 
+function ReviewWork({ claim }: { claim: ClaimRead }) {
+  const me = useMe();
+  const extraction = useExtraction(claim.id);
+  const review = useClaimReview(claim.id, claim.status);
+  const rounds = review.data?.rounds;
+  const editable = isDecidable(claim, rounds, me.data?.sub);
+  const corrections = useCorrections({ extraction: extraction.data, rounds, editable });
+
+  return (
+    <>
+      <QueryState query={extraction}>
+        {(data) => (
+          <ExtractionPanel
+            extraction={data}
+            correctedValues={corrections.values ?? fieldValuesOf(data)}
+            problems={corrections.problems}
+            editing={corrections.editing}
+            canEdit={editable}
+            onEditingChange={corrections.setEditing}
+            onChange={corrections.changeField}
+          />
+        )}
+      </QueryState>
+      <ProposalPanel claim={claim} correctedSinceProposal={corrections.correctedSinceProposal} />
+      <DecisionSection
+        claim={claim}
+        isOwnClaim={me.data?.sub === claim.employee_sub}
+        reviewQuery={review}
+      >
+        {(proposedDecision) => (
+          <DecisionForm
+            key={corrections.proposalId}
+            claimId={claim.id}
+            proposedDecision={proposedDecision}
+            correctedFields={corrections.correctedFields}
+            correctionsInvalid={corrections.isInvalid}
+          />
+        )}
+      </DecisionSection>
+    </>
+  );
+}
+
+type DecisionSectionProps = {
+  claim: ClaimRead;
+  isOwnClaim: boolean;
+  reviewQuery: ReturnType<typeof useClaimReview>;
+  children: (proposedDecision: Decision | null) => ReactNode;
+};
+
+function DecisionSection({ claim, isOwnClaim, reviewQuery, children }: DecisionSectionProps) {
   if (DECIDED_STATUSES.includes(claim.status)) {
     return (
       <Alert>
@@ -83,7 +145,7 @@ function DecisionSection({ claim }: { claim: ClaimRead }) {
     );
   }
   if (claim.status !== "in_review") return null;
-  if (me.data?.sub === claim.employee_sub) {
+  if (isOwnClaim) {
     return (
       <Alert>
         <AlertDescription>This is your own claim. Another reviewer decides it.</AlertDescription>
@@ -91,14 +153,8 @@ function DecisionSection({ claim }: { claim: ClaimRead }) {
     );
   }
   return (
-    <QueryState query={review}>
-      {({ rounds }) => (
-        <DecisionForm
-          key={`${claim.id}-${rounds[0]?.proposal_id}`}
-          claimId={claim.id}
-          proposedDecision={rounds[0]?.proposal?.decision ?? null}
-        />
-      )}
+    <QueryState query={reviewQuery}>
+      {({ rounds }) => children(rounds[0]?.proposal?.decision ?? null)}
     </QueryState>
   );
 }

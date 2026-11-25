@@ -1,17 +1,19 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 
 import type { paths } from "@/api/schema";
 import type { ClaimStatus } from "@/api/types";
 import { STATUS_BADGES } from "@/components/widgets/StatusBadge/StatusBadge";
+import { isCalendarDate } from "@/core/fieldFormats";
+
+import { rememberQueuePath } from "../queueReturnPath";
 
 export const QUEUE_PAGE_SIZE = 20;
 export const ALL_STATUSES = "all";
 export const DEFAULT_STATUSES: readonly ClaimStatus[] = ["in_review"];
 export const CLAIM_STATUSES = Object.keys(STATUS_BADGES) as ClaimStatus[];
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_EMPLOYEE_LENGTH = 128;
 
 export type QueueFilters = {
@@ -30,12 +32,7 @@ function isClaimStatus(value: string): value is ClaimStatus {
 }
 
 function parseDate(value: string | null): string | null {
-  if (!value || !ISO_DATE.test(value)) return null;
-  const [year, month, day] = value.split("-").map(Number);
-  const date = new Date(year, month - 1, day);
-  const exists =
-    date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
-  return exists ? value : null;
+  return value && isCalendarDate(value) ? value : null;
 }
 
 function parseStatuses(values: string[]): QueueFilters["statuses"] {
@@ -44,8 +41,20 @@ function parseStatuses(values: string[]): QueueFilters["statuses"] {
   return statuses.length > 0 ? statuses : DEFAULT_STATUSES;
 }
 
+export const TODAYS_QUEUE: QueueFilters = {
+  statuses: DEFAULT_STATUSES,
+  from: null,
+  to: null,
+  employee: null,
+  page: 1,
+};
+
 export function isDefaultStatuses(statuses: QueueFilters["statuses"]): boolean {
   return statuses !== ALL_STATUSES && statuses.length === 1 && statuses[0] === DEFAULT_STATUSES[0];
+}
+
+export function isTodaysQueue(filters: QueueFilters): boolean {
+  return isDefaultStatuses(filters.statuses) && !filters.from && !filters.to && !filters.employee;
 }
 
 export function parseQueueFilters(params: URLSearchParams): QueueFilters {
@@ -113,6 +122,7 @@ export function useQueueFilters() {
     () => parseQueueFilters(new URLSearchParams(searchParams.toString())),
     [searchParams],
   );
+  useEffect(() => rememberQueuePath(toSearchParams(filters).toString()), [filters]);
 
   const replaceFilters = useCallback(
     (next: QueueFilters) => {
@@ -129,5 +139,6 @@ export function useQueueFilters() {
     (page: number) => replaceFilters({ ...filters, page }),
     [filters, replaceFilters],
   );
-  return { filters, changeFilters, changePage };
+  const clearFilters = useCallback(() => replaceFilters(TODAYS_QUEUE), [replaceFilters]);
+  return { filters, changeFilters, changePage, clearFilters };
 }
