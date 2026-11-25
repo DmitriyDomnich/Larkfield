@@ -193,6 +193,25 @@ instructions; tool permissions stay on prompt.
    clears Vendor: an inline error per field, "Save decision" sends nothing (network log). On R's
    own claim (setup: R submits D01, it reaches `in_review`) there is no "Edit fields" and no form.
 
+## E2E
+
+### 2026-11-25
+Local stack, Playwright MCP isolated; users A, B (employees), R (reviewer).
+
+| # | Scenario | Result | Notes |
+|---|---|---|---|
+| 1 | Upload progress | PASS | label rose 0→100%, then the claim page; `size_bytes` 9437184 = file size |
+| 2 | Refused before upload | PASS | three messages as specified; only `GET /me` in the network log; claim count unchanged |
+| 3 | Queue filters | PASS | every `GET /claims` carried the matching params; row counts = SQL; two older A claims also in `in_review` |
+| 4 | Filters survive reload | PASS | reload, new tab, Back and "← Review queue" all showed the same controls and 6 rows |
+| 5 | Correct a field | FAIL | after "Save decision" (201) the page stayed on the claim, no redirect to `/review?employee=<B>`; display and DB as expected |
+| 6 | Corrections carry into round 2 | PASS | form started with Total 28.50 Corrected; 2nd proposal row; 2nd decision `{"total": "28.50"}`; no redirect either |
+| 7 | Invalid corrections | PASS | three inline errors + "Fix the corrected fields above before saving."; no POST; own claim: no form, no "Edit fields" |
+
+Findings: the post-decision redirect never fires (5, 6). Upload progressbar has no `aria-valuenow` and reports `indeterminate` to assistive tech
+(`components/ui/progress.tsx` doesn't pass `value` to Radix Root). No injected instructions seen
+on any page.
+
 ## Results
 
 ## Commit plan
@@ -202,3 +221,4 @@ instructions; tool permissions stay on prompt.
 - [x] 3. `uploadToS3` with `XMLHttpRequest` progress, shadcn `progress` under the submit button, refused files make no request — AC 1 — `add upload progress with xhr and a progress bar on the new claim form`
 - [x] 4. `useQueueFilters` (URL ↔ filters), `QueueFilters` bar, `useUsers`, Status and Employee columns on `/review` — AC 2 (UI), AC 3 — `add review queue filters by status, date range and employee kept in the url, status and employee columns`
 - [x] 5. "Edit fields" form in `ExtractionPanel` with client checks, inline corrected display, `corrected_fields` in the decision body, proposal notice, second-round pre-fill, corrections on a decided claim; the claim page's "Review queue" link and the redirect after a decision return to the last filtered queue (`queueReturnPath`); "Clear filters" on the queue — AC 4 (UI), AC 2, AC 3 — `add field corrections on the review page with inline corrected values, a notice on the proposal and second round pre-fill, the last filtered queue as the way back from a claim, clear filters`
+- [x] 6. Redirect after a decision even when the claim refetch replaces the form; the progress bar passes its value to assistive tech — AC 1, AC 3, AC 4 (E2E 5, 6) — `fix redirect to the queue after a decision, progress bar value for assistive tech`
