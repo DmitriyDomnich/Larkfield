@@ -50,6 +50,7 @@ export function ReviewQueue() {
       <QueueFilters
         filters={filters}
         users={users.data}
+        usersFailed={users.isError}
         onChange={changeFilters}
         onClear={clearFilters}
       />

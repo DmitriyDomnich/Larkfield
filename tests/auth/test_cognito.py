@@ -76,3 +76,14 @@ async def test_list_users_reads_every_page_of_every_group(
         DirectoryUser("b", "b@example.com"),
         DirectoryUser("r", "r@example.com"),
     ]
+
+
+async def test_list_users_labels_a_user_without_email_by_username(
+    directory: CognitoUserDirectory, stub: Stubber
+) -> None:
+    no_email = {"Username": "imported-user", "Attributes": [{"Name": "sub", "Value": "c"}]}
+    stub.add_response("list_users_in_group", {"Users": [no_email]})
+
+    users = await directory.list_users_in_roles([Role.EMPLOYEE])
+
+    assert users == [DirectoryUser("c", "imported-user")]

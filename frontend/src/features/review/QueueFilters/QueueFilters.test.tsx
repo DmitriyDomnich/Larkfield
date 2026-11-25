@@ -67,6 +67,20 @@ describe("QueueFilters", () => {
     expect(screen.getByLabelText("Employee")).toHaveDisplayValue("Unknown user");
   });
 
+  it("says the employees couldn't be loaded instead of loading forever", () => {
+    render(
+      <QueueFilters filters={{ ...FILTERS, employee: "sub-a" }} users={undefined} usersFailed onChange={vi.fn()} onClear={vi.fn()} />,
+    );
+
+    expect(screen.getByLabelText("Employee")).toHaveDisplayValue("Couldn't load employees");
+  });
+
+  it("says so in the picker when the employees couldn't be loaded and none is picked", () => {
+    render(<QueueFilters filters={FILTERS} users={undefined} usersFailed onChange={vi.fn()} onClear={vi.fn()} />);
+
+    expect(screen.getByRole("option", { name: "Couldn't load employees" })).toBeDisabled();
+  });
+
   it("clears the filters", async () => {
     const onClear = vi.fn();
     renderFilters({ employee: "sub-a", from: "2026-11-01" }, USERS, onClear);
