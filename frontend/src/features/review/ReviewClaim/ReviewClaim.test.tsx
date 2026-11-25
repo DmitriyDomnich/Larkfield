@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { HttpResponse } from "msw";
+import { delay, HttpResponse } from "msw";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { GENERIC_ERROR } from "@/api/errors";
@@ -22,10 +22,10 @@ import { http, server } from "@/test/server";
 import { rememberQueuePath } from "../queueReturnPath";
 import { ReviewClaim } from "./ReviewClaim";
 
-const navigation = vi.hoisted(() => ({ id: "11111111-1111-4111-8111-111111111111" }));
+const navigation = vi.hoisted(() => ({ id: "11111111-1111-4111-8111-111111111111", push: vi.fn() }));
 vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams({ id: navigation.id }),
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: navigation.push }),
 }));
 
 const FILE_URL = "https://documents.test/claims/receipt.pdf?signature=abc";
@@ -138,6 +138,29 @@ describe("ReviewClaim", () => {
       "href",
       "/review?status=all&employee=employee-2",
     );
+  });
+
+  it("returns to the filtered queue after saving, though the reloaded claim replaces the form", async () => {
+    mockAllPanels();
+    mockClaim(makeClaim(), makeClaim({ status: "approved" }));
+    mockDecisions();
+    // the reloaded extraction lands after the reloaded claim, as over a real network
+    let extractionCalls = 0;
+    server.use(
+      http.get("/claims/{claim_id}/extraction", async ({ response }) => {
+        extractionCalls += 1;
+        if (extractionCalls > 1) await delay(200);
+        return response(200).json(makeExtraction());
+      }),
+    );
+    rememberQueuePath("employee=employee-2");
+    const user = userEvent.setup();
+    renderWithClient(<ReviewClaim />);
+
+    await user.click(await screen.findByRole("button", { name: "Save decision" }));
+
+    expect(await screen.findByText(/This claim has already been decided/)).toBeInTheDocument();
+    await waitFor(() => expect(navigation.push).toHaveBeenCalledWith("/review?employee=employee-2"));
   });
 
   it("asks for the user and the review history once", async () => {

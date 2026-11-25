@@ -126,6 +126,8 @@ describe("NewClaimForm", () => {
 
     const bar = await screen.findByRole("progressbar", { name: "Upload progress" });
     expect(screen.getByText("Uploading the file… 0%")).toBeInTheDocument();
+    expect(bar).toHaveAttribute("aria-valuenow", "0");
+    expect(bar).not.toHaveAttribute("data-state", "indeterminate");
     expect(bar.compareDocumentPosition(screen.getByRole("button", { name: "Submitting…" }))).toBe(
       Node.DOCUMENT_POSITION_PRECEDING,
     );

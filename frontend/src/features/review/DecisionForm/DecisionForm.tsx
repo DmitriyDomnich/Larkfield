@@ -59,14 +59,16 @@ export function DecisionForm({
     setCommentProblem(problem);
     setCorrectionsBlocked(correctionsInvalid);
     if (problem || correctionsInvalid) return;
-    decideClaim.mutate(
-      {
+    decideClaim
+      .mutateAsync({
         decision,
         comment: comment.trim() || null,
         ...(correctedFields ? { corrected_fields: correctedFields } : {}),
-      },
-      { onSuccess: () => router.push(getQueuePath()) },
-    );
+      })
+      .then(
+        () => router.push(getQueuePath()),
+        () => {},
+      );
   }
 
   const submitError =
