@@ -66,7 +66,6 @@ sequenceDiagram
 
 - **Unit:** filter validation, `/users` roles and Cognito paging (botocore `Stubber`), corrections that break `ExtractedExpense` → 422; frontend: XHR progress and failure, refused files, URL ↔ filters, local midnights, edit form checks and body, corrected display, proposal notice, second-round pre-fill, redirect after the form unmounts.
 - **Integration:** each claims filter and all combined, the half-open boundary, another employee's `employee_sub` gets nothing; a correction leaves `extractions` unchanged; the second round carries the corrected total and recomputed warnings.
-- **Manual:** on dev after the deploy (bootstrap applied first): as a reviewer, `/review` lists employee emails; filter by an employee and yesterday–today, reload, the same rows. As an employee, upload a ~9 MB PDF: the bar rises to 100%. Correct the total on a claim in review, request information, answer as the employee; after the re-review the claim page shows the corrected total and the proposal's reasons use it.
 
 ## E2E scenarios
 
