@@ -31,6 +31,7 @@ type DecisionFormProps = {
   proposedDecision: Decision | null;
   correctedFields?: ExpenseCorrections | null;
   correctionsInvalid?: boolean;
+  onCorrectionsInvalid?: () => void;
 };
 
 export function DecisionForm({
@@ -38,6 +39,7 @@ export function DecisionForm({
   proposedDecision,
   correctedFields = null,
   correctionsInvalid = false,
+  onCorrectionsInvalid,
 }: DecisionFormProps) {
   const router = useRouter();
   const decideClaim = useDecideClaim(claimId);
@@ -58,6 +60,7 @@ export function DecisionForm({
           : null;
     setCommentProblem(problem);
     setCorrectionsBlocked(correctionsInvalid);
+    if (correctionsInvalid) onCorrectionsInvalid?.();
     if (problem || correctionsInvalid) return;
     decideClaim
       .mutateAsync({

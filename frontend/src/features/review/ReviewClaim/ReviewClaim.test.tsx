@@ -259,6 +259,24 @@ describe("ReviewClaim", () => {
     expect(within(fieldRow("Category")).getByText("Corrected")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Edit fields" })).not.toBeInTheDocument();
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    expect(screen.queryByText(/made on the values before your corrections/)).not.toBeInTheDocument();
+  });
+
+  it("reopens the fields with their errors when saving after Done editing left one invalid", async () => {
+    mockAllPanels();
+    const bodies = mockDecisions();
+    const user = userEvent.setup();
+    renderWithClient(<ReviewClaim />);
+
+    await user.click(await screen.findByRole("button", { name: "Edit fields" }));
+    await user.clear(screen.getByLabelText("Total"));
+    await user.type(screen.getByLabelText("Total"), "0");
+    await user.click(screen.getByRole("button", { name: "Done editing" }));
+    await user.click(screen.getByRole("button", { name: "Save decision" }));
+
+    expect(screen.getByLabelText("Total")).toHaveValue("0");
+    expect(within(fieldRow("Total")).getByText("The total must be more than 0.")).toBeInTheDocument();
+    expect(bodies).toEqual([]);
   });
 
   it("offers no editing on the reviewer's own claim", async () => {

@@ -79,7 +79,8 @@ class CognitoUserDirectory:
                 for user in page["Users"]:
                     attributes = {a["Name"]: a["Value"] for a in user.get("Attributes", [])}
                     sub = attributes["sub"]
-                    users[sub] = DirectoryUser(sub=sub, email=attributes.get("email", ""))
+                    label = attributes.get("email") or user["Username"]
+                    users[sub] = DirectoryUser(sub=sub, email=label)
                 if not page.get("NextToken"):
                     break
                 request["NextToken"] = page["NextToken"]

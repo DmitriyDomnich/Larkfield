@@ -17,19 +17,22 @@ import {
 
 const SEVERAL_STATUSES = "several";
 const UNKNOWN_USER = "Unknown user";
+const USERS_FAILED = "Couldn't load employees";
 
 type QueueFiltersProps = {
   filters: Filters;
   users: UserRead[] | undefined;
+  usersFailed?: boolean;
   onChange: (changes: FilterChanges) => void;
   onClear: () => void;
 };
 
-export function QueueFilters({ filters, users, onChange, onClear }: QueueFiltersProps) {
+export function QueueFilters({ filters, users, usersFailed = false, onChange, onClear }: QueueFiltersProps) {
   const { statuses, employee } = filters;
   const statusValue =
     statuses === ALL_STATUSES ? ALL_STATUSES : statuses.length === 1 ? statuses[0] : SEVERAL_STATUSES;
   const employeeIsListed = !employee || users?.some((user) => user.sub === employee);
+  const unlistedEmployeeLabel = usersFailed ? USERS_FAILED : users ? UNKNOWN_USER : "Loading…";
 
   function changeStatus(value: string) {
     onChange({ statuses: value === ALL_STATUSES ? ALL_STATUSES : [value as ClaimStatus] });
@@ -94,7 +97,12 @@ export function QueueFilters({ filters, users, onChange, onClear }: QueueFilters
             </NativeSelectOption>
           ))}
           {!employeeIsListed && (
-            <NativeSelectOption value={employee}>{users ? UNKNOWN_USER : "Loading…"}</NativeSelectOption>
+            <NativeSelectOption value={employee}>{unlistedEmployeeLabel}</NativeSelectOption>
+          )}
+          {usersFailed && !employee && (
+            <NativeSelectOption value={USERS_FAILED} disabled>
+              {USERS_FAILED}
+            </NativeSelectOption>
           )}
         </NativeSelect>
       </div>

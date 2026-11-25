@@ -107,7 +107,10 @@ function ReviewWork({ claim }: { claim: ClaimRead }) {
           />
         )}
       </QueryState>
-      <ProposalPanel claim={claim} correctedSinceProposal={corrections.correctedSinceProposal} />
+      <ProposalPanel
+        claim={claim}
+        correctedSinceProposal={editable ? corrections.correctedSinceProposal : []}
+      />
       <DecisionSection
         claim={claim}
         isOwnClaim={me.data?.sub === claim.employee_sub}
@@ -120,6 +123,7 @@ function ReviewWork({ claim }: { claim: ClaimRead }) {
             proposedDecision={proposedDecision}
             correctedFields={corrections.correctedFields}
             correctionsInvalid={corrections.isInvalid}
+            onCorrectionsInvalid={() => corrections.setEditing(true)}
           />
         )}
       </DecisionSection>
