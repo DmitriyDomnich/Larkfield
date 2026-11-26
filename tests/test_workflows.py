@@ -273,6 +273,7 @@ def test_the_agent_runtime_role_reaches_only_the_model_the_kb_and_its_logs() -> 
     assert '"aws:SourceArn"' in runtime
     for forbidden in ["sqs:", "secretsmanager:", "rds:", "s3:"]:
         assert forbidden not in runtime
+    assert '"logs:CreateLogGroup"' not in runtime  # terraform creates the group with its retention
 
 
 def test_the_review_worker_invokes_the_runtime_instead_of_bedrock() -> None:
