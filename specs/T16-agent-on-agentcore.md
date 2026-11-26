@@ -191,7 +191,9 @@ sequenceDiagram
   **`modules/runtime`:** `cpu_architecture = "ARM64"`; `REVIEW_AGENT_RUNTIME_ARN` in the review
   worker's environment.
 - **`bootstrap`** (an admin applies it once before the first T16 deploy): deploy role
-  `bedrock-agentcore:*` in the region, `iam:PassRole` to `bedrock-agentcore.amazonaws.com`, and
+  `bedrock-agentcore:*` in the region, `iam:PassRole` to `bedrock-agentcore.amazonaws.com`,
+  `iam:CreateServiceLinkedRole` for `runtime-identity.bedrock-agentcore.amazonaws.com` (AgentCore
+  creates that role with the account's first AgentCore runtime), and
   `logs:*` on `/aws/bedrock-agentcore/runtimes/<project>_*` (the AgentCore runtime's log group; AgentCore runtime names
   turn the prefix's hyphens into underscores); boundary adds `bedrock-agentcore:InvokeAgentRuntime`, `logs:DescribeLogGroups`,
   `logs:DescribeLogStreams`.

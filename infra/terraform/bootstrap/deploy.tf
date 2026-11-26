@@ -274,6 +274,7 @@ resource "aws_iam_policy" "deploy_iam" {
               "ecs.amazonaws.com",
               "elasticloadbalancing.amazonaws.com",
               "rds.amazonaws.com",
+              "runtime-identity.bedrock-agentcore.amazonaws.com",
               "vpcorigin.cloudfront.amazonaws.com",
             ]
           }
