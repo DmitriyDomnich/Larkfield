@@ -214,6 +214,9 @@ sequenceDiagram
 - The pricing page's rates aren't labelled by region; eu-north-1 may differ slightly.
 - The review worker keeps 0.5 vCPU / 1 GB although the agent no longer runs in it.
 - AgentCore Observability (traces) isn't enabled: logs and the T14 token metrics only.
+- On an environment never deployed before, the first deploy fails at the runtime: its image is
+  pushed only after the apply creates the ECR repository. Running the deploy again pushes the image
+  first and creates the runtime.
 
 ## Testing
 
@@ -241,7 +244,7 @@ sequenceDiagram
 ## Commit plan
 
 - [x] 1. Contract and prefetched history: `runtime_contract.py` (request, three responses), `PrefetchedHistory`, `ReviewRuntimeSettings`, `boto3-stubs[bedrock-agentcore]` — AC1 — `add the agent runtime contract, prefetched claim history and runtime settings`
-- [ ] 2. Runtime server: `runtime_app.py` (`/ping`, `/invocations` building `StrandsReviewAgent` with `PrefetchedHistory`), Dockerfile stages `base` → `agent-runtime` / `app` — AC1 — `add the agent runtime server with ping and invocations, agent-runtime docker target`
+- [x] 2. Runtime server: `runtime_app.py` (`/ping`, `/invocations` building `StrandsReviewAgent` with `PrefetchedHistory`), Dockerfile stages `base` → `agent-runtime` / `app` — AC1 — `add the agent runtime server with ping and invocations, agent-runtime docker target`
 - [ ] 3. Client and worker: `AgentCoreReviewAgent` (prefetch, SigV4 call in a thread, outcome mapping), `REVIEW_AGENT_RUNTIME_ARN` picks the agent in `run_worker`, `.env.example`, integration through the worker with a stubbed runtime — AC1 — `add the agentcore review agent client, pick it in the review worker from REVIEW_AGENT_RUNTIME_ARN`
 - [ ] 4. Eval through the runtime: `--runtime-arn`, `--ids` with `process_after` cases, `agent` in the results file — AC2 — `add --runtime-arn and --ids to the review evaluation, the agent in its results`
 - [ ] 5. Terraform: `modules/agent_runtime` (runtime V1, role, log group), review worker policy → `InvokeAgentRuntime`, ECS tasks ARM64, `REVIEW_AGENT_RUNTIME_ARN` on the worker, dev and prod wiring, bootstrap deploy role and boundary — AC3 — `add the agent runtime terraform module, invoke permission for the review worker, arm64 tasks, bootstrap agentcore permissions`
