@@ -1,13 +1,3 @@
-data "aws_caller_identity" "current" {}
-data "aws_region" "current" {}
-
-locals {
-  inference_profile_arn = "arn:aws:bedrock:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:inference-profile/${var.bedrock_inference_profile_id}"
-  # the profile id without its geography prefix ("eu.") is the foundation model it routes to
-  foundation_model_id = join(".", slice(split(".", var.bedrock_inference_profile_id), 1, length(split(".", var.bedrock_inference_profile_id))))
-  knowledge_base_arn  = "arn:aws:bedrock:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:knowledge-base/${var.policy_knowledge_base_id}"
-}
-
 # DLQ for review requests that failed every delivery
 resource "aws_sqs_queue" "review_dlq" {
   name                      = "${var.project_name}-review-dlq"
@@ -39,25 +29,11 @@ resource "aws_iam_policy" "worker" {
         Resource = aws_sqs_queue.review.arn
       },
       {
-        Sid      = "SearchPolicyKnowledgeBase"
+        # the agent runs on AgentCore; the worker calls only this runtime, through any endpoint
+        Sid      = "InvokeReviewAgent"
         Effect   = "Allow"
-        Action   = "bedrock:Retrieve"
-        Resource = local.knowledge_base_arn
-      },
-      {
-        Sid      = "InvokeInferenceProfile"
-        Effect   = "Allow"
-        Action   = ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"]
-        Resource = local.inference_profile_arn
-      },
-      {
-        Sid      = "InvokeModelThroughProfile"
-        Effect   = "Allow"
-        Action   = ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"]
-        Resource = "arn:aws:bedrock:*::foundation-model/${local.foundation_model_id}"
-        Condition = {
-          StringEquals = { "bedrock:InferenceProfileArn" = local.inference_profile_arn }
-        }
+        Action   = "bedrock-agentcore:InvokeAgentRuntime"
+        Resource = [var.agent_runtime_arn, "${var.agent_runtime_arn}/runtime-endpoint/*"]
       },
     ]
   })

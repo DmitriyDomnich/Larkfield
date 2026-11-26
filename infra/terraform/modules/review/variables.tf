@@ -2,13 +2,8 @@ variable "project_name" {
   type = string
 }
 
-variable "policy_knowledge_base_id" {
-  description = "The `clause` knowledge base the agent searches (POLICY_KB_ID)."
-  type        = string
-}
-
-variable "bedrock_inference_profile_id" {
-  description = "Cross-Region inference profile the review agent calls (REVIEW_MODEL_ID)."
+variable "agent_runtime_arn" {
+  description = "The AgentCore runtime the review worker invokes (REVIEW_AGENT_RUNTIME_ARN)."
   type        = string
 }
 

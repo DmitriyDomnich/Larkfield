@@ -254,3 +254,42 @@ def test_the_email_addresses_are_masked_before_anything_is_logged(deploy: dict[s
     assert first["name"] == "mask the email addresses"
     assert first["env"]["TFVARS"] == "${{ vars.TFVARS }}"
     assert "::add-mask::" in first["run"]
+
+
+def test_the_agent_runtime_is_v1_public_with_a_one_minute_idle_timeout() -> None:
+    runtime = (TERRAFORM / "modules/agent_runtime/main.tf").read_text("utf-8")
+    assert 'platform_version = "V1"' in runtime
+    assert 'network_mode = "PUBLIC"' in runtime
+    assert re.search(r"idle_runtime_session_timeout\s+= 60\b", runtime)
+    assert '"${var.repository_url}:${var.image_tag}-agent-runtime"' in runtime
+    assert "authorizer_configuration" not in runtime  # SigV4, the default
+
+
+def test_the_agent_runtime_role_reaches_only_the_model_the_kb_and_its_logs() -> None:
+    runtime = (TERRAFORM / "modules/agent_runtime/main.tf").read_text("utf-8")
+    assert '"bedrock-agentcore.amazonaws.com"' in runtime
+    assert '"aws:SourceAccount"' in runtime
+    assert '"aws:SourceArn"' in runtime
+    for forbidden in ["sqs:", "secretsmanager:", "rds:", "s3:"]:
+        assert forbidden not in runtime
+
+
+def test_the_review_worker_invokes_the_runtime_instead_of_bedrock() -> None:
+    review = (TERRAFORM / "modules/review/main.tf").read_text("utf-8")
+    assert '"bedrock-agentcore:InvokeAgentRuntime"' in review
+    assert '"${var.agent_runtime_arn}/runtime-endpoint/*"' in review
+    assert "bedrock:InvokeModel" not in review
+    assert "bedrock:Retrieve" not in review
+
+
+@pytest.mark.parametrize("environment", ["dev", "prod"])
+def test_each_environment_points_the_review_worker_at_its_runtime(environment: str) -> None:
+    root = (TERRAFORM / "environments" / environment / "main.tf").read_text("utf-8")
+    assert re.search(r"REVIEW_AGENT_RUNTIME_ARN\s+= module\.agent_runtime\.runtime_arn", root)
+    assert re.search(r"agent_runtime_arn\s+= module\.agent_runtime\.runtime_arn", root)
+
+
+def test_the_tasks_run_on_arm64_like_the_runtime() -> None:
+    runtime = (TERRAFORM / "modules/runtime/main.tf").read_text("utf-8")
+    assert re.search(r'cpu_architecture\s+= "ARM64"', runtime)
+    assert "X86_64" not in runtime
