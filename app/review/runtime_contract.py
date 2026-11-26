@@ -14,27 +14,26 @@ class ReviewRequest(BaseModel):
     training_claims: list[TrainingClaim]
 
 
-class ReviewResponse(BaseModel):
+class RuntimeResponse(BaseModel):
     usage: TokenUsage
-    outcome: Literal["proposal", "no_proposal", "error"]
 
 
-class ProposalResponse(ReviewResponse):
-    outcome = "proposal"
+class ProposalResponse(RuntimeResponse):
+    outcome: Literal["proposal"] = "proposal"
     proposal: ReviewProposal
     retrieved_clauses: list[str]
     model: str
 
 
-class NoProposalResponse(ReviewResponse):
-    outcome = "no_proposal"
+class NoProposalResponse(RuntimeResponse):
+    outcome: Literal["no_proposal"] = "no_proposal"
     detail: str
 
 
-class ErrorResponse(ReviewResponse):
+class ErrorResponse(RuntimeResponse):
     """A Bedrock, KB or tool failure after spending `usage` tokens"""
 
-    outcome = "error"
+    outcome: Literal["error"] = "error"
 
 
 ReviewResponse = Annotated[
