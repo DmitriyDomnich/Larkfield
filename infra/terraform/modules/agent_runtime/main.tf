@@ -2,13 +2,13 @@ data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 
 locals {
-  account_id = data.aws_caller_identity.current.account_id
-  region     = data.aws_region.current.region
+  account_id            = data.aws_caller_identity.current.account_id
+  region                = data.aws_region.current.region
   runtime_name          = replace("${var.project_name}_review", "-", "_")
   inference_profile_arn = "arn:aws:bedrock:${local.region}:${local.account_id}:inference-profile/${var.bedrock_inference_profile_id}"
-  foundation_model_id = join(".", slice(split(".", var.bedrock_inference_profile_id), 1, length(split(".", var.bedrock_inference_profile_id))))
-  knowledge_base_arn  = "arn:aws:bedrock:${local.region}:${local.account_id}:knowledge-base/${var.policy_knowledge_base_id}"
-  log_groups_arn      = "arn:aws:logs:${local.region}:${local.account_id}:log-group:/aws/bedrock-agentcore/runtimes"
+  foundation_model_id   = join(".", slice(split(".", var.bedrock_inference_profile_id), 1, length(split(".", var.bedrock_inference_profile_id))))
+  knowledge_base_arn    = "arn:aws:bedrock:${local.region}:${local.account_id}:knowledge-base/${var.policy_knowledge_base_id}"
+  log_groups_arn        = "arn:aws:logs:${local.region}:${local.account_id}:log-group:/aws/bedrock-agentcore/runtimes"
 }
 
 resource "aws_iam_role" "runtime" {
@@ -94,7 +94,7 @@ resource "aws_bedrockagentcore_agent_runtime" "review" {
   agent_runtime_name = local.runtime_name
   description        = "Review agent: proposes a decision on one expense claim"
   role_arn           = aws_iam_role.runtime.arn
-  platform_version = "V1"
+  platform_version   = "V1"
 
   agent_runtime_artifact {
     container_configuration {
