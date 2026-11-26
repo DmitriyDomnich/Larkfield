@@ -9,6 +9,8 @@ from app.core.config import Settings
 class ReviewWorkerSettings(Settings):
     review_model_id: str = Field(min_length=1)
     policy_kb_id: str = Field(min_length=1)
+    # if set: the agent runs on Bedrock AgentCore Runtime; empty: in this process
+    review_agent_runtime_arn: str = ""
 
     review_max_receives: int = 3
     review_max_turns: int = 12

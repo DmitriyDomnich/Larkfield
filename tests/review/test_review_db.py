@@ -1,9 +1,11 @@
 import asyncio
+import json
 import logging
 import uuid
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
+from typing import Any
 
 import pytest
 from sqlalchemy import select
@@ -14,17 +16,32 @@ from app.claims.service import transition
 from app.claims.status import ClaimStatus as S
 from app.core.metrics import BedrockRunError, TokenUsage
 from app.review.agent import NoValidProposal, ReviewOutcome, ValidProposal
+from app.review.agentcore import AgentCoreClient
 from app.review.claim_data import ClaimUnderReview
+from app.review.claims_history import DatabaseClaimsHistory
 from app.review.models import ClaimAnswer, Decision, Proposal, ReviewerDecision
 from app.review.proposal import ReviewProposal
 from app.review.queue import ReviewMessage
+from app.review.runtime_contract import (
+    ErrorResponse,
+    NoProposalResponse,
+    ProposalResponse,
+    RuntimeResponse,
+)
 from app.review.service import NO_VALID_PROPOSAL_REASON, TECHNICAL_FAILURE_REASON
 from app.review.settings import ReviewWorkerSettings
 from app.review.worker import ReviewWorker
 from tests.core.fakes import RecordingMetrics
 from tests.notifications.fakes import FakeNotificationService
 from tests.review.db import extracted_claim
-from tests.review.fakes import FakeAgent, FakeReviewQueue, proposal_input
+from tests.review.fakes import (
+    RUNTIME_ARN,
+    FakeAgent,
+    FakeReviewQueue,
+    proposal_input,
+    runtime_answer,
+    stubbed_runtime_client,
+)
 
 pytestmark = pytest.mark.integration
 
@@ -518,3 +535,89 @@ async def test_a_round_without_corrections_reviews_the_extraction_as_stored(
     [reviewed] = agent.reviewed
     assert str(reviewed.expense.total) == "18.50"
     assert reviewed.warnings == []
+
+
+def agentcore_worker(
+    db_session: AsyncSession,
+    settings: ReviewWorkerSettings,
+    queue: FakeReviewQueue,
+    answer: RuntimeResponse,
+) -> tuple[ReviewWorker, list[dict[str, Any]]]:
+    """The worker with AgentCoreClient and the database history; the runtime is stubbed"""
+
+    @asynccontextmanager
+    async def sessions() -> AsyncIterator[AsyncSession]:
+        yield db_session
+
+    client, stubber = stubbed_runtime_client()
+    payloads: list[dict[str, Any]] = []
+    client.meta.events.register(
+        "before-parameter-build.bedrock-agentcore.InvokeAgentRuntime",
+        lambda params, **_: payloads.append(json.loads(params["payload"])),
+    )
+    stubber.add_response("invoke_agent_runtime", runtime_answer(answer))
+    stubber.activate()
+    agent = AgentCoreClient(
+        RUNTIME_ARN, DatabaseClaimsHistory(sessions), settings.aws_region, client
+    )
+    worker = ReviewWorker(
+        settings, queue, sessions, agent, FakeNotificationService(), RecordingMetrics()
+    )
+    return worker, payloads
+
+
+async def test_through_agentcore_a_proposal_is_stored_and_the_claim_goes_in_review(
+    db_session: AsyncSession, review_settings: ReviewWorkerSettings
+) -> None:
+    earlier = await extracted_claim(db_session, "D01", status=S.IN_REVIEW)
+    claim_id = await extracted_claim(db_session, "D17")
+    duplicate = ReviewProposal.model_validate(
+        proposal_input("reject", [("1.4", "the later claim is rejected")], duplicate_of=earlier)
+    )
+    answer = ProposalResponse(
+        proposal=duplicate, retrieved_clauses=["1.4"], model=MODEL, usage=TokenUsage(900, 120)
+    )
+    queue = FakeReviewQueue()
+    worker, payloads = agentcore_worker(db_session, review_settings, queue, answer)
+
+    await worker.handle_message(request(claim_id))
+
+    [payload] = payloads
+    assert payload["claim"]["claim_id"] == str(claim_id)
+    assert [d["claim_id"] for d in payload["possible_duplicates"]] == [str(earlier)]
+    assert payload["training_claims"] == []
+    assert (await claim_row(db_session, claim_id)).status is S.IN_REVIEW
+    [proposal] = await proposals(db_session, claim_id)
+    assert (proposal.decision, proposal.duplicate_of) == (Decision.REJECT, earlier)
+    assert (proposal.ai_model, proposal.retrieved_clauses) == (MODEL, ["1.4"])
+    assert queue.deleted == ["handle-1"]
+
+
+async def test_through_agentcore_no_proposal_fails_the_claim_with_a_reason(
+    db_session: AsyncSession, review_settings: ReviewWorkerSettings
+) -> None:
+    claim_id = await extracted_claim(db_session, "D01")
+    answer = NoProposalResponse(detail="stop reason limit_turns", usage=TokenUsage(90, 12))
+    worker, _ = agentcore_worker(db_session, review_settings, FakeReviewQueue(), answer)
+
+    await worker.handle_message(request(claim_id))
+
+    claim = await claim_row(db_session, claim_id)
+    assert (claim.status, claim.failure_reason) == (S.FAILED, NO_VALID_PROPOSAL_REASON)
+    assert await proposals(db_session, claim_id) == []
+
+
+async def test_through_agentcore_an_error_on_the_last_delivery_fails_the_claim(
+    db_session: AsyncSession, review_settings: ReviewWorkerSettings
+) -> None:
+    claim_id = await extracted_claim(db_session, "D01")
+    queue = FakeReviewQueue()
+    answer = ErrorResponse(usage=TokenUsage(40, 2))
+    worker, _ = agentcore_worker(db_session, review_settings, queue, answer)
+
+    last = review_settings.review_max_receives
+    await worker.handle_message(request(claim_id, receive_count=last))
+
+    claim = await claim_row(db_session, claim_id)
+    assert (claim.status, claim.failure_reason) == (S.FAILED, TECHNICAL_FAILURE_REASON)
+    assert queue.deleted == [f"handle-{last}"]
