@@ -10,7 +10,7 @@ claims at once in one worker, or autoscaling the worker (T09 "Scaling" steps 1 a
 |---|---|---|---|
 | The worker invokes the agent on Bedrock AgentCore Runtime; claims still end `in_review` or `failed` with a reason | `REVIEW_AGENT_RUNTIME_ARN` set → `AgentCoreClient`: claim + prefetched history → `InvokeAgentRuntime` (SigV4, session = claim id) → `runtime_app` runs `StrandsReviewAgent` → `proposal` / `no_proposal` / `error`; `review_claim` unchanged (proposal → `in_review`, none → `failed` + reason, errors → SQS retry, last delivery → `failed` + technical reason) | `tests/review/test_agentcore.py`, `test_runtime_app.py`, `test_runtime_contract.py`, `test_worker.py`; integration `test_review_db.py` | No |
 | The review evaluation gives the same decisions as before, within the run-to-run variation measured | `make eval-review args="--agentcore"` on the 24 dev cases; every case except E02 matches `review-2026-11-13-1307`, D14 / D16 rejected; committed `review-agentcore-*` | `tests/evals/test_review_run.py`, `test_review_agentcore_run.py`, `test_review_recorded_run.py` | No |
-| The runtime is defined as code and deployed by the pipeline | Terraform `modules/agent_runtime` (runtime V1, role, log group); deploy builds one arm64 image with `<sha>` and `<sha>-agent-runtime` tags, the apply moves the runtime to the new image, rollback re-points it | `tests/test_workflows.py`, `tests/test_pipeline_scripts.py`, CI `terraform validate` | No |
+| The AgentCore runtime is defined as code and deployed by the pipeline | Terraform `modules/agent_runtime` (AgentCore runtime V1, role, log group); deploy builds one arm64 image with `<sha>` and `<sha>-agent-runtime` tags, the apply moves the AgentCore runtime to the new image, rollback re-points it | `tests/test_workflows.py`, `tests/test_pipeline_scripts.py`, CI `terraform validate` | No |
 
 ## Flow
 
@@ -40,30 +40,30 @@ sequenceDiagram
 
 - **The worker passes the claim history in with the request:** before invoking, it runs
   `DatabaseClaimsHistory.find_possible_duplicates` and `list_training_claims` for the claim and
-  sends both lists with it; in the runtime a `PrefetchedHistory` (same `ClaimsHistory` protocol)
+  sends both lists with it; in the AgentCore runtime a `PrefetchedHistory` (same `ClaimsHistory` protocol)
   answers the two tools from the payload, so the tools, their output and the `duplicate_of` check
   are unchanged. The duplicate query already ran on every claim (the prompt says to call
   `find_duplicate_claims` for every claim), so the only extra work is the training query, one
-  indexed SELECT. The runtime holds no database credentials and runs in `PUBLIC` network mode: an
-  injected agent sees only this claim's matches. *Rejected:* runtime reads PostgreSQL (VPC mode
-  in the private subnets, DB secret on the runtime role, Bedrock through the NAT, a prompt-injected
+  indexed SELECT. The AgentCore runtime holds no database credentials and runs in `PUBLIC` network mode: an
+  injected agent sees only this claim's matches. *Rejected:* the AgentCore runtime reads PostgreSQL (VPC mode
+  in the private subnets, DB secret on the AgentCore runtime role, Bedrock through the NAT, a prompt-injected
   agent holding DB access, and it fails while the environment is stopped); training query only for
   `training` claims (a book extracted as `other` would lose the 5.1 yearly total: a wrong approve).
-- **Worker → runtime: IAM SigV4 with the review worker's task role.** The role gets
-  `bedrock-agentcore:InvokeAgentRuntime` on this runtime's ARN and its endpoints (`<arn>` and
+- **Worker → AgentCore runtime: IAM SigV4 with the review worker's task role.** The role gets
+  `bedrock-agentcore:InvokeAgentRuntime` on this AgentCore runtime's ARN and its endpoints (`<arn>` and
   `<arn>/runtime-endpoint/*`), nothing else; boto3 signs with the task credentials, every call is in
-  CloudTrail, no secret exists. No `authorizer_configuration` on the runtime (SigV4 is the default)
+  CloudTrail, no secret exists. No `authorizer_configuration` on the AgentCore runtime (SigV4 is the default)
   ([inbound auth](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/runtime-oauth.html)).
   *Rejected:* JWT from a Cognito client-credentials app client (a client secret to store and
   rotate, token refresh, raw HTTPS since boto3 can't send a bearer token; built for end users
   calling an agent, not one service calling another).
-- **One arm64 build for everything:** the runtime needs an ARM64 container and takes only an image
+- **One arm64 build for everything:** the AgentCore runtime needs an ARM64 container and takes only an image
   URI, no command ([container requirements](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/runtime-http-protocol-contract.html)).
   The deploy's image step runs on `ubuntu-24.04-arm` (native, free for public repositories); the
-  Dockerfile gets a second target `agent-runtime` (same layers, `CMD` = the runtime server on
+  Dockerfile gets a second target `agent-runtime` (same layers, `CMD` = the AgentCore runtime server on
   `0.0.0.0:8080`), pushed as `<sha>-agent-runtime` next to `<sha>`. ECS task definitions switch
   to `cpu_architecture = "ARM64"` (Fargate on Graviton, cheaper per vCPU-hour). *Rejected:* x86 app
-  + a separate arm64 runtime build (two architectures to keep working), multi-arch through QEMU
+  + a separate arm64 AgentCore runtime build (two architectures to keep working), multi-arch through QEMU
   (emulated `uv sync`, several times slower).
 - **Platform version V1, set explicitly (`platform_version = "V1"`), one session per claim, idle
   timeout 60 s:** `runtimeSessionId` = the claim id (36 characters; the minimum is 33), so each
@@ -84,7 +84,7 @@ sequenceDiagram
   unset → the in-process `StrandsReviewAgent` as today (local `make up`, tests). Both implement
   `ReviewAgent`, so `review_claim` and the worker loop don't change. Terraform always sets it on the
   deployed review worker. *Rejected:* AgentCore only (local stack would need AWS credentials and
-  send local claims to the dev runtime), a local runtime container (a second client over plain
+  send local claims to the dev AgentCore runtime), a local AgentCore runtime container (a second client over plain
   HTTP to maintain).
 - **The contract, `app/review/runtime_contract.py`** (Pydantic, JSON both ways):
   - request `{claim, possible_duplicates, training_claims}`: `ClaimUnderReview` as a model
@@ -93,14 +93,14 @@ sequenceDiagram
   - response `{"outcome": "proposal", proposal, retrieved_clauses, model, usage}`,
     `{"outcome": "no_proposal", detail, usage}` or `{"outcome": "error", usage}` (a Bedrock, KB or
     tool failure after spending tokens), always HTTP 200 so the usage reaches the worker.
-  The quote check runs in the runtime (it needs the clauses retrieved there); the worker parses
-  `ReviewProposal` without it and trusts the runtime, which only it can call.
-- **Runtime server, `app/review/runtime_app.py`:** a FastAPI app (already a dependency): `GET /ping`,
+  The quote check runs in the AgentCore runtime (it needs the clauses retrieved there); the worker parses
+  `ReviewProposal` without it and trusts the AgentCore runtime, which only it can call.
+- **AgentCore runtime server, `app/review/runtime_app.py`:** a FastAPI app (already a dependency): `GET /ping`,
   `POST /invocations`, uvicorn on `0.0.0.0:8080`. Per request it builds `StrandsReviewAgent` with
   `PrefetchedHistory` from the payload; the model and KB clients are created once at startup.
   Settings: `ReviewRuntimeSettings`, a plain `BaseSettings` (not `Settings`: no database, Cognito
   or queues): `REVIEW_MODEL_ID`, `POLICY_KB_ID`, `AWS_REGION`, `REVIEW_MAX_TURNS`,
-  `REVIEW_MAX_PROPOSAL_ATTEMPTS`, `LOG_LEVEL`. Logs go to stdout → the runtime's CloudWatch log
+  `REVIEW_MAX_PROPOSAL_ATTEMPTS`, `LOG_LEVEL`. Logs go to stdout → the AgentCore runtime's CloudWatch log
   group, with the claim id in every line as today. *Rejected:* the `bedrock-agentcore` SDK app
   (a new dependency for two routes; its async-task ping states aren't needed).
 - **Client, `app/review/agentcore.py`, `AgentCoreClient(arn, history: ClaimsHistory)`:**
@@ -112,7 +112,7 @@ sequenceDiagram
   an unparseable body) → `BedrockRunError(TokenUsage())`. `review_claim` then does what it does
   today: retry through SQS, `failed` with the technical reason on the last delivery, token metrics
   per claim.
-- **AC2 is proven by one dev run through the runtime, with a recheck:** `make eval-review
+- **AC2 is proven by one dev run through the AgentCore runtime, with a recheck:** `make eval-review
   args="--agentcore"` runs the 24 dev cases through `AgentCoreClient` (the ARN from
   `REVIEW_AGENT_RUNTIME_ARN` in `.env`; the flag, not the variable, picks AgentCore, so in-process runs
   stay in-process) with
@@ -120,35 +120,37 @@ sequenceDiagram
   public and the ARN holds the account id). Committed as `review-agentcore-<date>.json/.md`. Pass:
   every case except E02 (wrong in 2 of 3 T11 runs) has the decision it had in
   `review-2026-11-13-1307` (same prompt and model), D14 and D16 rejected. A case that differs gets
-  2 more runs through the runtime and 2 in-process (new `--ids D07,D17`: the named cases, each
+  2 more runs through the AgentCore runtime and 2 in-process (new `--ids D07,D17`: the named cases, each
   preceded by its `process_after` case, so D17 still finds D01); it fails AC2 only if it
-  differs through the runtime and not in-process. *Rejected:* dev + holdout (twice the cost; the
+  differs through the AgentCore runtime and not in-process. *Rejected:* dev + holdout (twice the cost; the
   holdout set exists to judge prompt changes, and this changes no prompt), three full runs (3× the
   cost for a transport change).
-- **The runtime is part of the release and rolls back with it.** Terraform sets
-  `container_uri = <repo>:<sha>-agent-runtime`, so the apply creates a new runtime version and
-  `DEFAULT` follows it. "record the live release" also saves the runtime's current configuration
-  (`get-agent-runtime`; skipped on the first deploy, when there is none). On a failure after the
-  migration, the rollback step runs `infra/scripts/rollback-agent-runtime.sh`: `update-agent-runtime`
-  with the saved image, role, network, lifecycle and environment (the update replaces the whole
-  configuration), waits for `READY`, then restores ECS and the frontend as today. Terraform state
+- **The AgentCore runtime is part of the release and rolls back with it.** Terraform sets
+  `container_uri = <repo>:<sha>-agent-runtime`, so the apply creates a new AgentCore runtime version and
+  `DEFAULT` follows it. "record the live release" also saves the AgentCore runtime's current configuration
+  (`get-agent-runtime`; skipped on the first deploy, when there is none). On any failure after the
+  record, the migration included, "roll back the AgentCore runtime" runs
+  `infra/scripts/rollback-agent-runtime.sh`: `update-agent-runtime` with the saved image, role,
+  network, lifecycle and environment (the update replaces the whole configuration) and waits for
+  `READY`, so the AgentCore runtime never stays a release ahead of the workers. After a successful migration,
+  "roll back" then restores ECS and the frontend as today. Terraform state
   shows the new image until the next apply, which sets it again. The old worker still calls the new
-  runtime between the apply and the ECS deploy, so a contract change keeps accepting the previous
-  request shape for one release (a unit test sends a saved request). *Rejected:* no runtime rollback
+  AgentCore runtime between the apply and the ECS deploy, so a contract change keeps accepting the previous
+  request shape for one release (a unit test sends a saved request). *Rejected:* no AgentCore runtime rollback
   (agent and worker from different releases after a failed deploy), an endpoint per release with the
-  name in the worker's task definition (endpoint cleanup, 10 per runtime, the most pipeline work).
+  name in the worker's task definition (endpoint cleanup, 10 per AgentCore runtime, the most pipeline work).
 
 ## Questions
 
-- **What does the runtime give you that the worker did not, and what does it cost per claim?**
-  *Gives:* the agent is deployed and versioned on its own (immutable runtime versions, `DEFAULT`
+- **What does the AgentCore runtime give you that the worker did not, and what does it cost per claim?**
+  *Gives:* the agent is deployed and versioned on its own (immutable AgentCore runtime versions, `DEFAULT`
   endpoint) and scales per claim: each claim gets its own microVM, up to 2,500 active sessions and
   25 new sessions/s per account in eu-north-1 by default
   ([quotas](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/bedrock-agentcore-limits.html)).
-  Isolation: the microVM ends and its memory is wiped after the claim; the runtime role reaches only
+  Isolation: the microVM ends and its memory is wiped after the claim; the AgentCore runtime role reaches only
   the model and the KB, so a prompt-injected run has no database, queue or other claims. *Doesn't
   give, today:* more throughput. The worker still takes one message at a time
-  (`MaxNumberOfMessages=1`) and waits for the answer; the runtime's scale is used only once the
+  (`MaxNumberOfMessages=1`) and waits for the answer; the AgentCore runtime's scale is used only once the
   worker reviews concurrently or runs more tasks. The worker's Fargate task stays. Costs that come
   with it: a network hop, a second IAM role and log group, an arm64-only build.
   *Cost per claim:* CPU is billed only while active (waiting for Bedrock is free), memory per second
@@ -171,7 +173,7 @@ sequenceDiagram
 ## Configuration
 
 - **Settings:** worker `REVIEW_AGENT_RUNTIME_ARN` (optional, `ReviewWorkerSettings`; empty in
-  `.env.example` so local runs stay in-process). Runtime: `ReviewRuntimeSettings` reads
+  `.env.example` so local runs stay in-process). AgentCore runtime: `ReviewRuntimeSettings` reads
   `REVIEW_MODEL_ID`, `POLICY_KB_ID`, `AWS_REGION`, `REVIEW_MAX_TURNS`,
   `REVIEW_MAX_PROPOSAL_ATTEMPTS`, `LOG_LEVEL`, set by Terraform `environment_variables` (4 KB limit).
 - **Terraform `modules/agent_runtime`:** `aws_bedrockagentcore_agent_runtime` named
@@ -185,17 +187,18 @@ sequenceDiagram
   bills while idle). Outputs `runtime_arn`, `runtime_id`, `log_group_name`; the environments output
   them as `agent_runtime` for the pipeline.
 - **`modules/review`:** the worker policy loses `InvokeModel` / `Retrieve` and gains
-  `bedrock-agentcore:InvokeAgentRuntime` on the runtime and `<arn>/runtime-endpoint/*`.
+  `bedrock-agentcore:InvokeAgentRuntime` on the AgentCore runtime and `<arn>/runtime-endpoint/*`.
   **`modules/runtime`:** `cpu_architecture = "ARM64"`; `REVIEW_AGENT_RUNTIME_ARN` in the review
   worker's environment.
 - **`bootstrap`** (an admin applies it once before the first T16 deploy): deploy role
   `bedrock-agentcore:*` in the region, `iam:PassRole` to `bedrock-agentcore.amazonaws.com`, and
-  `logs:*` on `/aws/bedrock-agentcore/runtimes/<project>_*` (the runtime's log group; runtime names
+  `logs:*` on `/aws/bedrock-agentcore/runtimes/<project>_*` (the AgentCore runtime's log group; AgentCore runtime names
   turn the prefix's hyphens into underscores); boundary adds `bedrock-agentcore:InvokeAgentRuntime`, `logs:DescribeLogGroups`,
   `logs:DescribeLogStreams`.
 - **Pipeline:** the deploy job runs on `ubuntu-24.04-arm`; `push-image.sh` builds the targets `app`
   (`<sha>`) and `agent-runtime` (`<sha>-agent-runtime`); "record the live release" saves the
-  runtime configuration; the rollback step runs `infra/scripts/rollback-agent-runtime.sh` first.
+  AgentCore runtime configuration; "roll back the AgentCore runtime" runs `infra/scripts/rollback-agent-runtime.sh`
+  on any failure after the record (the migration's too), before "roll back".
   Dockerfile stages `build` → `base` → `agent-runtime` (uvicorn `app.review.runtime_app:app`, port
   8080) and `app` (last, so `docker build` and compose still give the API). `docs/pipeline.md`
   describes the new steps.
@@ -206,21 +209,21 @@ sequenceDiagram
 ## Known gaps
 
 - Throughput is unchanged: one claim at a time per worker task, one task. Concurrent receives or
-  more tasks (T09 "Scaling") are what use the runtime's scale.
+  more tasks (T09 "Scaling") are what use the AgentCore runtime's scale.
 - The agent's own limits (12 turns × 120 s model timeout) can exceed the 15 min synchronous call
   limit (the call fails and counts as a delivery) and the 300 s visibility timeout (the claim is
   delivered again while running; same session id, so the second run lands on the same microVM; the
   row lock still keeps one proposal).
-- After a rollback, Terraform state shows the new runtime image until the next apply sets it again.
+- After a rollback, Terraform state shows the new AgentCore runtime image until the next apply sets it again.
   A contract change must stay compatible for one release.
 - The smoke request doesn't call the agent: a broken agent passes the deploy and shows up as
   `failed` claims and the `ClaimsFailed` alarm; the fix is `git revert`.
 - The pricing page's rates aren't labelled by region; eu-north-1 may differ slightly.
 - The review worker keeps 0.5 vCPU / 1 GB although the agent no longer runs in it.
 - AgentCore Observability (traces) isn't enabled: logs and the T14 token metrics only.
-- On an environment never deployed before, the first deploy fails at the runtime: its image is
+- On an environment never deployed before, the first deploy fails at the AgentCore runtime: its image is
   pushed only after the apply creates the ECR repository. Running the deploy again pushes the image
-  first and creates the runtime.
+  first and creates the AgentCore runtime.
 
 ## Testing
 
@@ -234,23 +237,23 @@ sequenceDiagram
   baseline; workflows (arm runner,
   both tags, record and rollback steps, docs entries) and `rollback-agent-runtime.sh` against the
   fake `aws`.
-- **Integration:** `test_review_db.py` drives the worker with a stubbed runtime client: proposal →
+- **Integration:** `test_review_db.py` drives the worker with a stubbed AgentCore runtime client: proposal →
   `in_review` with the proposal stored, no_proposal → `failed` with the reason, error on the last
   delivery → `failed` with the technical reason.
 - **Manual:** admin applies `bootstrap`; deploy to dev from the temporary deploy branch (T14
   procedure), Start; D01 through the UI ends `in_review` with a proposal, E10 ends `failed`; the
-  runtime log group shows the claim; time a new session vs a repeat within 60 s; read the runtime's
+  AgentCore runtime log group shows the claim; time a new session vs a repeat within 60 s; read the AgentCore runtime's
   CPU and memory metrics for the cost; `make eval-review args="--agentcore"`; a deploy with a
-  broken smoke request restores the runtime's previous image along with ECS and the frontend.
+  broken smoke request restores the AgentCore runtime's previous image along with ECS and the frontend.
 
 ## Results
 
 ## Commit plan
 
 - [x] 1. Contract and prefetched history: `runtime_contract.py` (request, three responses), `PrefetchedHistory`, `ReviewRuntimeSettings`, `boto3-stubs[bedrock-agentcore]` — AC1 — `add the agent runtime contract, prefetched claim history and runtime settings`
-- [x] 2. Runtime server: `runtime_app.py` (`/ping`, `/invocations` building `StrandsReviewAgent` with `PrefetchedHistory`), Dockerfile stages `base` → `agent-runtime` / `app` — AC1 — `add the agent runtime server with ping and invocations, agent-runtime docker target`
-- [x] 3. Client and worker: `AgentCoreClient` (prefetch, SigV4 call in a thread, outcome mapping), `REVIEW_AGENT_RUNTIME_ARN` picks the agent in `run_worker`, `.env.example`, integration through the worker with a stubbed runtime — AC1 — `add the agentcore client, pick it in the review worker from REVIEW_AGENT_RUNTIME_ARN`
-- [x] 4. Eval through the runtime: `--agentcore` (ARN from `REVIEW_AGENT_RUNTIME_ARN`), `--ids` with `process_after` cases, `agent_placement` in the results file — AC2 — `add --agentcore and --ids to the review evaluation, the agent placement in its results`
-- [x] 5. Terraform: `modules/agent_runtime` (runtime V1, role, log group), review worker policy → `InvokeAgentRuntime`, ECS tasks ARM64, `REVIEW_AGENT_RUNTIME_ARN` on the worker, dev and prod wiring, bootstrap deploy role and boundary — AC3 — `add the agent runtime terraform module, invoke permission for the review worker, arm64 tasks, bootstrap agentcore permissions`
-- [ ] 6. Pipeline: arm runner, `push-image.sh` builds both targets, "record the live release" saves the runtime configuration, `rollback-agent-runtime.sh` in the rollback step, `docs/pipeline.md` — AC3 — `add the agent runtime image to the deploy with its record and rollback, arm runner, pipeline docs`
+- [x] 2. AgentCore runtime server: `runtime_app.py` (`/ping`, `/invocations` building `StrandsReviewAgent` with `PrefetchedHistory`), Dockerfile stages `base` → `agent-runtime` / `app` — AC1 — `add the agent runtime server with ping and invocations, agent-runtime docker target`
+- [x] 3. Client and worker: `AgentCoreClient` (prefetch, SigV4 call in a thread, outcome mapping), `REVIEW_AGENT_RUNTIME_ARN` picks the agent in `run_worker`, `.env.example`, integration through the worker with a stubbed AgentCore runtime — AC1 — `add the agentcore client, pick it in the review worker from REVIEW_AGENT_RUNTIME_ARN`
+- [x] 4. Eval through the AgentCore runtime: `--agentcore` (ARN from `REVIEW_AGENT_RUNTIME_ARN`), `--ids` with `process_after` cases, `agent_placement` in the results file — AC2 — `add --agentcore and --ids to the review evaluation, the agent placement in its results`
+- [x] 5. Terraform: `modules/agent_runtime` (AgentCore runtime V1, role, log group), review worker policy → `InvokeAgentRuntime`, ECS tasks ARM64, `REVIEW_AGENT_RUNTIME_ARN` on the worker, dev and prod wiring, bootstrap deploy role and boundary — AC3 — `add the agent runtime terraform module, invoke permission for the review worker, arm64 tasks, bootstrap agentcore permissions`
+- [x] 6. Pipeline: arm runner, `push-image.sh` builds both targets, "record the live release" saves the AgentCore runtime configuration, `rollback-agent-runtime.sh` in the rollback step, `docs/pipeline.md` — AC3 — `add the agent runtime image to the deploy with its record and rollback, arm runner, pipeline docs`
 - [ ] 7. Committed AgentCore run (after the developer deploys dev and runs `make eval-review args="--agentcore"`): `review-agentcore-*.json/.md`, `test_review_agentcore_run.py`, Results — AC2 — `add the agentcore review evaluation run and its comparison with the in-process run`

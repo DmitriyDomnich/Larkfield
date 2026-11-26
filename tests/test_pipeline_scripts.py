@@ -23,7 +23,13 @@ case "$1 $2" in
   "ssm get-parameter") answer "$FAKE_PARAMETER" "$FAKE_PARAMETER_VALUE" ParameterNotFound ;;
   "rds describe-db-snapshots") answer "$FAKE_SNAPSHOT" "" DBSnapshotNotFound ;;
   "ecr describe-repositories") answer "$FAKE_REPOSITORY" "" RepositoryNotFoundException ;;
-  "ecr describe-images") answer "$FAKE_IMAGE" "" ImageNotFoundException ;;
+  "ecr describe-images")
+    image="$FAKE_IMAGE"
+    [[ "$*" == *-agent-runtime* ]] && image="${FAKE_RUNTIME_IMAGE:-$FAKE_IMAGE}"
+    answer "$image" "" ImageNotFoundException ;;
+  "bedrock-agentcore-control update-agent-runtime")
+    answer "${FAKE_RUNTIME_UPDATE:-found}" "{}" ValidationException ;;
+  "bedrock-agentcore-control get-agent-runtime") echo "${FAKE_RUNTIME_STATUS:-READY}" ;;
   "sts get-caller-identity") echo 123456789012 ;;
   *) ;;
 esac
@@ -146,9 +152,33 @@ def test_a_new_tag_is_built_and_pushed(fake_tools: Path) -> None:
     assert result.returncode == 0, result.stderr
     calls = (fake_tools / "calls.txt").read_text()
     image = "123456789012.dkr.ecr.eu-central-1.amazonaws.com/larkfield-dev:abc123"
-    assert f"docker build --tag {image} ." in calls
+    assert f"docker build --platform linux/arm64 --target app --tag {image} ." in calls
     assert f"docker push {image}" in calls
+    runtime_image = f"{image}-agent-runtime"
+    assert (
+        f"docker build --platform linux/arm64 --target agent-runtime --tag {runtime_image} ."
+        in calls
+    )
+    assert f"docker push {runtime_image}" in calls
+    assert calls.count("docker login") == 1
     assert "pushed=true" in (fake_tools / "output.txt").read_text()
+
+
+def test_only_the_missing_tag_is_built(fake_tools: Path) -> None:
+    result = run_script(
+        "push-image.sh",
+        fake_tools,
+        IMAGE_TAG="abc123",
+        AWS_REGION="eu-central-1",
+        FAKE_REPOSITORY="found",
+        FAKE_IMAGE="found",
+        FAKE_RUNTIME_IMAGE="missing",
+    )
+
+    assert result.returncode == 0, result.stderr
+    builds = [c for c in (fake_tools / "calls.txt").read_text().splitlines() if "docker build" in c]
+    assert len(builds) == 1
+    assert "--target agent-runtime" in builds[0]
 
 
 def test_an_existing_tag_is_left_as_it_is(fake_tools: Path) -> None:
@@ -201,3 +231,110 @@ def test_publishing_copies_every_object_before_removing_the_rest(fake_tools: Pat
         "aws s3 sync s3://site/releases/abc123 s3://site/live --delete --only-show-errors",
         "aws cloudfront create-invalidation --distribution-id E1 --paths /*",
     ]
+
+
+REGISTRY = "123456789012.dkr.ecr.eu-central-1.amazonaws.com"
+SAVED_RUNTIME = {
+    "agentRuntimeArn": "arn:aws:bedrock-agentcore:eu-central-1:123456789012:runtime/x",
+    "agentRuntimeId": "larkfield_dev_review-abc",
+    "agentRuntimeName": "larkfield_dev_review",
+    "agentRuntimeVersion": "4",
+    "status": "READY",
+    "roleArn": "arn:aws:iam::123456789012:role/larkfield-dev/larkfield-dev-review-agent-runtime",
+    "agentRuntimeArtifact": {
+        "containerConfiguration": {"containerUri": f"{REGISTRY}/larkfield-dev:old-agent-runtime"}
+    },
+    "networkConfiguration": {"networkMode": "PUBLIC"},
+    "protocolConfiguration": {"serverProtocol": "HTTP"},
+    "lifecycleConfiguration": {"idleRuntimeSessionTimeout": 60, "maxLifetime": 28800},
+    "environmentVariables": {"POLICY_KB_ID": "KB1", "REVIEW_MODEL_ID": "eu.model"},
+    "platformVersion": "V1",
+    "description": "Review agent",
+    "workloadIdentityDetails": {"workloadIdentityArn": "arn:aws:bedrock-agentcore:x"},
+    "createdAt": "2026-11-20T10:00:00Z",
+}
+
+
+def rollback_runtime(workdir: Path, **fakes: str) -> subprocess.CompletedProcess[str]:
+    saved = workdir / "previous-agent-runtime.json"
+    saved.write_text(json.dumps(SAVED_RUNTIME))
+    return subprocess.run(  # noqa: S603
+        [BASH, str(SCRIPTS / "rollback-agent-runtime.sh"), str(saved)],
+        cwd=workdir,
+        env={
+            "PATH": f"{workdir / 'bin'}:{os.environ['PATH']}",
+            "CALLS": str(workdir / "calls.txt"),
+            "POLL_SECONDS": "0",
+            "POLL_LIMIT": "2",
+            **fakes,
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+def sent_configuration(workdir: Path) -> dict[str, object]:
+    [update] = [c for c in (workdir / "calls.txt").read_text().splitlines() if "update-agent" in c]
+    sent: dict[str, object] = json.loads(update.split("--cli-input-json ", 1)[1])
+    return sent
+
+
+def test_the_runtime_rollback_sends_the_whole_saved_configuration(fake_tools: Path) -> None:
+    """An update replaces the configuration: the saved image alone would drop the rest"""
+    result = rollback_runtime(fake_tools)
+
+    assert result.returncode == 0, result.stderr
+    assert sent_configuration(fake_tools) == {
+        key: SAVED_RUNTIME[key]
+        for key in [
+            "agentRuntimeId",
+            "agentRuntimeArtifact",
+            "roleArn",
+            "networkConfiguration",
+            "protocolConfiguration",
+            "lifecycleConfiguration",
+            "environmentVariables",
+            "platformVersion",
+            "description",
+        ]
+    }
+    calls = (fake_tools / "calls.txt").read_text()
+    assert "get-agent-runtime --agent-runtime-id larkfield_dev_review-abc" in calls
+    assert "123456789012" not in result.stdout
+
+
+def test_the_runtime_rollback_fails_when_the_update_fails(fake_tools: Path) -> None:
+    result = rollback_runtime(fake_tools, FAKE_RUNTIME_STATUS="UPDATE_FAILED")
+
+    assert result.returncode != 0
+    assert "UPDATE_FAILED" in result.stderr
+
+
+def test_the_runtime_rollback_fails_when_the_runtime_stays_updating(fake_tools: Path) -> None:
+    result = rollback_runtime(fake_tools, FAKE_RUNTIME_STATUS="UPDATING")
+
+    assert result.returncode != 0
+    assert "not READY" in result.stderr
+    calls = (fake_tools / "calls.txt").read_text()
+    assert calls.count("get-agent-runtime") == 2
+
+
+def test_the_runtime_rollback_fails_when_aws_refuses_the_update(fake_tools: Path) -> None:
+    result = rollback_runtime(fake_tools, FAKE_RUNTIME_UPDATE="error")
+
+    assert result.returncode != 0
+    assert "get-agent-runtime" not in (fake_tools / "calls.txt").read_text()
+
+
+def test_the_runtime_rollback_needs_the_saved_configuration(fake_tools: Path) -> None:
+    result = subprocess.run(  # noqa: S603
+        [BASH, str(SCRIPTS / "rollback-agent-runtime.sh")],
+        cwd=fake_tools,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "usage" in result.stderr

@@ -169,6 +169,7 @@ def test_the_deploy_steps_run_in_order(deploy: dict[str, Any]) -> None:
         "deploy the API and workers",
         "release the frontend",
         "smoke request",
+        "roll back the AgentCore runtime",
         "roll back",
     ]
     names = list(named_steps(deploy["jobs"]["deploy"]))
@@ -293,3 +294,39 @@ def test_the_tasks_run_on_arm64_like_the_runtime() -> None:
     runtime = (TERRAFORM / "modules/runtime/main.tf").read_text("utf-8")
     assert re.search(r'cpu_architecture\s+= "ARM64"', runtime)
     assert "X86_64" not in runtime
+
+
+def test_the_deploy_builds_natively_on_arm64(deploy: dict[str, Any]) -> None:
+    assert deploy["jobs"]["deploy"]["runs-on"] == "ubuntu-24.04-arm"
+    push = Path("infra/scripts/push-image.sh").read_text("utf-8")
+    assert 'push_target app "${IMAGE_TAG:?}"' in push
+    assert 'push_target agent-runtime "${IMAGE_TAG}-agent-runtime"' in push
+
+
+def test_the_live_runtime_configuration_is_recorded_before_the_apply(
+    deploy: dict[str, Any],
+) -> None:
+    run = named_steps(deploy["jobs"]["deploy"])["record the live release"]["run"]
+    assert "previous .agent_runtime.value.id" in run
+    assert "get-agent-runtime" in run
+    assert "previous-agent-runtime.json" in run
+    for environment in ["dev", "prod"]:
+        outputs = (TERRAFORM / "environments" / environment / "outputs.tf").read_text("utf-8")
+        assert 'output "agent_runtime"' in outputs
+
+
+def test_any_failure_after_the_apply_rolls_the_runtime_back(deploy: dict[str, Any]) -> None:
+    job_steps = named_steps(deploy["jobs"]["deploy"])
+    rollback = job_steps["roll back the AgentCore runtime"]
+    assert job_steps["record the live release"]["id"] == "record"
+    assert rollback["if"] == "failure() && steps.record.outcome == 'success'"
+    assert "infra/scripts/rollback-agent-runtime.sh" in rollback["run"]
+    assert '"$agentcore_note"' in rollback["run"]
+    assert "rollback-agent-runtime.sh" not in job_steps["roll back"]["run"]
+
+
+def test_the_docs_describe_the_runtime_image_and_its_rollback() -> None:
+    docs = PIPELINE_DOCS.read_text("utf-8")
+    assert "<sha>-agent-runtime" in docs
+    assert "rollback-agent-runtime.sh" in docs
+    assert "ubuntu-24.04-arm" in docs
