@@ -259,8 +259,8 @@ def test_the_email_addresses_are_masked_before_anything_is_logged(deploy: dict[s
 
 def test_the_agent_runtime_is_v1_public_with_a_one_minute_idle_timeout() -> None:
     runtime = (TERRAFORM / "modules/agent_runtime/main.tf").read_text("utf-8")
-    assert 'platform_version = "V1"' in runtime
-    assert 'network_mode = "PUBLIC"' in runtime
+    assert re.search(r'platform_version\s+= "V1"', runtime)
+    assert re.search(r'network_mode\s+= "PUBLIC"', runtime)
     assert re.search(r"idle_runtime_session_timeout\s+= 60\b", runtime)
     assert '"${var.repository_url}:${var.image_tag}-agent-runtime"' in runtime
     assert "authorizer_configuration" not in runtime  # SigV4, the default
