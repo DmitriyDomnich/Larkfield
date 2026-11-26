@@ -1,0 +1,120 @@
+{
+  "claim": {
+    "claim_id": "3f1c2a5e-8d4b-4c1e-9a7f-1b2c3d4e5f60",
+    "employee_sub": "employee-1",
+    "purpose": "Dinner with Meridian Health to close the Q4 renewal",
+    "preapproval_ref": null,
+    "submitted_at": "2026-08-25T09:00:00Z",
+    "expense": {
+      "document_type": "receipt",
+      "vendor_name": "Trattoria Lungolago",
+      "vendor_tax_id": "DE345678912",
+      "document_number": "TL-88213",
+      "document_date": "2026-08-20",
+      "document_time": "21:34:00",
+      "currency": "EUR",
+      "line_items": [
+        {
+          "description": "Vitello tonnato",
+          "quantity": "3",
+          "unit_price": "14.50",
+          "amount": "43.50"
+        },
+        {
+          "description": "Branzino al forno",
+          "quantity": "1",
+          "unit_price": "32.00",
+          "amount": "32.00"
+        },
+        {
+          "description": "Ossobuco alla milanese",
+          "quantity": "1",
+          "unit_price": "34.50",
+          "amount": "34.50"
+        },
+        {
+          "description": "Risotto ai funghi porcini",
+          "quantity": "1",
+          "unit_price": "26.00",
+          "amount": "26.00"
+        },
+        {
+          "description": "Barolo DOCG 2019, 0,75 l",
+          "quantity": "2",
+          "unit_price": "42.00",
+          "amount": "84.00"
+        },
+        {
+          "description": "Acqua minerale 0,75 l",
+          "quantity": "2",
+          "unit_price": "6.50",
+          "amount": "13.00"
+        },
+        {
+          "description": "Espresso",
+          "quantity": "2",
+          "unit_price": "3.50",
+          "amount": "7.00"
+        }
+      ],
+      "subtotal": "201.68",
+      "tax_amount": "38.32",
+      "tip_amount": null,
+      "total": "240.00",
+      "category": "client_entertainment"
+    },
+    "attendees": [
+      {
+        "name": "Lena Vogtmann",
+        "company": "Larkfield Analytics"
+      },
+      {
+        "name": "A. Novak",
+        "company": "Meridian Health"
+      },
+      {
+        "name": "J. Ortega",
+        "company": "Meridian Health"
+      }
+    ],
+    "warnings": [
+      {
+        "code": "sum_mismatch",
+        "message": "The line items don't add up to the total."
+      }
+    ],
+    "document_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "answered_requests": [
+      {
+        "missing_information": [
+          "the attendees' companies"
+        ],
+        "reviewer_comment": "Please list the companies.",
+        "employee_answer": "Meridian Health"
+      }
+    ]
+  },
+  "possible_duplicates": [
+    {
+      "claim_id": "7a8b9c0d-1e2f-4a3b-8c4d-5e6f7a8b9c0d",
+      "vendor_name": "Trattoria Lungolago",
+      "vendor_tax_id": null,
+      "document_number": "R-1001",
+      "document_date": "2026-08-20",
+      "total": "240.00",
+      "currency": "EUR",
+      "status": "in_review",
+      "same_employee": false,
+      "same_file": false
+    }
+  ],
+  "training_claims": [
+    {
+      "claim_id": "9d8c7b6a-5f4e-4d3c-8b2a-1f0e9d8c7b6a",
+      "document_date": "2026-03-02",
+      "total": "120.00",
+      "currency": "EUR",
+      "status": "approved"
+    }
+  ]
+}

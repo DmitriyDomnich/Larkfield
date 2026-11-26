@@ -237,3 +237,13 @@ sequenceDiagram
   broken smoke request restores the runtime's previous image along with ECS and the frontend.
 
 ## Results
+
+## Commit plan
+
+- [x] 1. Contract and prefetched history: `runtime_contract.py` (request, three responses), `PrefetchedHistory`, `ReviewRuntimeSettings`, `boto3-stubs[bedrock-agentcore]` — AC1 — `add the agent runtime contract, prefetched claim history and runtime settings`
+- [ ] 2. Runtime server: `runtime_app.py` (`/ping`, `/invocations` building `StrandsReviewAgent` with `PrefetchedHistory`), Dockerfile stages `base` → `agent-runtime` / `app` — AC1 — `add the agent runtime server with ping and invocations, agent-runtime docker target`
+- [ ] 3. Client and worker: `AgentCoreReviewAgent` (prefetch, SigV4 call in a thread, outcome mapping), `REVIEW_AGENT_RUNTIME_ARN` picks the agent in `run_worker`, `.env.example`, integration through the worker with a stubbed runtime — AC1 — `add the agentcore review agent client, pick it in the review worker from REVIEW_AGENT_RUNTIME_ARN`
+- [ ] 4. Eval through the runtime: `--runtime-arn`, `--ids` with `process_after` cases, `agent` in the results file — AC2 — `add --runtime-arn and --ids to the review evaluation, the agent in its results`
+- [ ] 5. Terraform: `modules/agent_runtime` (runtime V1, role, log group), review worker policy → `InvokeAgentRuntime`, ECS tasks ARM64, `REVIEW_AGENT_RUNTIME_ARN` on the worker, dev and prod wiring, bootstrap deploy role and boundary — AC3 — `add the agent runtime terraform module, invoke permission for the review worker, arm64 tasks, bootstrap agentcore permissions`
+- [ ] 6. Pipeline: arm runner, `push-image.sh` builds both targets, "record the live release" saves the runtime configuration, `rollback-agent-runtime.sh` in the rollback step, `docs/pipeline.md` — AC3 — `add the agent runtime image to the deploy with its record and rollback, arm runner, pipeline docs`
+- [ ] 7. Committed AgentCore run (after the developer deploys dev and runs `make eval-review args="--runtime-arn …"`): `review-agentcore-*.json/.md`, `test_review_agentcore_run.py`, Results — AC2 — `add the agentcore review evaluation run and its comparison with the in-process run`

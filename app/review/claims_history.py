@@ -115,5 +115,23 @@ class DatabaseClaimsHistory:
             return [TrainingClaim(**row._asdict()) for row in rows]
 
 
+class PrefetchedHistory:
+    def __init__(
+        self,
+        possible_duplicates: list[PossibleClaimDuplicate],
+        training_claims: list[TrainingClaim],
+    ) -> None:
+        self._possible_duplicates = possible_duplicates
+        self._training_claims = training_claims
+
+    async def find_possible_duplicates(
+        self, claim: ClaimUnderReview
+    ) -> list[PossibleClaimDuplicate]:
+        return list(self._possible_duplicates)
+
+    async def list_training_claims(self, claim: ClaimUnderReview) -> list[TrainingClaim]:
+        return list(self._training_claims)
+
+
 def _submitted_before(claim: ClaimUnderReview) -> ColumnElement[bool]:
     return tuple_(Claim.submitted_at, Claim.id) < tuple_(claim.submitted_at, claim.claim_id)
