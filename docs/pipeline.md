@@ -81,28 +81,32 @@ check). If it fails, nothing is deployed.
 
 ### `deploy`
 
-Runs in the GitHub environment of the branch (`dev` / `prod`) and assumes that environment's
-deploy role. The steps up to `sync the policy knowledge base` always run; the rest only while the
-environment is running (`runtime_enabled`). Logs of the tasks: CloudWatch log groups `/ecs/larkfield-<env>/<task>`.
+Runs in the GitHub environment of the branch (`dev` / `prod`) on `ubuntu-24.04-arm` (a native
+arm64 build: Bedrock AgentCore Runtime takes only ARM64 images, and the ECS tasks run the same
+build) and assumes that environment's deploy role. The steps up to `sync the policy knowledge base`
+always run; the rest only while the environment is running (`runtime_enabled`). Logs of the tasks:
+CloudWatch log groups `/ecs/larkfield-<env>/<task>`; of the review agent:
+`/aws/bedrock-agentcore/runtimes/<AgentCore runtime id>-DEFAULT` (the id is the output `agent_runtime`).
 
 | Step | What | Why | If it fails |
 |---|---|---|---|
 | `mask the email addresses` | registers every email address in `TFVARS` with `::add-mask::` | the repository and its run logs are public, and `terraform apply` prints the SES identities, the Lambda's sender and the alarm subscription | `TFVARS` isn't valid JSON |
 | `assume the deploy role` | OIDC → `larkfield-<env>-deploy` (1 hour) | AWS access without stored keys | the environment variable `AWS_ROLE_ARN` is missing, `bootstrap` isn't applied, or the run isn't on `dev`/`main` |
-| `image to ECR` | `infra/scripts/push-image.sh`: builds the image, pushes `larkfield-<env>:<sha>`; skips an existing tag | the services and the migration run this exact image | a Docker build error; on the very first deploy it only notes that the repository doesn't exist yet |
+| `image to ECR` | `infra/scripts/push-image.sh`: builds two arm64 targets of the Dockerfile and pushes `larkfield-<env>:<sha>` (`app`) and `larkfield-<env>:<sha>-agent-runtime` (`agent-runtime`, the same layers with the agent server as its command); skips an existing tag | the services and the migration run `<sha>`; the AgentCore runtime takes an image without a command, so it gets its own tag | a Docker build error; on the very first deploy it only notes that the repository doesn't exist yet |
 | `build the clause files` | `make kb-build` → `build/kb-clauses` | Terraform uploads them to the clause KB's bucket | a clause file couldn't be built from `inputs/kb` |
 | `terraform variables` | `infra/scripts/terraform-vars.sh`: tfvars from the environment variable `TFVARS`, `runtime_enabled` from SSM, `restore_db_snapshot`, `image_tag` | Terraform gets what `terraform.tfvars` gives it locally; Start/Stop decide the runtime, not the push | `TFVARS` isn't valid JSON, or SSM can't be read |
 | `terraform init` | the S3 backend, state key `<env>/terraform.tfstate` | reads the current state | the repo variable `TF_STATE_BUCKET` or `AWS_REGION` is missing |
-| `record the live release` | from the state before the apply: the services' current task definition revisions (services with tasks only) and the frontend release in `live/release.txt` | what a rollback restores; before the apply because a Start's apply creates the services, so nothing came before them | AWS couldn't be read; nothing was changed |
-| `terraform apply` | applies the environment root; registers new task definition revisions with the image. New services (a Start) get 0 tasks | infrastructure changes ship through the pipeline only; no new code runs before the migration | read the Terraform error; the state is unchanged for anything that failed. A held lock waits 10 min |
+| `record the live release` | from the state before the apply: the services' current task definition revisions (services with tasks only), the frontend release in `live/release.txt`, and the AgentCore runtime's configuration (`get-agent-runtime`; none before its first deploy) | what a rollback restores; before the apply because a Start's apply creates the services, so nothing came before them | AWS couldn't be read; nothing was changed |
+| `terraform apply` | applies the environment root; registers new task definition revisions with the image. New services (a Start) get 0 tasks. Points the AgentCore runtime at `<sha>-agent-runtime`: a new AgentCore runtime version, which its `DEFAULT` endpoint serves from then on, also while stopped | infrastructure changes ship through the pipeline only; no new code runs before the migration | read the Terraform error; the state is unchanged for anything that failed. A held lock waits 10 min |
 | `image to ECR (first deploy)` | the push again, only if the repository didn't exist before the apply | the repository is created by Terraform | as `image to ECR` |
 | `read the terraform outputs` | cluster, services, task families, KB ids, site bucket, distribution, `NEXT_PUBLIC_*` into the job's environment | the later steps address what Terraform created | an output is missing from the root |
 | `sync the policy knowledge base` | `start-ingestion-job` on the `clause` data source, waits for `COMPLETE` | the review agent searches the policy text that was just uploaded; unchanged files cost nothing | the ingestion job failed: see it in the Bedrock console |
 | `note a stopped environment` | a note in the run summary | a push while stopped only applies the base and pushes the image | never fails |
-| `run the migration` | `alembic upgrade head` as a one-off ECS task with the new image; must exit 0 | the new code expects the new schema; migrations are forward-only and backward compatible | the migration failed: its log is in `/ecs/larkfield-<env>/migrate`; nothing was deployed |
+| `run the migration` | `alembic upgrade head` as a one-off ECS task with the new image; must exit 0 | the new code expects the new schema; migrations are forward-only and backward compatible | the migration failed: its log is in `/ecs/larkfield-<env>/migrate`; no service was deployed and `roll back the AgentCore runtime` puts it back on its previous image |
 | `deploy the API and workers` | points each service at the revision the apply registered (with 1 task), waits for steady state, checks the new revision stayed | rolls out the image; the circuit breaker puts the old revision back if new tasks don't start or fail `/health` | the circuit breaker rolled a service back (the app is still on the old version): see the service's events and task logs |
 | `release the frontend` | `next build` with the environment's values, uploads to `releases/<sha>/`, then `infra/scripts/publish-release.sh` copies every object over `live/`, removes the rest and invalidates CloudFront | the site is served from `live/`; keeping each release makes a rollback a copy | a build or upload error; the old release is still live |
 | `smoke request` | through CloudFront, for up to 3 minutes: `GET /api/health` must say `database: ok`, `GET /` must return the app | proves the whole path a user takes: CloudFront → VPC origin → ALB → new API task → RDS | the new release doesn't serve: `roll back` runs |
+| `roll back the AgentCore runtime` | when any step after `record the live release` fails, the migration included: `infra/scripts/rollback-agent-runtime.sh` sends the recorded AgentCore runtime configuration back and waits for `READY`. Before its first deploy there is nothing to restore, and the summary says so | the apply already moved the AgentCore runtime; the services move only after a good migration, so without it the old workers would call the new AgentCore runtime | the AgentCore runtime couldn't be restored: follow the rollback runbook |
 | `roll back` | when any step after a successful migration fails (services, frontend or smoke request): the recorded revisions back on the services, the recorded frontend release published again; the run fails. After a first Start there is nothing earlier to go back to, and the summary says so | the app doesn't stay half-deployed or broken until someone reverts | the recorded release couldn't be restored: follow the rollback runbook |
 
 ## `environment.yml`: Environment (Start / Stop)
@@ -206,9 +210,21 @@ enabled has no agent: replace it once with `aws ecs update-service --cluster lar
 - **A new task doesn't start or fails `/health`:** the circuit breaker puts that service's old
   revision back; the deploy fails at `deploy the API and workers` and `roll back` returns the other
   services too. Nothing to do but fix the commit.
-- **A later step fails (a service, the frontend or the smoke request):** the deploy's `roll back`
-  step restores the services' previous revisions and the previous frontend release, then fails the
-  run.
+- **A step after the apply fails, the migration included:** `roll back the AgentCore runtime` restores
+  its previous configuration. Terraform state still shows the new AgentCore runtime image until
+  the next apply sets the image of that commit.
+- **A later step fails (a service, the frontend or the smoke request):** `roll back` also restores
+  the services' previous revisions and the previous frontend release, then fails the run.
+- **The AgentCore runtime wasn't restored** (the summary says so): every update made a numbered,
+  immutable version, so take the previous one and send it back:
+
+  ```sh
+  id=<agent_runtime.id from terraform output>
+  aws bedrock-agentcore-control list-agent-runtime-versions --agent-runtime-id "$id"
+  aws bedrock-agentcore-control get-agent-runtime --agent-runtime-id "$id" \
+    --agent-runtime-version <previous version> > previous-agent-runtime.json
+  infra/scripts/rollback-agent-runtime.sh previous-agent-runtime.json
+  ```
 - **A problem found later:** revert the commit with a PR; its deploy ships the previous code. To
   go back faster, re-run the last good Deploy run (`gh run rerun <id>`): it redeploys that
   commit's image, infrastructure and frontend.
