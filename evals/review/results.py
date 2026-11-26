@@ -1,5 +1,6 @@
 from datetime import datetime
 from pathlib import Path
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -7,6 +8,8 @@ from app.review.proposal import ReviewProposal
 from evals.review.cases import CaseSetName
 
 REPORTS_DIR = Path(__file__).resolve().parents[1] / "reports"
+
+AgentPlacement = Literal["in-process", "agentcore"]
 
 
 class CaseResult(BaseModel):
@@ -24,6 +27,7 @@ class RunResults(BaseModel):
     started_at: datetime
     model: str
     case_set: CaseSetName = "dev"
+    agent_placement: AgentPlacement = "in-process"
     cases: list[CaseResult]
 
 

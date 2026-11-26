@@ -8,6 +8,7 @@ class ReviewEvalSettings(BaseSettings):
     aws_region: str = Field(min_length=1)
     review_model_id: str = Field(min_length=1)
     policy_kb_id: str = Field(min_length=1)
+    review_agent_runtime_arn: str = ""
 
     review_max_turns: int = 12
     review_max_proposal_attempts: int = 3

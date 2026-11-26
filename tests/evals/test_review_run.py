@@ -12,11 +12,12 @@ from app.review.agent import (
     StrandsReviewAgent,
     ValidProposal,
 )
+from app.review.agentcore import AgentCoreClient
 from app.review.claim_data import ClaimUnderReview
 from app.review.claims_history import PossibleClaimDuplicate
 from app.review.models import Decision
 from evals.generator.build import load_label
-from evals.review.cases import ReviewCase, case_claim_id, claim_for
+from evals.review.cases import ReviewCase, case_claim_id, claim_for, select_cases
 from evals.review.history import RunHistory
 from evals.review.report import render_report
 from evals.review.results import RunResults, latest_results, load_results, save_results
@@ -25,7 +26,7 @@ from evals.review.scoring import score_run
 from evals.review.settings import ReviewEvalSettings
 from tests.evals.review_fakes import CASES, MODEL, POLICY, proposal, result, run_results
 from tests.evals.test_review_scoring import mixed_run
-from tests.review.fakes import FakeAgent
+from tests.review.fakes import RUNTIME_ARN, FakeAgent
 
 BY_ID = {case.id: case for case in CASES}
 
@@ -36,6 +37,26 @@ def cases(*ids: str) -> list[ReviewCase]:
 
 def valid(decision: str = "reject", *clause_ids: str) -> ValidProposal:
     return ValidProposal(proposal(decision, *(clause_ids or ("2.1",))), ["2.1"], MODEL)
+
+
+class FakeAgentBuilder:
+    """Stands in for build_agent; records whether it was asked for AgentCore"""
+
+    def __init__(self) -> None:
+        self.through_agentcore: list[bool] = []
+
+    def __call__(
+        self, settings: ReviewEvalSettings, history: RunHistory, through_agentcore: bool = False
+    ) -> FakeAgent:
+        self.through_agentcore.append(through_agentcore)
+        return FakeAgent(valid())
+
+
+def eval_settings(monkeypatch: pytest.MonkeyPatch, reports_dir: Path) -> None:
+    monkeypatch.setenv("AWS_REGION", "eu-central-1")
+    monkeypatch.setenv("REVIEW_MODEL_ID", MODEL)
+    monkeypatch.setenv("POLICY_KB_ID", "kb-test")
+    monkeypatch.setattr(review_cli, "REPORTS_DIR", reports_dir)
 
 
 class HistoryAgent:
@@ -218,7 +239,7 @@ def test_cli_reviews_the_first_n_cases(tmp_path: Path, monkeypatch: pytest.Monke
     monkeypatch.setenv("REVIEW_MODEL_ID", MODEL)
     monkeypatch.setenv("POLICY_KB_ID", "kb-test")
     monkeypatch.setattr(review_cli, "REPORTS_DIR", tmp_path)
-    monkeypatch.setattr(review_cli, "build_agent", lambda settings, history: FakeAgent(valid()))
+    monkeypatch.setattr(review_cli, "build_agent", FakeAgentBuilder())
 
     assert review_cli.main(["--cases", "2"]) == 0
 
@@ -234,7 +255,7 @@ def test_cli_reviews_the_holdout_set(tmp_path: Path, monkeypatch: pytest.MonkeyP
     monkeypatch.setenv("REVIEW_MODEL_ID", MODEL)
     monkeypatch.setenv("POLICY_KB_ID", "kb-test")
     monkeypatch.setattr(review_cli, "REPORTS_DIR", tmp_path)
-    monkeypatch.setattr(review_cli, "build_agent", lambda settings, history: FakeAgent(valid()))
+    monkeypatch.setattr(review_cli, "build_agent", FakeAgentBuilder())
 
     assert review_cli.main(["--set", "holdout"]) == 0
 
@@ -270,3 +291,104 @@ def test_build_agent_uses_the_settings() -> None:
     )
 
     assert isinstance(review_cli.build_agent(settings, RunHistory()), StrandsReviewAgent)
+
+
+def test_selected_cases_bring_the_case_they_must_follow_in_file_order() -> None:
+    selected = select_cases(CASES, ["D17", "D07"])
+
+    assert [case.id for case in selected] == ["D01", "D07", "D17"]
+
+
+def test_selecting_an_unknown_case_fails() -> None:
+    with pytest.raises(ValueError, match="unknown cases: D99"):
+        select_cases(CASES, ["D07", "D99"])
+
+
+def test_cli_reviews_the_named_cases(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    eval_settings(monkeypatch, tmp_path)
+    monkeypatch.setattr(review_cli, "build_agent", FakeAgentBuilder())
+
+    assert review_cli.main(["--ids", "D07,D17"]) == 0
+
+    [results_path] = tmp_path.glob("review-*.json")
+    assert [r.case_id for r in load_results(results_path).cases] == ["D01", "D07", "D17"]
+
+
+def test_cli_refuses_an_unknown_case_and_ids_with_cases() -> None:
+    with pytest.raises(SystemExit):
+        review_cli.main(["--ids", "D99"])
+    with pytest.raises(SystemExit):
+        review_cli.main(["--ids", "D07", "--cases", "2"])
+
+
+def test_cli_through_the_runtime_records_agentcore_but_not_the_arn(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    eval_settings(monkeypatch, tmp_path)
+    monkeypatch.setenv("REVIEW_AGENT_RUNTIME_ARN", RUNTIME_ARN)
+    builder = FakeAgentBuilder()
+    monkeypatch.setattr(review_cli, "build_agent", builder)
+
+    assert review_cli.main(["--cases", "1", "--agentcore"]) == 0
+
+    assert builder.through_agentcore == [True]
+    [results_path] = tmp_path.glob("review-agentcore-*.json")
+    assert load_results(results_path).agent_placement == "agentcore"
+    assert "123456789012" not in results_path.read_text("utf-8")
+    report = results_path.with_suffix(".md").read_text("utf-8")
+    assert "run on Bedrock AgentCore Runtime" in report
+
+
+def test_cli_without_agentcore_stays_in_process_even_with_a_runtime_arn_set(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    eval_settings(monkeypatch, tmp_path)
+    monkeypatch.setenv("REVIEW_AGENT_RUNTIME_ARN", RUNTIME_ARN)
+    builder = FakeAgentBuilder()
+    monkeypatch.setattr(review_cli, "build_agent", builder)
+
+    assert review_cli.main(["--cases", "1"]) == 0
+
+    assert builder.through_agentcore == [False]
+    assert list(tmp_path.glob("review-agentcore-*")) == []
+
+
+def test_cli_agentcore_needs_the_runtime_arn(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    eval_settings(monkeypatch, tmp_path)
+    monkeypatch.setenv("REVIEW_AGENT_RUNTIME_ARN", "")
+
+    with pytest.raises(SystemExit):
+        review_cli.main(["--cases", "1", "--agentcore"])
+
+
+def test_an_in_process_run_says_so_and_older_runs_read_as_in_process(tmp_path: Path) -> None:
+    path = tmp_path / "review-2026-11-13-1000.json"
+    path.write_text(run_results().model_dump_json(exclude={"agent_placement"}), "utf-8")
+
+    results = load_results(path)
+
+    assert results.agent_placement == "in-process"
+    assert "AgentCore" not in render_report(mixed_run(), score_run(mixed_run(), CASES, POLICY))
+
+
+async def test_run_records_where_the_agent_ran() -> None:
+    results = await run_cases(
+        FakeAgent(valid()), RunHistory(), cases("D01"), MODEL, agent_placement="agentcore"
+    )
+
+    assert results.agent_placement == "agentcore"
+
+
+def test_build_agent_through_agentcore_calls_the_runtime_from_the_settings() -> None:
+    settings = ReviewEvalSettings(
+        aws_region="eu-central-1",
+        review_model_id=MODEL,
+        policy_kb_id="kb-test",
+        review_agent_runtime_arn=RUNTIME_ARN,
+    )
+
+    agent = review_cli.build_agent(settings, RunHistory(), through_agentcore=True)
+
+    assert isinstance(agent, AgentCoreClient)

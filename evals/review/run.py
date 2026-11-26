@@ -7,7 +7,7 @@ from app.review.claim_data import ClaimUnderReview
 from app.review.proposal import ReviewProposal
 from evals.review.cases import CaseSetName, ReviewCase, claim_for
 from evals.review.history import RunHistory
-from evals.review.results import CaseResult, RunResults
+from evals.review.results import AgentPlacement, CaseResult, RunResults
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +18,7 @@ async def run_cases(
     cases: Sequence[ReviewCase],
     model: str,
     case_set: CaseSetName = "dev",
+    agent_placement: AgentPlacement = "in-process",
 ) -> RunResults:
     """Review the cases one at a time in order; `history` is the one the agent's tools read"""
     started_at = datetime.now(UTC)
@@ -36,7 +37,13 @@ async def run_cases(
         )
         results.append(result)
         reviewed.add(case.id)
-    return RunResults(started_at=started_at, model=model, case_set=case_set, cases=results)
+    return RunResults(
+        started_at=started_at,
+        model=model,
+        case_set=case_set,
+        agent_placement=agent_placement,
+        cases=results,
+    )
 
 
 async def review_case(agent: ReviewAgent, case_id: str, claim: ClaimUnderReview) -> CaseResult:

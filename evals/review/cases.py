@@ -1,5 +1,6 @@
 import hashlib
 import uuid
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time
 from pathlib import Path
@@ -64,6 +65,17 @@ class ReviewCase(BaseModel):
 
 def load_cases(path: Path = REVIEW_CASES_PATH) -> list[ReviewCase]:
     return TypeAdapter(list[ReviewCase]).validate_json(path.read_text("utf-8"))
+
+
+def select_cases(cases: Sequence[ReviewCase], case_ids: Iterable[str]) -> list[ReviewCase]:
+    """The named cases in file order, each with the case it must be reviewed after"""
+    by_id = {case.id: case for case in cases}
+    wanted = set(case_ids)
+    unknown = sorted(wanted - by_id.keys())
+    if unknown:
+        raise ValueError(f"unknown cases: {', '.join(unknown)}")
+    wanted |= {after for case_id in wanted if (after := by_id[case_id].process_after)}
+    return [case for case in cases if case.id in wanted]
 
 
 def case_claim_id(case_id: str) -> uuid.UUID:
