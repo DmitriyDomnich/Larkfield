@@ -182,14 +182,16 @@ sequenceDiagram
   `aws:SourceAccount` and `aws:SourceArn` conditions, allowed ECR pull, logs, `bedrock:InvokeModel`
   on the inference profile, `bedrock:Retrieve` on the clause KB; log group
   `/aws/bedrock-agentcore/runtimes/<id>-DEFAULT`, 14 days. Not gated by `runtime_enabled` (nothing
-  bills while idle). Output `runtime_arn`.
+  bills while idle). Outputs `runtime_arn`, `runtime_id`, `log_group_name`; the environments output
+  them as `agent_runtime` for the pipeline.
 - **`modules/review`:** the worker policy loses `InvokeModel` / `Retrieve` and gains
   `bedrock-agentcore:InvokeAgentRuntime` on the runtime and `<arn>/runtime-endpoint/*`.
   **`modules/runtime`:** `cpu_architecture = "ARM64"`; `REVIEW_AGENT_RUNTIME_ARN` in the review
   worker's environment.
 - **`bootstrap`** (an admin applies it once before the first T16 deploy): deploy role
-  `bedrock-agentcore:*` in the region and `iam:PassRole` to `bedrock-agentcore.amazonaws.com`;
-  boundary adds `bedrock-agentcore:InvokeAgentRuntime`, `logs:DescribeLogGroups`,
+  `bedrock-agentcore:*` in the region, `iam:PassRole` to `bedrock-agentcore.amazonaws.com`, and
+  `logs:*` on `/aws/bedrock-agentcore/runtimes/<project>_*` (the runtime's log group; runtime names
+  turn the prefix's hyphens into underscores); boundary adds `bedrock-agentcore:InvokeAgentRuntime`, `logs:DescribeLogGroups`,
   `logs:DescribeLogStreams`.
 - **Pipeline:** the deploy job runs on `ubuntu-24.04-arm`; `push-image.sh` builds the targets `app`
   (`<sha>`) and `agent-runtime` (`<sha>-agent-runtime`); "record the live release" saves the
@@ -249,6 +251,6 @@ sequenceDiagram
 - [x] 2. Runtime server: `runtime_app.py` (`/ping`, `/invocations` building `StrandsReviewAgent` with `PrefetchedHistory`), Dockerfile stages `base` → `agent-runtime` / `app` — AC1 — `add the agent runtime server with ping and invocations, agent-runtime docker target`
 - [x] 3. Client and worker: `AgentCoreClient` (prefetch, SigV4 call in a thread, outcome mapping), `REVIEW_AGENT_RUNTIME_ARN` picks the agent in `run_worker`, `.env.example`, integration through the worker with a stubbed runtime — AC1 — `add the agentcore client, pick it in the review worker from REVIEW_AGENT_RUNTIME_ARN`
 - [x] 4. Eval through the runtime: `--agentcore` (ARN from `REVIEW_AGENT_RUNTIME_ARN`), `--ids` with `process_after` cases, `agent_placement` in the results file — AC2 — `add --agentcore and --ids to the review evaluation, the agent placement in its results`
-- [ ] 5. Terraform: `modules/agent_runtime` (runtime V1, role, log group), review worker policy → `InvokeAgentRuntime`, ECS tasks ARM64, `REVIEW_AGENT_RUNTIME_ARN` on the worker, dev and prod wiring, bootstrap deploy role and boundary — AC3 — `add the agent runtime terraform module, invoke permission for the review worker, arm64 tasks, bootstrap agentcore permissions`
+- [x] 5. Terraform: `modules/agent_runtime` (runtime V1, role, log group), review worker policy → `InvokeAgentRuntime`, ECS tasks ARM64, `REVIEW_AGENT_RUNTIME_ARN` on the worker, dev and prod wiring, bootstrap deploy role and boundary — AC3 — `add the agent runtime terraform module, invoke permission for the review worker, arm64 tasks, bootstrap agentcore permissions`
 - [ ] 6. Pipeline: arm runner, `push-image.sh` builds both targets, "record the live release" saves the runtime configuration, `rollback-agent-runtime.sh` in the rollback step, `docs/pipeline.md` — AC3 — `add the agent runtime image to the deploy with its record and rollback, arm runner, pipeline docs`
 - [ ] 7. Committed AgentCore run (after the developer deploys dev and runs `make eval-review args="--agentcore"`): `review-agentcore-*.json/.md`, `test_review_agentcore_run.py`, Results — AC2 — `add the agentcore review evaluation run and its comparison with the in-process run`

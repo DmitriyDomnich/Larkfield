@@ -100,6 +100,7 @@ resource "aws_iam_policy" "deploy_resources" {
           "arn:aws:ssm:${local.region}:${local.account_id}:parameter/${each.value}/*",
           "arn:aws:logs:${local.region}:${local.account_id}:log-group:/ecs/${each.value}*",
           "arn:aws:logs:${local.region}:${local.account_id}:log-group:/aws/lambda/${each.value}-*",
+          "arn:aws:logs:${local.region}:${local.account_id}:log-group:/aws/bedrock-agentcore/runtimes/${replace(each.value, "-", "_")}_*",
           "arn:aws:rds:${local.region}:${local.account_id}:db:${each.value}-*",
           "arn:aws:rds:${local.region}:${local.account_id}:snapshot:${each.value}-*",
           "arn:aws:rds:${local.region}:${local.account_id}:subgrp:${each.value}-*",
@@ -166,7 +167,7 @@ resource "aws_iam_policy" "deploy_resources" {
       {
         Sid      = "ServicesAddressedById"
         Effect   = "Allow"
-        Action   = ["ec2:*", "cognito-idp:*", "ses:*", "bedrock:*"]
+        Action   = ["ec2:*", "cognito-idp:*", "ses:*", "bedrock:*", "bedrock-agentcore:*"]
         Resource = "*"
         Condition = {
           StringEquals = { "aws:RequestedRegion" = local.region }
@@ -257,6 +258,7 @@ resource "aws_iam_policy" "deploy_iam" {
               "ecs-tasks.amazonaws.com",
               "lambda.amazonaws.com",
               "bedrock.amazonaws.com",
+              "bedrock-agentcore.amazonaws.com",
             ]
           }
         }
