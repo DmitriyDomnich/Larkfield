@@ -14,7 +14,8 @@ from app.notifications.queue import (
     notify_claim_failed,
 )
 from app.review.agent import ReviewAgent, StrandsReviewAgent
-from app.review.claims_history import DatabaseClaimsHistory
+from app.review.agentcore import AgentCoreClient
+from app.review.claims_history import ClaimsHistory, DatabaseClaimsHistory
 from app.review.policy import BedrockPolicyRetriever
 from app.review.queue import ReviewMessage, ReviewQueue, SqsReviewQueue
 from app.review.service import review_claim
@@ -82,26 +83,33 @@ class ReviewWorker:
         await self._queue.delete_message(message.receipt_handle)
 
 
+def build_review_agent(settings: ReviewWorkerSettings, history: ClaimsHistory) -> ReviewAgent:
+    if settings.review_agent_runtime_arn:
+        return AgentCoreClient(settings.review_agent_runtime_arn, history, settings.aws_region)
+    return StrandsReviewAgent(
+        BedrockModel(
+            model_id=settings.review_model_id,
+            region_name=settings.aws_region,
+            boto_client_config=Config(read_timeout=120),
+            max_tokens=MAX_OUTPUT_TOKENS,
+            temperature=0,
+        ),
+        settings.review_model_id,
+        BedrockPolicyRetriever(settings.policy_kb_id, settings.aws_region),
+        history,
+        max_turns=settings.review_max_turns,
+        max_proposal_attempts=settings.review_max_proposal_attempts,
+    )
+
+
 async def run_worker() -> None:
     settings = ReviewWorkerSettings()
     logging.basicConfig(level=settings.log_level)
     engine = build_engine(settings)
     sessions = build_session_factory(engine)
     try:
-        agent = StrandsReviewAgent(
-            BedrockModel(
-                model_id=settings.review_model_id,
-                region_name=settings.aws_region,
-                boto_client_config=Config(read_timeout=120),
-                max_tokens=MAX_OUTPUT_TOKENS,
-                temperature=0,
-            ),
-            settings.review_model_id,
-            BedrockPolicyRetriever(settings.policy_kb_id, settings.aws_region),
-            DatabaseClaimsHistory(sessions),
-            max_turns=settings.review_max_turns,
-            max_proposal_attempts=settings.review_max_proposal_attempts,
-        )
+        agent = build_review_agent(settings, DatabaseClaimsHistory(sessions))
+        logger.info("review agent: %s", type(agent).__name__)
         worker = ReviewWorker(
             settings,
             SqsReviewQueue(settings),
