@@ -47,10 +47,12 @@ resource "aws_iam_role_policy" "runtime" {
         Action   = "ecr:GetAuthorizationToken"
         Resource = "*"
       },
+      # no logs:CreateLogGroup: AgentCore would create the group as the runtime starts, before
+      # aws_cloudwatch_log_group (and its retention) below, and that apply fails
       {
         Sid      = "RuntimeLogGroups"
         Effect   = "Allow"
-        Action   = ["logs:CreateLogGroup", "logs:DescribeLogStreams"]
+        Action   = "logs:DescribeLogStreams"
         Resource = "${local.log_groups_arn}/${local.runtime_name}-*"
       },
       {
