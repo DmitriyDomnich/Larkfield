@@ -562,7 +562,9 @@ def make_resending_worker(
         yield db_session
 
     settings = ReviewWorkerSettings(review_resend_after_seconds=resend_after_seconds)
-    return ReviewWorker(settings, queue, sessions, FakeAgent(), FakeNotificationService())
+    return ReviewWorker(
+        settings, queue, sessions, FakeAgent(), FakeNotificationService(), RecordingMetrics()
+    )
 
 
 async def answer_with_a_lost_review_request(
