@@ -244,6 +244,11 @@ def test_services_get_tasks_only_from_the_deploy_after_the_migration(
     assert "ignore_changes = [task_definition, desired_count]" in runtime
 
 
+def test_replaced_task_definitions_stay_active_for_the_rollback() -> None:
+    runtime = (TERRAFORM / "modules/runtime/main.tf").read_text("utf-8")
+    assert re.search(r"skip_destroy\s+= true", runtime)
+
+
 def test_the_frontend_release_and_its_rollback_publish_the_same_way(deploy: dict[str, Any]) -> None:
     job_steps = named_steps(deploy["jobs"]["deploy"])
     for name in ["release the frontend", "roll back"]:
