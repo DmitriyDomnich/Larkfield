@@ -250,6 +250,31 @@ sequenceDiagram
 
 ## Results
 
+2026-11-26/27, on `dev`, deployed from the temporary branch mapped to the `dev` environment. The
+first deploys found three gaps, now fixed: `terraform fmt`; the deploy role couldn't create the
+`AWSServiceRoleForBedrockAgentCoreRuntimeIdentity` service-linked role AgentCore creates with an
+account's first AgentCore runtime; and the AgentCore runtime's role created its own log group
+before Terraform could (it no longer has `logs:CreateLogGroup`; the apply that removed it still
+raced once, because the change hadn't propagated: CloudTrail shows the role creating the group 2 s
+before Terraform).
+
+D02 through the UI: the worker sent the claim and its prefetched history, the agent ran in the
+AgentCore runtime (duplicate check, three KB searches, `get_clause`, ~10 s) and the worker stored a
+reject citing 1.2, 2.1 and 7.1; the claim ended `in_review`. E10 ended `failed` at extraction, as
+before. A new session took 12.2 s, the same request repeated within 60 s 11.0 s: about 1 s of
+start-up next to ~10 s of model turns.
+
+33 invocations (D02, the two timing calls, 24 eval cases, three rechecks of two cases): average
+latency 15.5 s, 0.0935 vCPU-hours and 1.654 GB-hours in total, so 10 vCPU-seconds and 180
+GB-seconds per claim, **≈ $0.0007 per claim** at the V1 rates, two thirds of it memory (billed until
+the 60 s idle timeout). That is 3–4× the estimate above, still under 1 % of a review's Bedrock tokens.
+
+`review-agentcore-2026-11-26-1659`: 21/24, D14 and D16 rejected. Against `review-2026-11-13-1307`,
+D13 (reject, clause 4.1) and E05 (needs_info, attendees) differed besides E02. Rechecks through the
+AgentCore runtime (`review-agentcore-2026-11-27-0821`, `-0823`, and one run overwritten by the
+second in the same minute): D13 approve 3 of 3, E05 approve 2 of 3, so both were model variance and
+no in-process rerun was needed; AC2 met. Not run yet: a deploy with a broken smoke request.
+
 ## Commit plan
 
 - [x] 1. Contract and prefetched history: `runtime_contract.py` (request, three responses), `PrefetchedHistory`, `ReviewRuntimeSettings`, `boto3-stubs[bedrock-agentcore]` — AC1 — `add the agent runtime contract, prefetched claim history and runtime settings`
@@ -258,4 +283,4 @@ sequenceDiagram
 - [x] 4. Eval through the AgentCore runtime: `--agentcore` (ARN from `REVIEW_AGENT_RUNTIME_ARN`), `--ids` with `process_after` cases, `agent_placement` in the results file — AC2 — `add --agentcore and --ids to the review evaluation, the agent placement in its results`
 - [x] 5. Terraform: `modules/agent_runtime` (AgentCore runtime V1, role, log group), review worker policy → `InvokeAgentRuntime`, ECS tasks ARM64, `REVIEW_AGENT_RUNTIME_ARN` on the worker, dev and prod wiring, bootstrap deploy role and boundary — AC3 — `add the agent runtime terraform module, invoke permission for the review worker, arm64 tasks, bootstrap agentcore permissions`
 - [x] 6. Pipeline: arm runner, `push-image.sh` builds both targets, "record the live release" saves the AgentCore runtime configuration, `rollback-agent-runtime.sh` in the rollback step, `docs/pipeline.md` — AC3 — `add the agent runtime image to the deploy with its record and rollback, arm runner, pipeline docs`
-- [ ] 7. Committed AgentCore run (after the developer deploys dev and runs `make eval-review args="--agentcore"`): `review-agentcore-*.json/.md`, `test_review_agentcore_run.py`, Results — AC2 — `add the agentcore review evaluation run and its comparison with the in-process run`
+- [x] 7. Committed AgentCore run (after the developer deploys dev and runs `make eval-review args="--agentcore"`): `review-agentcore-*.json/.md`, `test_review_agentcore_run.py`, Results — AC2 — `add the agentcore review evaluation run and its comparison with the in-process run`
