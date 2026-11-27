@@ -309,6 +309,21 @@ def test_the_deploy_builds_natively_on_arm64(deploy: dict[str, Any]) -> None:
     assert 'push_target agent-runtime "${IMAGE_TAG}-agent-runtime"' in push
 
 
+def test_a_new_environment_gets_its_images_before_the_apply_creates_the_runtime(
+    deploy: dict[str, Any],
+) -> None:
+    job_steps = named_steps(deploy["jobs"]["deploy"])
+    names = list(job_steps)
+    first_deploy = ["image repository (first deploy)", "image to ECR (first deploy)"]
+    for name in first_deploy:
+        assert job_steps[name]["if"] == "steps.image.outputs.pushed != 'true'"
+        assert names.index("terraform init") < names.index(name) < names.index("terraform apply")
+    assert job_steps["image repository (first deploy)"]["run"].endswith(
+        "-target=module.runtime.aws_ecr_repository.app"
+    )
+    assert job_steps["image to ECR (first deploy)"]["run"] == "infra/scripts/push-image.sh"
+
+
 def test_the_live_runtime_configuration_is_recorded_before_the_apply(
     deploy: dict[str, Any],
 ) -> None:

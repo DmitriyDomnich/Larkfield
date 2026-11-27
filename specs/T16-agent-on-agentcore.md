@@ -199,7 +199,8 @@ sequenceDiagram
   `logs:DescribeLogStreams`.
 - **Pipeline:** the deploy job runs on `ubuntu-24.04-arm`; `push-image.sh` builds the targets `app`
   (`<sha>`) and `agent-runtime` (`<sha>-agent-runtime`); "record the live release" saves the
-  AgentCore runtime configuration; "roll back the AgentCore runtime" runs `infra/scripts/rollback-agent-runtime.sh`
+  AgentCore runtime configuration; on a new environment a targeted apply creates the ECR repository
+  and the images are pushed before the full apply creates the AgentCore runtime; "roll back the AgentCore runtime" runs `infra/scripts/rollback-agent-runtime.sh`
   on any failure after the record (the migration's too), before "roll back".
   Dockerfile stages `build` → `base` → `agent-runtime` (uvicorn `app.review.runtime_app:app`, port
   8080) and `app` (last, so `docker build` and compose still give the API). `docs/pipeline.md`
@@ -223,9 +224,6 @@ sequenceDiagram
 - The pricing page's rates aren't labelled by region; eu-north-1 may differ slightly.
 - The review worker keeps 0.5 vCPU / 1 GB although the agent no longer runs in it.
 - AgentCore Observability (traces) isn't enabled: logs and the T14 token metrics only.
-- On an environment never deployed before, the first deploy fails at the AgentCore runtime: its image is
-  pushed only after the apply creates the ECR repository. Running the deploy again pushes the image
-  first and creates the AgentCore runtime.
 
 ## Testing
 

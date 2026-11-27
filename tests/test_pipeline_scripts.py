@@ -28,7 +28,7 @@ case "$1 $2" in
     [[ "$*" == *-agent-runtime* ]] && image="${FAKE_RUNTIME_IMAGE:-$FAKE_IMAGE}"
     answer "$image" "" ImageNotFoundException ;;
   "bedrock-agentcore-control update-agent-runtime")
-    answer "${FAKE_RUNTIME_UPDATE:-found}" "{}" ValidationException ;;
+    answer "${FAKE_RUNTIME_UPDATE:-found}" "5" ValidationException ;;
   "bedrock-agentcore-control get-agent-runtime") echo "${FAKE_RUNTIME_STATUS:-READY}" ;;
   "sts get-caller-identity") echo 123456789012 ;;
   *) ;;
@@ -276,8 +276,9 @@ def rollback_runtime(workdir: Path, **fakes: str) -> subprocess.CompletedProcess
 
 def sent_configuration(workdir: Path) -> dict[str, object]:
     [update] = [c for c in (workdir / "calls.txt").read_text().splitlines() if "update-agent" in c]
-    sent: dict[str, object] = json.loads(update.split("--cli-input-json ", 1)[1])
-    return sent
+    sent, _ = json.JSONDecoder().raw_decode(update.split("--cli-input-json ", 1)[1])
+    configuration: dict[str, object] = sent
+    return configuration
 
 
 def test_the_runtime_rollback_sends_the_whole_saved_configuration(fake_tools: Path) -> None:
@@ -299,9 +300,18 @@ def test_the_runtime_rollback_sends_the_whole_saved_configuration(fake_tools: Pa
             "description",
         ]
     }
+    assert "123456789012" not in result.stdout
+
+
+def test_the_runtime_rollback_waits_for_the_version_its_update_created(fake_tools: Path) -> None:
+    """The runtime's own status can still read READY from before the update"""
+    result = rollback_runtime(fake_tools)
+
+    assert result.returncode == 0, result.stderr
     calls = (fake_tools / "calls.txt").read_text()
     assert "get-agent-runtime --agent-runtime-id larkfield_dev_review-abc" in calls
-    assert "123456789012" not in result.stdout
+    assert "--agent-runtime-version 5 --query status" in calls
+    assert "version 5 READY" in result.stdout
 
 
 def test_the_runtime_rollback_fails_when_the_update_fails(fake_tools: Path) -> None:

@@ -25,13 +25,15 @@ update_input=$(jq -c '
   } | with_entries(select(.value != null))' "$saved")
 
 echo "AgentCore runtime ${runtime_id}: back to ${image##*/}"
-aws bedrock-agentcore-control update-agent-runtime --cli-input-json "$update_input" > /dev/null
+# poll the version this update created: the runtime's own status can still read the old READY
+version=$(aws bedrock-agentcore-control update-agent-runtime --cli-input-json "$update_input" \
+  --query agentRuntimeVersion --output text)
 
 for _ in $(seq "${POLL_LIMIT:-60}"); do
   status=$(aws bedrock-agentcore-control get-agent-runtime --agent-runtime-id "$runtime_id" \
-    --query status --output text)
+    --agent-runtime-version "$version" --query status --output text)
   case "$status" in
-    READY) echo "AgentCore runtime ${runtime_id} READY"; exit 0 ;;
+    READY) echo "AgentCore runtime ${runtime_id} version ${version} READY"; exit 0 ;;
     *FAILED) echo "::error::AgentCore runtime ${runtime_id} ${status}" >&2; exit 1 ;;
   esac
   sleep "${POLL_SECONDS:-10}"

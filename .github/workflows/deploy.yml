@@ -73,6 +73,14 @@ jobs:
         run: |
           terraform init -input=false \
             -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" -backend-config="region=${AWS_REGION}"
+      # a new environment: the apply creates the AgentCore runtime, so its image must be in ECR first
+      - name: image repository (first deploy)
+        if: steps.image.outputs.pushed != 'true'
+        working-directory: ${{ env.ROOT }}
+        run: terraform apply -input=false -auto-approve -lock-timeout=10m -target=module.runtime.aws_ecr_repository.app
+      - name: image to ECR (first deploy)
+        if: steps.image.outputs.pushed != 'true'
+        run: infra/scripts/push-image.sh
       # before the apply: on a Start the apply creates the services, so there is nothing before it
       - name: record the live release
         id: record
@@ -112,9 +120,6 @@ jobs:
       - name: terraform apply
         working-directory: ${{ env.ROOT }}
         run: terraform apply -input=false -auto-approve -lock-timeout=10m
-      - name: image to ECR (first deploy)
-        if: steps.image.outputs.pushed != 'true'
-        run: infra/scripts/push-image.sh
       - name: read the terraform outputs
         working-directory: ${{ env.ROOT }}
         run: |
