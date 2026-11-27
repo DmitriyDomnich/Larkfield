@@ -68,7 +68,9 @@ class DecisionCreate(BaseModel):
     decision: Decision
     comment: Comment | None = Field(
         default=None,
-        description="Required when the decision differs from the proposal or is needs_info",
+        description=(
+            "Required for reject and needs_info, and when the decision differs from the proposal"
+        ),
     )
     corrected_fields: ExpenseCorrections | None = None
 

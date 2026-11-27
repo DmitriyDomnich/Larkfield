@@ -1,4 +1,4 @@
-.PHONY: up down logs extraction-worker review-worker migrate revision lint fmt typecheck test test-unit check eval-docs eval-extraction eval-retrieval eval-review kb-build
+.PHONY: up down logs extraction-worker review-worker migrate revision lint fmt typecheck test test-unit check eval-docs eval-extraction eval-retrieval eval-review kb-build openapi
 
 up:          ## start backend + db
 	docker compose up --build -d
@@ -14,6 +14,10 @@ extraction-worker:
 
 review-worker:
 	uv run python -m app.review
+
+openapi:
+	uv run python -m app.openapi frontend/openapi.json
+	npm --prefix frontend run gen:api
 
 migrate:
 	uv run alembic upgrade head

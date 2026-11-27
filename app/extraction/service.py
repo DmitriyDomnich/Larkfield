@@ -8,10 +8,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.auth.dependencies import CurrentUser
 from app.claims.models import Claim, Document
 from app.claims.service import (
     ConcurrentTransitionError,
     InvalidTransitionError,
+    get_claim,
     transition,
     verify_upload,
 )
@@ -30,6 +32,11 @@ from app.extraction.queue import UploadedObject
 from app.extraction.schemas import expense_warnings
 
 logger = logging.getLogger(__name__)
+
+
+class ExtractionNotFoundError(Exception):
+    """The claim has no extraction yet."""
+
 
 RESUBMIT_ADVICE = "Please submit a new claim with a clear, complete photo or file."
 UNREADABLE_REASON = "The document could not be read: {reason}. " + RESUBMIT_ADVICE
@@ -189,3 +196,19 @@ async def _finish_claim(
         return False
     await session.commit()
     return True
+
+
+async def get_extraction(
+    session: AsyncSession, user: CurrentUser, claim_id: uuid.UUID
+) -> Extraction:
+    claim = await get_claim(session, user, claim_id)
+    extraction = None
+    if claim.document is not None:
+        extraction = await session.scalar(
+            select(Extraction)
+            .options(selectinload(Extraction.line_items))
+            .where(Extraction.document_id == claim.document.id)
+        )
+    if extraction is None:
+        raise ExtractionNotFoundError(claim_id)
+    return extraction
