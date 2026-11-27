@@ -31,7 +31,7 @@ sequenceDiagram
     else no_proposal
         W->>DB: claim → failed + reason
     else error or the call fails
-        W-->>Q: redelivered; last delivery → failed + technical reason
+        W-->>Q: redelivered, last delivery → failed + technical reason
     end
 ```
 
