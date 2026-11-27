@@ -1,17 +1,22 @@
+import io
 import json
 import uuid
 from collections.abc import AsyncGenerator, AsyncIterable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, time
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
+import boto3
+from botocore.response import StreamingBody
+from botocore.stub import Stubber
 from strands.models.model import Model
 from strands.types.content import ContentBlockStart, Messages
 from strands.types.streaming import StreamEvent
 from strands.types.tools import ToolSpec
 
 from app.review.agent import ReviewOutcome
+from app.review.agentcore.contract import RuntimeResponse
 from app.review.claim_data import ClaimUnderReview
 from app.review.claims_history import PossibleClaimDuplicate, TrainingClaim
 from app.review.policy import PolicyChunk
@@ -19,6 +24,9 @@ from app.review.queue import ReviewMessage
 from evals.retrieval.clause_files import clause_file_text
 from evals.retrieval.clauses import KB_DIR, parse_clauses
 from tests.extraction.fakes import expense
+
+if TYPE_CHECKING:
+    from mypy_boto3_bedrock_agentcore import BedrockAgentCoreClient
 
 REVIEW_CASES = Path("evals/review_cases.json")
 EXPENSE_POLICY = "expense-policy"
@@ -223,3 +231,28 @@ class FakeReviewQueue:
 
     async def delete_message(self, receipt_handle: str) -> None:
         self.deleted.append(receipt_handle)
+
+
+RUNTIME_ARN = "arn:aws:bedrock-agentcore:eu-north-1:123456789012:runtime/larkfield_review-abc123"
+
+
+def stubbed_runtime_client() -> tuple["BedrockAgentCoreClient", Stubber]:
+    """A real bedrock-agentcore client that answers from the stubber, never from AWS"""
+    client = boto3.client(
+        "bedrock-agentcore",
+        region_name="eu-north-1",
+        aws_access_key_id="test",
+        aws_secret_access_key="test",  # noqa: S106
+    )
+    return client, Stubber(client)
+
+
+def runtime_answer(response: RuntimeResponse | bytes) -> dict[str, Any]:
+    """An InvokeAgentRuntime response whose body is `response`"""
+    body = response if isinstance(response, bytes) else response.model_dump_json().encode()
+    return {
+        "runtimeSessionId": "x" * 36,
+        "contentType": "application/json",
+        "statusCode": 200,
+        "response": StreamingBody(io.BytesIO(body), len(body)),
+    }

@@ -112,3 +112,12 @@ output "frontend_build_env" {
     NEXT_PUBLIC_DOCUMENTS_ORIGIN      = "https://${module.documents.bucket_regional_domain_name}"
   }
 }
+
+output "agent_runtime" {
+  description = "The review agent's AgentCore runtime; the deploy records and restores its configuration."
+  value = {
+    id        = module.agent_runtime.runtime_id
+    arn       = module.agent_runtime.runtime_arn
+    log_group = module.agent_runtime.log_group_name
+  }
+}

@@ -169,6 +169,7 @@ def test_the_deploy_steps_run_in_order(deploy: dict[str, Any]) -> None:
         "deploy the API and workers",
         "release the frontend",
         "smoke request",
+        "roll back the AgentCore runtime",
         "roll back",
     ]
     names = list(named_steps(deploy["jobs"]["deploy"]))
@@ -243,6 +244,11 @@ def test_services_get_tasks_only_from_the_deploy_after_the_migration(
     assert "ignore_changes = [task_definition, desired_count]" in runtime
 
 
+def test_replaced_task_definitions_stay_active_for_the_rollback() -> None:
+    runtime = (TERRAFORM / "modules/runtime/main.tf").read_text("utf-8")
+    assert re.search(r"skip_destroy\s+= true", runtime)
+
+
 def test_the_frontend_release_and_its_rollback_publish_the_same_way(deploy: dict[str, Any]) -> None:
     job_steps = named_steps(deploy["jobs"]["deploy"])
     for name in ["release the frontend", "roll back"]:
@@ -254,3 +260,94 @@ def test_the_email_addresses_are_masked_before_anything_is_logged(deploy: dict[s
     assert first["name"] == "mask the email addresses"
     assert first["env"]["TFVARS"] == "${{ vars.TFVARS }}"
     assert "::add-mask::" in first["run"]
+
+
+def test_the_agent_runtime_is_v1_public_with_a_one_minute_idle_timeout() -> None:
+    runtime = (TERRAFORM / "modules/agent_runtime/main.tf").read_text("utf-8")
+    assert re.search(r'platform_version\s+= "V1"', runtime)
+    assert re.search(r'network_mode\s+= "PUBLIC"', runtime)
+    assert re.search(r"idle_runtime_session_timeout\s+= 60\b", runtime)
+    assert '"${var.repository_url}:${var.image_tag}-agent-runtime"' in runtime
+    assert "authorizer_configuration" not in runtime  # SigV4, the default
+
+
+def test_the_agent_runtime_role_reaches_only_the_model_the_kb_and_its_logs() -> None:
+    runtime = (TERRAFORM / "modules/agent_runtime/main.tf").read_text("utf-8")
+    assert '"bedrock-agentcore.amazonaws.com"' in runtime
+    assert '"aws:SourceAccount"' in runtime
+    assert '"aws:SourceArn"' in runtime
+    for forbidden in ["sqs:", "secretsmanager:", "rds:", "s3:"]:
+        assert forbidden not in runtime
+    assert '"logs:CreateLogGroup"' not in runtime  # terraform creates the group with its retention
+
+
+def test_the_review_worker_invokes_the_runtime_instead_of_bedrock() -> None:
+    review = (TERRAFORM / "modules/review/main.tf").read_text("utf-8")
+    assert '"bedrock-agentcore:InvokeAgentRuntime"' in review
+    assert '"${var.agent_runtime_arn}/runtime-endpoint/*"' in review
+    assert "bedrock:InvokeModel" not in review
+    assert "bedrock:Retrieve" not in review
+
+
+@pytest.mark.parametrize("environment", ["dev", "prod"])
+def test_each_environment_points_the_review_worker_at_its_runtime(environment: str) -> None:
+    root = (TERRAFORM / "environments" / environment / "main.tf").read_text("utf-8")
+    assert re.search(r"REVIEW_AGENT_RUNTIME_ARN\s+= module\.agent_runtime\.runtime_arn", root)
+    assert re.search(r"agent_runtime_arn\s+= module\.agent_runtime\.runtime_arn", root)
+
+
+def test_the_tasks_run_on_arm64_like_the_runtime() -> None:
+    runtime = (TERRAFORM / "modules/runtime/main.tf").read_text("utf-8")
+    assert re.search(r'cpu_architecture\s+= "ARM64"', runtime)
+    assert "X86_64" not in runtime
+
+
+def test_the_deploy_builds_natively_on_arm64(deploy: dict[str, Any]) -> None:
+    assert deploy["jobs"]["deploy"]["runs-on"] == "ubuntu-24.04-arm"
+    push = Path("infra/scripts/push-image.sh").read_text("utf-8")
+    assert 'push_target app "${IMAGE_TAG:?}"' in push
+    assert 'push_target agent-runtime "${IMAGE_TAG}-agent-runtime"' in push
+
+
+def test_a_new_environment_gets_its_images_before_the_apply_creates_the_runtime(
+    deploy: dict[str, Any],
+) -> None:
+    job_steps = named_steps(deploy["jobs"]["deploy"])
+    names = list(job_steps)
+    first_deploy = ["image repository (first deploy)", "image to ECR (first deploy)"]
+    for name in first_deploy:
+        assert job_steps[name]["if"] == "steps.image.outputs.pushed != 'true'"
+        assert names.index("terraform init") < names.index(name) < names.index("terraform apply")
+    assert job_steps["image repository (first deploy)"]["run"].endswith(
+        "-target=module.runtime.aws_ecr_repository.app"
+    )
+    assert job_steps["image to ECR (first deploy)"]["run"] == "infra/scripts/push-image.sh"
+
+
+def test_the_live_runtime_configuration_is_recorded_before_the_apply(
+    deploy: dict[str, Any],
+) -> None:
+    run = named_steps(deploy["jobs"]["deploy"])["record the live release"]["run"]
+    assert "previous .agent_runtime.value.id" in run
+    assert "get-agent-runtime" in run
+    assert "previous-agent-runtime.json" in run
+    for environment in ["dev", "prod"]:
+        outputs = (TERRAFORM / "environments" / environment / "outputs.tf").read_text("utf-8")
+        assert 'output "agent_runtime"' in outputs
+
+
+def test_any_failure_after_the_apply_rolls_the_runtime_back(deploy: dict[str, Any]) -> None:
+    job_steps = named_steps(deploy["jobs"]["deploy"])
+    rollback = job_steps["roll back the AgentCore runtime"]
+    assert job_steps["record the live release"]["id"] == "record"
+    assert rollback["if"] == "failure() && steps.record.outcome == 'success'"
+    assert "infra/scripts/rollback-agent-runtime.sh" in rollback["run"]
+    assert '"$agentcore_note"' in rollback["run"]
+    assert "rollback-agent-runtime.sh" not in job_steps["roll back"]["run"]
+
+
+def test_the_docs_describe_the_runtime_image_and_its_rollback() -> None:
+    docs = PIPELINE_DOCS.read_text("utf-8")
+    assert "<sha>-agent-runtime" in docs
+    assert "rollback-agent-runtime.sh" in docs
+    assert "ubuntu-24.04-arm" in docs

@@ -6,6 +6,7 @@ from evals.review.results import RunResults
 from evals.review.scoring import CaseScore, Ratio, RunScore
 
 FAILED = "failed"
+AGENT_PLACES = {"in-process": "", "agentcore": ", run on Bedrock AgentCore Runtime"}
 
 
 def ratio_cell(ratio: Ratio) -> str:
@@ -49,8 +50,8 @@ def render_report(results: RunResults, score: RunScore) -> str:
         f"# Review evaluation, {results.started_at:%Y-%m-%d %H:%M} UTC",
         "",
         f"{len(cases)} cases ({cases[0].case_id}-{cases[-1].case_id}) from `evals/{cases_file}`, "
-        f"model `{results.model}`. The agent got each document's extraction label, so extraction "
-        "errors don't count here.",
+        f"model `{results.model}`{AGENT_PLACES[results.agent_placement]}. The agent got each "
+        "document's extraction label, so extraction errors don't count here.",
         "",
         "- **precision**: of the claims given this decision, the share that should have it",
         "- **recall**: of the claims that should get this decision, the share the agent gave it",

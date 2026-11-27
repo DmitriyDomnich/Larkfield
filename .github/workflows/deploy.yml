@@ -21,7 +21,7 @@ jobs:
   deploy:
     needs: ci
     if: ${{ !cancelled() && (needs.ci.result == 'success' || needs.ci.result == 'skipped') && (github.ref_name == 'dev' || github.ref_name == 'main') }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     environment: ${{ github.ref_name == 'main' && 'prod' || 'dev' }}
     permissions:
       contents: read
@@ -73,6 +73,14 @@ jobs:
         run: |
           terraform init -input=false \
             -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" -backend-config="region=${AWS_REGION}"
+      # a new environment: the apply creates the AgentCore runtime, so its image must be in ECR first
+      - name: image repository (first deploy)
+        if: steps.image.outputs.pushed != 'true'
+        working-directory: ${{ env.ROOT }}
+        run: terraform apply -input=false -auto-approve -lock-timeout=10m -target=module.runtime.aws_ecr_repository.app
+      - name: image to ECR (first deploy)
+        if: steps.image.outputs.pushed != 'true'
+        run: infra/scripts/push-image.sh
       # before the apply: on a Start the apply creates the services, so there is nothing before it
       - name: record the live release
         id: record
@@ -99,12 +107,19 @@ jobs:
           fi
           echo "PREVIOUS_RELEASE=${previous_release}" >> "$GITHUB_ENV"
           echo "frontend release: ${previous_release:-none}"
+          # the apply moves the AgentCore runtime to the new image; a rollback sends this configuration back
+          : > "$RUNNER_TEMP/previous-agent-runtime.json"
+          agentcore_runtime_id=$(previous .agent_runtime.value.id)
+          if [ -n "$agentcore_runtime_id" ]; then
+            aws bedrock-agentcore-control get-agent-runtime --agent-runtime-id "$agentcore_runtime_id" \
+              > "$RUNNER_TEMP/previous-agent-runtime.json"
+          fi
+          agentcore_image=$(jq -r '.agentRuntimeArtifact.containerConfiguration.containerUri // empty' \
+            "$RUNNER_TEMP/previous-agent-runtime.json")
+          echo "AgentCore runtime image: ${agentcore_image##*/}"
       - name: terraform apply
         working-directory: ${{ env.ROOT }}
         run: terraform apply -input=false -auto-approve -lock-timeout=10m
-      - name: image to ECR (first deploy)
-        if: steps.image.outputs.pushed != 'true'
-        run: infra/scripts/push-image.sh
       - name: read the terraform outputs
         working-directory: ${{ env.ROOT }}
         run: |
@@ -216,6 +231,20 @@ jobs:
           done
           echo "::error::GET /api/health or GET / through CloudFront kept failing for 3 minutes"
           exit 1
+      - name: roll back the AgentCore runtime
+        if: failure() && steps.record.outcome == 'success'
+        run: |
+          if [ ! -s "$RUNNER_TEMP/previous-agent-runtime.json" ]; then
+            agentcore_note="No earlier AgentCore runtime (its first deploy): it stays on this release."
+          elif "$GITHUB_WORKSPACE/infra/scripts/rollback-agent-runtime.sh" "$RUNNER_TEMP/previous-agent-runtime.json"; then
+            agentcore_note="AgentCore runtime back on its previous image."
+          else
+            agentcore_note="The AgentCore runtime could not be restored: follow the rollback runbook."
+          fi
+          {
+            echo "### ${ENVIRONMENT}: deploy failed"
+            echo "$agentcore_note"
+          } >> "$GITHUB_STEP_SUMMARY"
       # anything that fails after the migration: services, frontend or the smoke request
       - name: roll back
         if: failure() && steps.migrate.outcome == 'success'
@@ -239,7 +268,6 @@ jobs:
             frontend_note="No earlier frontend release to restore."
           fi
           {
-            echo "### ${ENVIRONMENT}: deploy failed after the migration"
             echo "$services_note"
             echo "$frontend_note"
             echo "Revert the commit for a permanent fix."

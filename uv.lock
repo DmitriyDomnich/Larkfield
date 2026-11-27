@@ -172,6 +172,9 @@ wheels = [
 bedrock-agent-runtime = [
     { name = "mypy-boto3-bedrock-agent-runtime" },
 ]
+bedrock-agentcore = [
+    { name = "mypy-boto3-bedrock-agentcore" },
+]
 bedrock-runtime = [
     { name = "mypy-boto3-bedrock-runtime" },
 ]
@@ -889,7 +892,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "boto3-stubs", extra = ["bedrock-agent-runtime", "bedrock-runtime", "cognito-idp", "s3", "sesv2", "sqs"] },
+    { name = "boto3-stubs", extra = ["bedrock-agent-runtime", "bedrock-agentcore", "bedrock-runtime", "cognito-idp", "s3", "sesv2", "sqs"] },
     { name = "httpx2" },
     { name = "mypy" },
     { name = "pytest" },
@@ -922,7 +925,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "boto3-stubs", extras = ["bedrock-agent-runtime", "bedrock-runtime", "cognito-idp", "s3", "sesv2", "sqs"], specifier = ">=1.43.119" },
+    { name = "boto3-stubs", extras = ["bedrock-agent-runtime", "bedrock-agentcore", "bedrock-runtime", "cognito-idp", "s3", "sesv2", "sqs"], specifier = ">=1.43.119" },
     { name = "httpx2", specifier = ">=2.16.0" },
     { name = "mypy", specifier = ">=2.4.0" },
     { name = "pytest", specifier = ">=9.1.1" },
@@ -1225,6 +1228,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/b2/19/3f1fb0780406e23fab4437465aead8900f233b28ee1d2554f1b01c676450/mypy_boto3_bedrock_agent_runtime-1.43.125.tar.gz", hash = "sha256:4740602d20500be79fa9054eb9ce0e812183057d41a3a413a0ccdb3b69462938", size = 47367, upload-time = "2026-11-05T23:01:43.293Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/fa/6a/dd35a9e9137c5b049849082a8a79047235c4ac09a01b8f2c56e3d4b09f5b/mypy_boto3_bedrock_agent_runtime-1.43.125-py3-none-any.whl", hash = "sha256:934b703e45949bc89b333517f26377d697108d34175e78f8c2d26d71095e92ee", size = 57067, upload-time = "2026-11-05T23:01:40.876Z" },
+]
+
+[[package]]
+name = "mypy-boto3-bedrock-agentcore"
+version = "1.43.127"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/cb/09/f7a1b3106e358f832e79669f3c2c133bffd32c7fc64e8c790d1ed93317d6/mypy_boto3_bedrock_agentcore-1.43.127.tar.gz", hash = "sha256:380622dbf7fc04b3803ad296e88871de84403f869270bebf9bcb626121b37b1a", size = 57086, upload-time = "2026-11-10T00:32:43.297Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f1/46/8cbed73808a96599b9f2fecdefd41329bddba9d543b089a3b3c58c5b9707/mypy_boto3_bedrock_agentcore-1.43.127-py3-none-any.whl", hash = "sha256:ba48032254dbb0bafde2e6a7f5cabbfe6ffd501ff2e49f414554c34bcfca2284", size = 64396, upload-time = "2026-11-10T00:32:41.019Z" },
 ]
 
 [[package]]

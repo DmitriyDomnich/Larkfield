@@ -1,0 +1,79 @@
+{
+  "started_at": "2026-11-27T08:21:41.169031Z",
+  "model": "eu.anthropic.claude-sonnet-4-6",
+  "case_set": "dev",
+  "agent_placement": "agentcore",
+  "cases": [
+    {
+      "case_id": "D13",
+      "proposal": {
+        "decision": "approve",
+        "reasons": [
+          {
+            "clause_id": "4.1",
+            "quote": "Laptops and phones are supplied by IT and need a pre-approval reference at any price.",
+            "explanation": "The claim is for a laptop (EUR 1,450), which requires a pre-approval reference at any price. The employee has provided reference PA-2026-114, satisfying this condition."
+          },
+          {
+            "clause_id": "1.1",
+            "quote": "Larkfield reimburses reasonable costs that an employee pays personally while doing their job.",
+            "explanation": "EUR 1,450 for a 14\" Ryzen 7, 32 GB RAM, 1 TB SSD notebook is a reasonable cost for a business laptop replacement, consistent with what a colleague in the same role would spend for the same purpose."
+          }
+        ],
+        "missing_information": [],
+        "duplicate_of": null
+      },
+      "retrieved_clauses": [
+        "IT4.3",
+        "IT3.2",
+        "IT2.2",
+        "4.1",
+        "IT4.2",
+        "FAQ-36",
+        "1.2",
+        "1.1",
+        "1.5",
+        "7.1"
+      ],
+      "failure": null
+    },
+    {
+      "case_id": "E05",
+      "proposal": {
+        "decision": "needs_info",
+        "reasons": [
+          {
+            "clause_id": "2.2",
+            "quote": "A meal with clients or partners is reimbursed up to EUR 80 per attendee, counting every attendee including Larkfield employees. The claim must list the names and companies of all attendees and the business purpose of the meeting. A client entertainment claim without the attendee list cannot be assessed against the limit.",
+            "explanation": "The purpose states this was a lunch during a 'client visit trip' but the attendee list is empty. If any clients attended, clause 2.2 requires the names and companies of all attendees; without this the claim cannot be assessed against the per-attendee limit."
+          },
+          {
+            "clause_id": "7.2",
+            "quote": "When a claim is missing information the employee can provide (attendee list, business purpose, pre-approval reference, an itemised receipt), the reviewer asks for it instead of rejecting.",
+            "explanation": "The attendee list is information the employee can supply, so the correct action is to request it rather than reject the claim outright."
+          }
+        ],
+        "missing_information": [
+          "Please confirm whether any clients or colleagues attended this lunch. If so, provide the full names and companies of all attendees (including yourself)."
+        ],
+        "duplicate_of": null
+      },
+      "retrieved_clauses": [
+        "FAQ-13",
+        "FAQ-14",
+        "2.1",
+        "2.2",
+        "FAQ-16",
+        "2.4",
+        "7.2",
+        "1.2",
+        "1.1",
+        "FAQ-11",
+        "0.7",
+        "FAQ-25",
+        "1.5"
+      ],
+      "failure": null
+    }
+  ]
+}

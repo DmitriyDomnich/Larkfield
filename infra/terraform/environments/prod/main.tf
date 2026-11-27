@@ -98,11 +98,29 @@ module "knowledge_base" {
 }
 
 module "review" {
-  source                       = "../../modules/review"
+  source            = "../../modules/review"
+  project_name      = local.name_prefix
+  iam_path          = local.iam_path
+  agent_runtime_arn = module.agent_runtime.runtime_arn
+}
+
+module "agent_runtime" {
+  source                       = "../../modules/agent_runtime"
   project_name                 = local.name_prefix
   iam_path                     = local.iam_path
-  policy_knowledge_base_id     = module.knowledge_base.knowledge_base_ids["clause"]
+  permissions_boundary_arn     = local.boundary_arn
+  repository_url               = module.runtime.repository_url
+  repository_arn               = module.runtime.repository_arn
+  image_tag                    = var.image_tag
   bedrock_inference_profile_id = var.review_inference_profile_id
+  policy_knowledge_base_id     = module.knowledge_base.knowledge_base_ids["clause"]
+
+  environment_variables = {
+    LOG_LEVEL       = "INFO"
+    AWS_REGION      = var.aws_region
+    REVIEW_MODEL_ID = var.review_inference_profile_id
+    POLICY_KB_ID    = module.knowledge_base.knowledge_base_ids["clause"]
+  }
 }
 
 module "notifications" {
@@ -164,8 +182,9 @@ module "runtime" {
     BEDROCK_MODEL_ID     = var.bedrock_inference_profile_id
   }
   review_environment = {
-    REVIEW_MODEL_ID = var.review_inference_profile_id
-    POLICY_KB_ID    = module.knowledge_base.knowledge_base_ids["clause"]
+    REVIEW_MODEL_ID          = var.review_inference_profile_id
+    POLICY_KB_ID             = module.knowledge_base.knowledge_base_ids["clause"]
+    REVIEW_AGENT_RUNTIME_ARN = module.agent_runtime.runtime_arn
   }
 
   api_policy_arns = {
