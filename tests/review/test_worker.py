@@ -1,7 +1,7 @@
 import pytest
 
 from app.review.agent import StrandsReviewAgent
-from app.review.agentcore import AgentCoreClient
+from app.review.agentcore.client import AgentCoreClient
 from app.review.settings import ReviewWorkerSettings
 from app.review.worker import build_review_agent
 from tests.review.fakes import RUNTIME_ARN, FakeHistory

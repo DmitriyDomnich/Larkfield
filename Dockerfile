@@ -16,7 +16,7 @@ USER larkfield
 
 FROM base AS agent-runtime
 EXPOSE 8080
-CMD ["uvicorn", "app.review.runtime_app:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["uvicorn", "app.review.agentcore.server:app", "--host", "0.0.0.0", "--port", "8080"]
 
 FROM base AS app
 EXPOSE 8000

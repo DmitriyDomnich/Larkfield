@@ -16,11 +16,11 @@ from strands.types.streaming import StreamEvent
 from strands.types.tools import ToolSpec
 
 from app.review.agent import ReviewOutcome
+from app.review.agentcore.contract import RuntimeResponse
 from app.review.claim_data import ClaimUnderReview
 from app.review.claims_history import PossibleClaimDuplicate, TrainingClaim
 from app.review.policy import PolicyChunk
 from app.review.queue import ReviewMessage
-from app.review.runtime_contract import RuntimeResponse
 from evals.retrieval.clause_files import clause_file_text
 from evals.retrieval.clauses import KB_DIR, parse_clauses
 from tests.extraction.fakes import expense

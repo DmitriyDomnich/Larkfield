@@ -12,7 +12,7 @@ from app.review.agent import (
     StrandsReviewAgent,
     ValidProposal,
 )
-from app.review.agentcore import AgentCoreClient
+from app.review.agentcore.client import AgentCoreClient
 from app.review.claim_data import ClaimUnderReview
 from app.review.claims_history import PossibleClaimDuplicate
 from app.review.models import Decision

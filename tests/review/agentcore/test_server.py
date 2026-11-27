@@ -7,6 +7,13 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
+from app.review.agentcore.contract import ReviewRequest
+from app.review.agentcore.server import (
+    SESSION_ID_HEADER,
+    ReviewAgentBuilder,
+    create_runtime_app,
+    get_agent_builder,
+)
 from app.review.claims_history import PossibleClaimDuplicate, TrainingClaim
 from app.review.prompts import (
     FIND_DUPLICATE_CLAIMS_TOOL,
@@ -15,13 +22,6 @@ from app.review.prompts import (
     PROPOSAL_TOOL,
     SEARCH_POLICY_TOOL,
 )
-from app.review.runtime_app import (
-    SESSION_ID_HEADER,
-    ReviewAgentBuilder,
-    create_runtime_app,
-    get_agent_builder,
-)
-from app.review.runtime_contract import ReviewRequest
 from tests.review.fakes import (
     FakeRetriever,
     ScriptedModel,

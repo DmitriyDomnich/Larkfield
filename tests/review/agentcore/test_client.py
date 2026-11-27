@@ -9,16 +9,16 @@ from botocore.exceptions import ReadTimeoutError
 
 from app.core.metrics import BedrockRunError, TokenUsage
 from app.review.agent import NoValidProposal, ValidProposal
-from app.review.agentcore import RUNTIME_CLIENT_CONFIG, AgentCoreClient
-from app.review.claims_history import PossibleClaimDuplicate, TrainingClaim
-from app.review.models import Decision
-from app.review.proposal import ReviewProposal
-from app.review.runtime_contract import (
+from app.review.agentcore.client import RUNTIME_CLIENT_CONFIG, AgentCoreClient
+from app.review.agentcore.contract import (
     ErrorResponse,
     NoProposalResponse,
     ProposalResponse,
     RuntimeResponse,
 )
+from app.review.claims_history import PossibleClaimDuplicate, TrainingClaim
+from app.review.models import Decision
+from app.review.proposal import ReviewProposal
 from tests.review.fakes import (
     RUNTIME_ARN,
     FakeHistory,

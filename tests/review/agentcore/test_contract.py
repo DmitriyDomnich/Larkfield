@@ -7,16 +7,16 @@ import pytest
 from pydantic import ValidationError
 
 from app.core.metrics import TokenUsage
-from app.review.claim_data import AnsweredRequest
-from app.review.claims_history import PossibleClaimDuplicate, PrefetchedHistory, TrainingClaim
-from app.review.proposal import ReviewProposal
-from app.review.runtime_contract import (
+from app.review.agentcore.contract import (
     REVIEW_RESPONSE,
     ErrorResponse,
     NoProposalResponse,
     ProposalResponse,
     ReviewRequest,
 )
+from app.review.claim_data import AnsweredRequest
+from app.review.claims_history import PossibleClaimDuplicate, PrefetchedHistory, TrainingClaim
+from app.review.proposal import ReviewProposal
 from app.review.settings import ReviewRuntimeSettings
 from tests.review.fakes import claim_for_case, proposal_input
 

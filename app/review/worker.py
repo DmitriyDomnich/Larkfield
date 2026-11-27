@@ -15,7 +15,7 @@ from app.notifications.queue import (
     notify_claim_failed,
 )
 from app.review.agent import ReviewAgent, StrandsReviewAgent
-from app.review.agentcore import AgentCoreClient
+from app.review.agentcore.client import AgentCoreClient
 from app.review.claims_history import ClaimsHistory, DatabaseClaimsHistory
 from app.review.policy import BedrockPolicyRetriever
 from app.review.queue import ReviewMessage, ReviewQueue, SqsReviewQueue

@@ -16,18 +16,18 @@ from app.claims.service import transition
 from app.claims.status import ClaimStatus as S
 from app.core.metrics import BedrockRunError, TokenUsage
 from app.review.agent import NoValidProposal, ReviewOutcome, ValidProposal
-from app.review.agentcore import AgentCoreClient
-from app.review.claim_data import ClaimUnderReview
-from app.review.claims_history import DatabaseClaimsHistory
-from app.review.models import ClaimAnswer, Decision, Proposal, ReviewerDecision
-from app.review.proposal import ReviewProposal
-from app.review.queue import ReviewMessage
-from app.review.runtime_contract import (
+from app.review.agentcore.client import AgentCoreClient
+from app.review.agentcore.contract import (
     ErrorResponse,
     NoProposalResponse,
     ProposalResponse,
     RuntimeResponse,
 )
+from app.review.claim_data import ClaimUnderReview
+from app.review.claims_history import DatabaseClaimsHistory
+from app.review.models import ClaimAnswer, Decision, Proposal, ReviewerDecision
+from app.review.proposal import ReviewProposal
+from app.review.queue import ReviewMessage
 from app.review.service import NO_VALID_PROPOSAL_REASON, TECHNICAL_FAILURE_REASON
 from app.review.settings import ReviewWorkerSettings
 from app.review.worker import ReviewWorker

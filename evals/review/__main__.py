@@ -9,7 +9,7 @@ from botocore.config import Config
 from strands.models.bedrock import BedrockModel
 
 from app.review.agent import ReviewAgent, StrandsReviewAgent
-from app.review.agentcore import AgentCoreClient
+from app.review.agentcore.client import AgentCoreClient
 from app.review.policy import BedrockPolicyRetriever
 from app.review.worker import MAX_OUTPUT_TOKENS
 from evals.review.cases import CASE_SETS, load_cases, select_cases

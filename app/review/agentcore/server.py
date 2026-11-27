@@ -15,16 +15,16 @@ from app.review.agent import (
     StrandsReviewAgent,
     ValidProposal,
 )
-from app.review.claim_data import ClaimUnderReview
-from app.review.claims_history import ClaimsHistory, PrefetchedHistory
-from app.review.policy import BedrockPolicyRetriever, PolicyRetriever
-from app.review.runtime_contract import (
+from app.review.agentcore.contract import (
     ErrorResponse,
     NoProposalResponse,
     ProposalResponse,
     ReviewRequest,
     ReviewResponse,
 )
+from app.review.claim_data import ClaimUnderReview
+from app.review.claims_history import ClaimsHistory, PrefetchedHistory
+from app.review.policy import BedrockPolicyRetriever, PolicyRetriever
 from app.review.settings import ReviewRuntimeSettings
 from app.review.worker import MAX_OUTPUT_TOKENS
 

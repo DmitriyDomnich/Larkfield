@@ -6,15 +6,15 @@ from botocore.config import Config
 
 from app.core.metrics import BedrockRunError, TokenUsage
 from app.review.agent import NoValidProposal, ReviewOutcome, ValidProposal
-from app.review.claim_data import ClaimUnderReview
-from app.review.claims_history import ClaimsHistory
-from app.review.runtime_contract import (
+from app.review.agentcore.contract import (
     REVIEW_RESPONSE,
     ErrorResponse,
     NoProposalResponse,
     ProposalResponse,
     ReviewRequest,
 )
+from app.review.claim_data import ClaimUnderReview
+from app.review.claims_history import ClaimsHistory
 
 if TYPE_CHECKING:
     from mypy_boto3_bedrock_agentcore import BedrockAgentCoreClient
