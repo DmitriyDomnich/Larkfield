@@ -273,7 +273,13 @@ the 60 s idle timeout). That is 3–4× the estimate above, still under 1 % of a
 D13 (reject, clause 4.1) and E05 (needs_info, attendees) differed besides E02. Rechecks through the
 AgentCore runtime (`review-agentcore-2026-11-27-0821`, `-0823`, and one run overwritten by the
 second in the same minute): D13 approve 3 of 3, E05 approve 2 of 3, so both were model variance and
-no in-process rerun was needed; AC2 met. Not run yet: a deploy with a broken smoke request.
+no in-process rerun was needed; AC2 met.
+
+A deploy with a broken smoke request put the AgentCore runtime back on its previous image, but the
+services stayed: each apply had deregistered the replaced task definition revisions, and ECS
+refuses an INACTIVE one (a T14 gap; T14 never ran this test). `skip_destroy` now keeps them ACTIVE;
+after one clean deploy, a second broken one restored the AgentCore runtime, the API, both workers
+and the frontend.
 
 ## Commit plan
 
