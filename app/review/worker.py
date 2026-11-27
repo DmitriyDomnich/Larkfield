@@ -8,6 +8,7 @@ from strands.models.bedrock import BedrockModel
 
 from app.claims.status import ClaimStatus
 from app.core.db import SessionFactory, build_engine, build_session_factory
+from app.core.metrics import ClaimMetrics, MetricStage
 from app.notifications.queue import (
     NotificationService,
     SqsNotificationService,
@@ -33,12 +34,14 @@ class ReviewWorker:
         sessions: SessionFactory,
         agent: ReviewAgent,
         notification_service: NotificationService,
+        metrics: ClaimMetrics,
     ) -> None:
         self._settings = settings
         self._queue = queue
         self._sessions = sessions
         self._agent = agent
         self._notification_service = notification_service
+        self._metrics = metrics
 
     async def run(self, stop: asyncio.Event) -> None:
         logger.info("review worker started")
@@ -75,6 +78,7 @@ class ReviewWorker:
                 finished_claim_status = await review_claim(
                     self._sessions,
                     self._agent,
+                    self._metrics,
                     message.claim_id,
                     receive_count=message.receive_count,
                     max_receives=self._settings.review_max_receives,
@@ -88,6 +92,7 @@ class ReviewWorker:
                 )
                 return
             if finished_claim_status is ClaimStatus.FAILED:
+                await self._metrics.claim_failed(MetricStage.REVIEW, message.claim_id)
                 await notify_claim_failed(
                     self._sessions, self._notification_service, message.claim_id
                 )
@@ -120,6 +125,7 @@ async def run_worker() -> None:
             sessions,
             agent,
             SqsNotificationService(settings),
+            ClaimMetrics(settings.app_env),
         )
         stop = asyncio.Event()
         loop = asyncio.get_running_loop()

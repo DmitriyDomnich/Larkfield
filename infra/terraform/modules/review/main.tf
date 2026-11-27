@@ -28,6 +28,7 @@ resource "aws_sqs_queue" "review" {
 
 resource "aws_iam_policy" "worker" {
   name = "${var.project_name}-review-worker"
+  path = var.iam_path
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -65,6 +66,7 @@ resource "aws_iam_policy" "worker" {
 # the API requests a re-review after a needs_info answer
 resource "aws_iam_policy" "api" {
   name = "${var.project_name}-api-review"
+  path = var.iam_path
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{

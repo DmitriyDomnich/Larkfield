@@ -3,7 +3,7 @@ import logging
 import uuid
 from collections import defaultdict
 from collections.abc import Awaitable, Iterable
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from decimal import Decimal
 from typing import Any, Protocol
 
@@ -12,6 +12,7 @@ from strands.models.model import Model
 from strands.types.content import SystemContentBlock
 from strands.types.tools import ToolContext
 
+from app.core.metrics import BedrockRunError, TokenUsage
 from app.review.claim_data import ClaimUnderReview
 from app.review.claims_history import ClaimsHistory
 from app.review.policy import PolicyChunk, PolicyRetriever
@@ -36,6 +37,7 @@ class ValidProposal:
     proposal: ReviewProposal
     retrieved_clauses: list[str]
     model: str
+    usage: TokenUsage = field(default=TokenUsage(), compare=False)
 
 
 @dataclass(frozen=True)
@@ -43,6 +45,7 @@ class NoValidProposal:
     """`detail` is for the log"""
 
     detail: str
+    usage: TokenUsage = field(default=TokenUsage(), compare=False)
 
 
 ReviewOutcome = ValidProposal | NoValidProposal
@@ -52,8 +55,11 @@ class ReviewAgent(Protocol):
     async def review(self, claim: ClaimUnderReview) -> ReviewOutcome: ...
 
 
-class ToolFailedError(Exception):
+class ToolFailedError(BedrockRunError):
     """A tool could not get its data (KB or database); the review is retried later"""
+
+    def __init__(self, usage: TokenUsage) -> None:
+        super().__init__(usage, "a review tool failed")
 
 
 class StrandsReviewAgent:
@@ -85,18 +91,29 @@ class StrandsReviewAgent:
             system_prompt=self._system_prompt,
             callback_handler=None,
         )
-        result = await agent.invoke_async(
-            claim_message(claim),
-            structured_output_model=checked_proposal_model(run.quotable_clauses, run.duplicate_ids),
-            limits=self._limits,  # type: ignore[arg-type]
-        )
+        try:
+            result = await agent.invoke_async(
+                claim_message(claim),
+                structured_output_model=checked_proposal_model(
+                    run.quotable_clauses, run.duplicate_ids
+                ),
+                limits=self._limits,  # type: ignore[arg-type]
+            )
+        except Exception as exc:
+            raise BedrockRunError(_spent_tokens(agent)) from exc
+        usage = _spent_tokens(agent)
         if run.failure is not None:
-            raise ToolFailedError("a review tool failed") from run.failure
+            raise ToolFailedError(usage) from run.failure
         if not isinstance(result.structured_output, ReviewProposal):
-            return NoValidProposal(f"no valid proposal, stop reason {result.stop_reason}")
+            return NoValidProposal(f"no valid proposal, stop reason {result.stop_reason}", usage)
         return ValidProposal(
-            result.structured_output, list(run.retrieved_clause_ids), self._model_name
+            result.structured_output, list(run.retrieved_clause_ids), self._model_name, usage
         )
+
+
+def _spent_tokens(agent: Agent) -> TokenUsage:
+    accumulated = agent.event_loop_metrics.accumulated_usage
+    return TokenUsage(accumulated["inputTokens"], accumulated["outputTokens"])
 
 
 class ReviewRun:

@@ -47,6 +47,7 @@ resource "aws_s3_bucket_policy" "tls_only" {
 
 resource "aws_iam_policy" "api_documents" {
   name = "${var.project_name}-api-documents"
+  path = var.iam_path
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{

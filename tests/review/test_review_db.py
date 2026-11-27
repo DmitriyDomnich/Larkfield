@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.claims.models import Claim
 from app.claims.status import ClaimStatus as S
+from app.core.metrics import BedrockRunError, TokenUsage
 from app.review.agent import NoValidProposal, ReviewOutcome, ValidProposal
 from app.review.claim_data import ClaimUnderReview
 from app.review.models import Decision, Proposal
@@ -18,6 +19,7 @@ from app.review.queue import ReviewMessage
 from app.review.service import NO_VALID_PROPOSAL_REASON, TECHNICAL_FAILURE_REASON
 from app.review.settings import ReviewWorkerSettings
 from app.review.worker import ReviewWorker
+from tests.core.fakes import RecordingMetrics
 from tests.notifications.fakes import FakeNotificationService
 from tests.review.db import extracted_claim
 from tests.review.fakes import FakeAgent, FakeReviewQueue, proposal_input
@@ -25,6 +27,7 @@ from tests.review.fakes import FakeAgent, FakeReviewQueue, proposal_input
 pytestmark = pytest.mark.integration
 
 MODEL = "eu.anthropic.test-review-model"
+NO_TOKENS = TokenUsage()
 
 
 @pytest.fixture
@@ -38,6 +41,7 @@ def make_worker(
     queue: FakeReviewQueue,
     *outcomes: ReviewOutcome | Exception,
     notification_service: FakeNotificationService | None = None,
+    metrics: RecordingMetrics | None = None,
 ) -> tuple[ReviewWorker, FakeAgent]:
     @asynccontextmanager
     async def sessions() -> AsyncIterator[AsyncSession]:
@@ -45,18 +49,22 @@ def make_worker(
 
     agent = FakeAgent(*outcomes)
     notification_service = notification_service or FakeNotificationService()
-    return ReviewWorker(settings, queue, sessions, agent, notification_service), agent
+    worker = ReviewWorker(
+        settings, queue, sessions, agent, notification_service, metrics or RecordingMetrics()
+    )
+    return worker, agent
 
 
 def valid(
     decision: str = "approve",
     reasons: Sequence[tuple[str, str]] = (("2.1", "lunch EUR 25, dinner EUR 45"),),
     duplicate_of: uuid.UUID | None = None,
+    usage: TokenUsage = NO_TOKENS,
 ) -> ValidProposal:
     proposal = ReviewProposal.model_validate(
         proposal_input(decision, reasons, duplicate_of=duplicate_of)
     )
-    return ValidProposal(proposal, ["FAQ-13", "2.1"], MODEL)
+    return ValidProposal(proposal, ["FAQ-13", "2.1"], MODEL, usage)
 
 
 def request(claim_id: uuid.UUID | None, receive_count: int = 1) -> ReviewMessage:
@@ -222,7 +230,12 @@ async def test_a_second_delivery_that_finishes_later_stores_nothing(
         yield db_session
 
     slow = ReviewWorker(
-        review_settings, queue, sessions, SlowAgent(valid()), FakeNotificationService()
+        review_settings,
+        queue,
+        sessions,
+        SlowAgent(valid()),
+        FakeNotificationService(),
+        RecordingMetrics(),
     )
     fast, _ = make_worker(db_session, review_settings, queue, valid(decision="reject"))
 
@@ -338,3 +351,100 @@ async def test_a_failed_email_send_still_deletes_the_request(
 
     assert (await claim_row(db_session, claim_id)).status is S.FAILED
     assert queue.deleted == ["handle-1"]
+
+
+async def test_a_claim_going_in_review_records_its_tokens_and_no_failure(
+    db_session: AsyncSession, review_settings: ReviewWorkerSettings
+) -> None:
+    claim_id = await extracted_claim(db_session, "D01")
+    metrics = RecordingMetrics()
+    worker, _ = make_worker(
+        db_session,
+        review_settings,
+        FakeReviewQueue(),
+        valid(usage=TokenUsage(12000, 900)),
+        metrics=metrics,
+    )
+
+    await worker.handle_message(request(claim_id))
+
+    assert metrics.values("BedrockInputTokens") == [("review", str(claim_id), 12000)]
+    assert metrics.values("BedrockOutputTokens") == [("review", str(claim_id), 900)]
+    assert metrics.values("ClaimsFailed") == []
+
+
+async def test_no_valid_proposal_is_counted_as_failed_with_its_tokens(
+    db_session: AsyncSession, review_settings: ReviewWorkerSettings
+) -> None:
+    claim_id = await extracted_claim(db_session, "D01")
+    metrics = RecordingMetrics()
+    worker, _ = make_worker(
+        db_session,
+        review_settings,
+        FakeReviewQueue(),
+        NoValidProposal("limit_turns", TokenUsage(30000, 2000)),
+        metrics=metrics,
+    )
+
+    await worker.handle_message(request(claim_id))
+
+    assert metrics.values("ClaimsFailed") == [("review", str(claim_id), 1)]
+    assert metrics.values("BedrockInputTokens") == [("review", str(claim_id), 30000)]
+
+
+async def test_an_error_is_counted_as_failed_only_on_the_last_delivery(
+    db_session: AsyncSession, review_settings: ReviewWorkerSettings
+) -> None:
+    claim_id = await extracted_claim(db_session, "D01")
+    metrics = RecordingMetrics()
+    worker, _ = make_worker(
+        db_session,
+        review_settings,
+        FakeReviewQueue(),
+        RuntimeError("Bedrock down"),
+        metrics=metrics,
+    )
+    last = review_settings.review_max_receives
+
+    for receive_count in range(1, last):
+        await worker.handle_message(request(claim_id, receive_count=receive_count))
+        assert metrics.values("ClaimsFailed") == []
+    await worker.handle_message(request(claim_id, receive_count=last))
+
+    assert metrics.values("ClaimsFailed") == [("review", str(claim_id), 1)]
+    assert metrics.values("BedrockInputTokens") == []
+
+
+async def test_a_claim_that_is_not_extracted_counts_nothing(
+    db_session: AsyncSession, review_settings: ReviewWorkerSettings
+) -> None:
+    claim_id = await extracted_claim(db_session, "D01", status=S.FAILED)
+    metrics = RecordingMetrics()
+    worker, _ = make_worker(
+        db_session, review_settings, FakeReviewQueue(), valid(), metrics=metrics
+    )
+
+    await worker.handle_message(request(claim_id))
+
+    assert metrics.lines() == []
+
+
+async def test_tokens_of_a_failed_bedrock_run_are_recorded_before_the_retry(
+    db_session: AsyncSession, review_settings: ReviewWorkerSettings
+) -> None:
+    claim_id = await extracted_claim(db_session, "D01")
+    queue = FakeReviewQueue()
+    metrics = RecordingMetrics()
+    worker, _ = make_worker(
+        db_session,
+        review_settings,
+        queue,
+        BedrockRunError(TokenUsage(20000, 1500)),
+        metrics=metrics,
+    )
+
+    await worker.handle_message(request(claim_id))
+
+    assert metrics.values("BedrockInputTokens") == [("review", str(claim_id), 20000)]
+    assert metrics.values("ClaimsFailed") == []
+    assert queue.deleted == []

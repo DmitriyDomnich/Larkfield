@@ -13,3 +13,7 @@ output "worker_policy_arn" {
 output "api_policy_arn" {
   value = aws_iam_policy.api.arn
 }
+
+output "dlq_name" {
+  value = aws_sqs_queue.review_dlq.name
+}

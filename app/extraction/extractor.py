@@ -1,13 +1,14 @@
 import asyncio
 import logging
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Protocol
 
 import boto3
 from botocore.config import Config
 from pydantic import ValidationError
 
+from app.core.metrics import BedrockRunError, TokenUsage
 from app.extraction.pages import PageImage
 from app.extraction.prompts import (
     NO_TOOL_FEEDBACK,
@@ -34,6 +35,7 @@ MAX_REASON_CHARS = 300
 class ValidExtraction:
     expense: ExtractedExpense
     model: str
+    usage: TokenUsage = field(default=TokenUsage(), compare=False)
 
 
 @dataclass(frozen=True)
@@ -41,6 +43,7 @@ class UnreadableDocument:
     """`reason` is for the employee."""
 
     reason: str
+    usage: TokenUsage = field(default=TokenUsage(), compare=False)
 
 
 @dataclass(frozen=True)
@@ -48,6 +51,7 @@ class InvalidExtraction:
     """No valid ExtractedExpense after every attempt; `errors` is for the log."""
 
     errors: str
+    usage: TokenUsage = field(default=TokenUsage(), compare=False)
 
 
 ExtractionOutcome = ValidExtraction | UnreadableDocument | InvalidExtraction
@@ -77,10 +81,15 @@ class BedrockExtractor:
         messages: list[Mapping[str, Any]] = [{"role": "user", "content": content}]
 
         errors = ""
+        total_usage = TokenUsage()
         for attempt in range(1, MAX_EXTRACTION_ATTEMPTS + 1):
-            response = await asyncio.to_thread(self._call_converse, messages)
+            try:
+                response = await asyncio.to_thread(self._call_converse, messages)
+            except Exception as exc:
+                raise BedrockRunError(total_usage) from exc
             message = response["output"]["message"]
             usage = response["usage"]
+            total_usage += TokenUsage(usage["inputTokens"], usage["outputTokens"])
             logger.info(
                 "extraction attempt %d: stop=%s input_tokens=%d output_tokens=%d",
                 attempt,
@@ -100,11 +109,15 @@ class BedrockExtractor:
             else:
                 used_tool = tool_uses[0]
                 if used_tool["name"] == REPORT_UNREADABLE:
-                    return UnreadableDocument(_clean_unreadable_reason(used_tool["input"]))
+                    return UnreadableDocument(
+                        _clean_unreadable_reason(used_tool["input"]), total_usage
+                    )
                 if used_tool["name"] == RECORD_EXPENSE:
                     try:
                         return ValidExtraction(
-                            ExtractedExpense.model_validate(used_tool["input"]), self._model
+                            ExtractedExpense.model_validate(used_tool["input"]),
+                            self._model,
+                            total_usage,
                         )
                     except ValidationError as exc:
                         errors = _describe_validation_errors(exc)
@@ -115,7 +128,7 @@ class BedrockExtractor:
             logger.info("extraction attempt %d invalid: %s", attempt, errors)
             messages.append(message)
             messages.append({"role": "user", "content": feedback})
-        return InvalidExtraction(errors)
+        return InvalidExtraction(errors, total_usage)
 
     def _call_converse(self, messages: list[Mapping[str, Any]]) -> Any:
         return self._client.converse(

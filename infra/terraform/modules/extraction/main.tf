@@ -45,6 +45,7 @@ resource "aws_sqs_queue_policy" "extraction" {
 
 resource "aws_iam_policy" "worker" {
   name = "${var.project_name}-extraction-worker"
+  path = var.iam_path
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [

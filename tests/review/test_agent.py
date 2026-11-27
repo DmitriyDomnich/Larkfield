@@ -6,6 +6,7 @@ from decimal import Decimal
 
 import pytest
 
+from app.core.metrics import BedrockRunError, TokenUsage
 from app.review.agent import (
     NoValidProposal,
     StrandsReviewAgent,
@@ -77,6 +78,8 @@ async def test_the_agent_consults_the_tools_and_returns_a_valid_proposal() -> No
     assert outcome.proposal.reasons[0].clause_id == "2.1"
     assert outcome.model == MODEL_NAME
     assert outcome.retrieved_clauses == ["FAQ-13", "2.1", "1.2"]
+    # the tokens of all 4 model calls
+    assert outcome.usage == TokenUsage(40, 20)
 
     search, clause, duplicates = model.tool_results()
     faq, clause_2_1 = json.loads(search)
@@ -183,6 +186,7 @@ async def test_no_valid_proposal_within_the_turn_limit() -> None:
     assert isinstance(outcome, NoValidProposal)
     assert "limit_turns" in outcome.detail
     assert len(model.calls) == 3
+    assert outcome.usage == TokenUsage(30, 15)
 
 
 @pytest.mark.parametrize("failing_turn", [SEARCH, (GET_CLAUSE_TOOL, {"clause_id": "2.1"})])
@@ -193,10 +197,11 @@ async def test_a_failing_knowledge_base_stops_the_review(failing_turn: Turn) -> 
         retriever=FakeRetriever(error=RuntimeError("throttled")),
     )
 
-    with pytest.raises(ToolFailedError):
+    with pytest.raises(ToolFailedError) as raised:
         await agent.review(claim_for_case("D01"))
 
     assert len(model.calls) == 1
+    assert raised.value.usage == TokenUsage(10, 5)
 
 
 async def test_a_failing_claims_history_stops_the_review() -> None:
@@ -401,3 +406,14 @@ async def test_every_tool_call_is_logged_with_what_it_found(
         prefix + f"find_duplicate_claims() found ['{earlier}']",
         prefix + "get_training_spend() found 1 claims, total 120.00 EUR",
     ]
+
+
+async def test_a_failing_model_call_reports_the_tokens_the_earlier_turns_spent() -> None:
+    # the scripted model raises when called a second time
+    agent, model = make_agent(SEARCH)
+
+    with pytest.raises(BedrockRunError) as raised:
+        await agent.review(claim_for_case("D01"))
+
+    assert len(model.calls) == 2
+    assert raised.value.usage == TokenUsage(10, 5)

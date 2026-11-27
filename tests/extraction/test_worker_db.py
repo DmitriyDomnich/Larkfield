@@ -15,6 +15,7 @@ from sqlalchemy.orm import selectinload
 from app.claims.models import Claim, Document
 from app.claims.service import transition
 from app.claims.status import ClaimStatus
+from app.core.metrics import BedrockRunError, TokenUsage
 from app.extraction.extractor import (
     ExtractionOutcome,
     InvalidExtraction,
@@ -31,6 +32,7 @@ from app.extraction.service import (
 from app.extraction.settings import WorkerSettings
 from app.extraction.worker import ExtractionWorker
 from tests.claims.fakes import EXE, FakeStorage
+from tests.core.fakes import RecordingMetrics
 from tests.extraction.fakes import FakeExtractor, FakeQueue, document_bytes, expense
 from tests.notifications.fakes import FakeNotificationService
 from tests.review.fakes import FakeReviewQueue
@@ -63,6 +65,7 @@ def make_worker(
     *outcomes: ExtractionOutcome | Exception,
     reviews: FakeReviewQueue | None = None,
     notification_service: FakeNotificationService | None = None,
+    metrics: RecordingMetrics | None = None,
 ) -> tuple[ExtractionWorker, FakeExtractor]:
     @asynccontextmanager
     async def sessions() -> AsyncIterator[AsyncSession]:
@@ -72,7 +75,14 @@ def make_worker(
     reviews = reviews or FakeReviewQueue()
     notification_service = notification_service or FakeNotificationService()
     worker = ExtractionWorker(
-        settings, queue, sessions, storage, extractor, reviews, notification_service
+        settings,
+        queue,
+        sessions,
+        storage,
+        extractor,
+        reviews,
+        notification_service,
+        metrics or RecordingMetrics(),
     )
     return worker, extractor
 
@@ -706,3 +716,133 @@ async def test_a_failed_email_send_still_finishes_the_message(
 
     assert (await claim_of(db_session, document)).status is ClaimStatus.FAILED
     assert queue.deleted == ["handle-1"]
+
+
+@pytest.mark.parametrize(
+    "outcome",
+    [
+        UnreadableDocument("the total is cut off", TokenUsage(4000, 600)),
+        InvalidExtraction("total: Input should be > 0", TokenUsage(8000, 1200)),
+    ],
+    ids=["unreadable", "invalid"],
+)
+async def test_a_claim_the_extraction_fails_is_counted_once_with_its_tokens(
+    db_session: AsyncSession,
+    storage: FakeStorage,
+    queue: FakeQueue,
+    worker_settings: WorkerSettings,
+    outcome: UnreadableDocument | InvalidExtraction,
+) -> None:
+    document = await uploaded_file(db_session, storage, document_bytes("D01.pdf"))
+    metrics = RecordingMetrics()
+    worker, _ = make_worker(db_session, worker_settings, queue, storage, outcome, metrics=metrics)
+
+    await worker.handle_message(event(document))
+
+    claim_id = str(document.claim_id)
+    assert metrics.values("ClaimsFailed") == [("extraction", claim_id, 1)]
+    assert metrics.values("BedrockInputTokens") == [
+        ("extraction", claim_id, outcome.usage.input_tokens)
+    ]
+    assert metrics.values("BedrockOutputTokens") == [
+        ("extraction", claim_id, outcome.usage.output_tokens)
+    ]
+
+
+async def test_an_extracted_claim_records_its_tokens_once_and_no_failure(
+    db_session: AsyncSession,
+    storage: FakeStorage,
+    queue: FakeQueue,
+    worker_settings: WorkerSettings,
+) -> None:
+    document = await uploaded_file(db_session, storage, document_bytes("D01.pdf"))
+    metrics = RecordingMetrics()
+    extracted = ValidExtraction(expense("D01"), MODEL, TokenUsage(4000, 600))
+    worker, extractor = make_worker(
+        db_session, worker_settings, queue, storage, extracted, metrics=metrics
+    )
+    uploaded = UploadedObject(document.s3_key, document.version_id)
+
+    await worker.handle_message(UploadMessage("first", [uploaded], 1))
+    await worker.handle_message(UploadMessage("duplicate", [uploaded], 1))
+
+    assert len(extractor.calls) == 1
+    claim_id = str(document.claim_id)
+    assert metrics.values("BedrockInputTokens") == [("extraction", claim_id, 4000)]
+    assert metrics.values("BedrockOutputTokens") == [("extraction", claim_id, 600)]
+    assert metrics.values("ClaimsFailed") == []
+
+
+async def test_a_rejected_upload_is_counted_as_failed_without_tokens(
+    db_session: AsyncSession,
+    storage: FakeStorage,
+    queue: FakeQueue,
+    worker_settings: WorkerSettings,
+) -> None:
+    document = await uploaded_file(db_session, storage, EXE)
+    metrics = RecordingMetrics()
+    worker, _ = make_worker(
+        db_session,
+        worker_settings,
+        queue,
+        storage,
+        ValidExtraction(expense("D01"), MODEL),
+        metrics=metrics,
+    )
+
+    await worker.handle_message(event(document))
+
+    assert metrics.values("ClaimsFailed") == [("extraction", str(document.claim_id), 1)]
+    assert metrics.values("BedrockInputTokens") == []
+
+
+async def test_an_error_is_counted_as_failed_only_on_the_last_delivery(
+    db_session: AsyncSession,
+    storage: FakeStorage,
+    queue: FakeQueue,
+    worker_settings: WorkerSettings,
+) -> None:
+    document = await uploaded_file(db_session, storage, document_bytes("D01.pdf"))
+    metrics = RecordingMetrics()
+    worker, _ = make_worker(
+        db_session,
+        worker_settings,
+        queue,
+        storage,
+        RuntimeError("Bedrock is down"),
+        metrics=metrics,
+    )
+    last = worker_settings.extraction_max_receives
+
+    for receive_count in range(1, last):
+        await worker.handle_message(event(document, receive_count=receive_count))
+        assert metrics.values("ClaimsFailed") == []
+    await worker.handle_message(event(document, receive_count=last))
+
+    assert metrics.values("ClaimsFailed") == [("extraction", str(document.claim_id), 1)]
+    assert metrics.values("BedrockInputTokens") == []
+
+
+async def test_tokens_of_a_failed_bedrock_run_are_recorded_before_the_retry(
+    db_session: AsyncSession,
+    storage: FakeStorage,
+    queue: FakeQueue,
+    worker_settings: WorkerSettings,
+) -> None:
+    document = await uploaded_file(db_session, storage, document_bytes("D01.pdf"))
+    metrics = RecordingMetrics()
+    worker, _ = make_worker(
+        db_session,
+        worker_settings,
+        queue,
+        storage,
+        BedrockRunError(TokenUsage(4000, 600)),
+        metrics=metrics,
+    )
+
+    await worker.handle_message(event(document))
+
+    claim_id = str(document.claim_id)
+    assert metrics.values("BedrockInputTokens") == [("extraction", claim_id, 4000)]
+    assert metrics.values("ClaimsFailed") == []
+    assert queue.deleted == []

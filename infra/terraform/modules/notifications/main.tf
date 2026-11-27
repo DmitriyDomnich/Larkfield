@@ -1,17 +1,27 @@
+data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
+
 locals {
   recipient_emails = setsubtract(toset(var.recipient_emails), [var.sender_email])
-  identity_arns = concat(
-    [aws_sesv2_email_identity.sender.arn],
-    [for identity in aws_sesv2_email_identity.recipient : identity.arn],
-  )
+  identity_arns = [
+    for email in concat([var.sender_email], tolist(local.recipient_emails)) :
+    "arn:aws:ses:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:identity/${email}"
+  ]
 }
 
+# identities belong to the account, not an environment: dev creates them, prod sends from them
 resource "aws_sesv2_email_identity" "sender" {
+  count          = var.manage_email_identities ? 1 : 0
   email_identity = var.sender_email
 }
 
+moved {
+  from = aws_sesv2_email_identity.sender
+  to   = aws_sesv2_email_identity.sender[0]
+}
+
 resource "aws_sesv2_email_identity" "recipient" {
-  for_each       = local.recipient_emails
+  for_each       = var.manage_email_identities ? local.recipient_emails : toset([])
   email_identity = each.value
 }
 
@@ -42,7 +52,9 @@ data "archive_file" "send_notification" {
 }
 
 resource "aws_iam_role" "send_notification" {
-  name = "${var.project_name}-send-notification"
+  name                 = "${var.project_name}-send-notification"
+  path                 = var.iam_path
+  permissions_boundary = var.permissions_boundary_arn
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -119,6 +131,7 @@ resource "aws_lambda_event_source_mapping" "notifications" {
 # the API and workers enqueue notifications (NOTIFICATION_QUEUE_URL)
 resource "aws_iam_policy" "sender" {
   name = "${var.project_name}-notification-sender"
+  path = var.iam_path
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{

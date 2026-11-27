@@ -5,6 +5,7 @@ import boto3
 import pytest
 from botocore.stub import Stubber
 
+from app.core.metrics import BedrockRunError, TokenUsage
 from app.extraction.extractor import (
     BedrockExtractor,
     InvalidExtraction,
@@ -107,6 +108,7 @@ async def test_valid_answer_is_the_extracted_expense(
     assert outcome == ValidExtraction(
         ExtractedExpense.model_validate(label("D01")), worker_settings.bedrock_model_id
     )
+    assert outcome.usage == TokenUsage(4000, 600)
 
 
 async def test_answer_with_an_injection_line_validates(
@@ -144,6 +146,8 @@ async def test_invalid_answer_is_retried_once_with_the_errors(
 
     assert isinstance(outcome, ValidExtraction)
     assert outcome.expense.total == ExtractedExpense.model_validate(label("D01")).total
+    # both attempts' tokens count for the claim
+    assert outcome.usage == TokenUsage(8000, 1200)
 
 
 async def test_invalid_twice_is_invalid(stubbed: tuple[BedrockExtractor, Stubber]) -> None:
@@ -157,6 +161,7 @@ async def test_invalid_twice_is_invalid(stubbed: tuple[BedrockExtractor, Stubber
     assert outcome == InvalidExtraction(
         "expense: Value error, line_items may be empty only for a card_slip"
     )
+    assert outcome.usage == TokenUsage(8000, 1200)
 
 
 async def test_answer_without_a_tool_call_is_asked_again(
@@ -227,3 +232,17 @@ async def test_unreadable_reason_is_tidied_for_the_employee(
     stubber.add_response("converse", answer(tool_use("report_unreadable", {"reason": reason})))
 
     assert await extractor.extract_expense(PAGES) == UnreadableDocument(expected)
+
+
+async def test_a_failing_call_reports_the_tokens_the_earlier_attempts_spent(
+    stubbed: tuple[BedrockExtractor, Stubber],
+) -> None:
+    extractor, stubber = stubbed
+    stubber.add_response("converse", answer({"text": "Here it is."}))
+    stubber.add_client_error("converse", service_error_code="ThrottlingException")
+
+    with pytest.raises(BedrockRunError) as raised:
+        await extractor.extract_expense(PAGES)
+
+    assert raised.value.usage == TokenUsage(4000, 600)
+    assert "ThrottlingException" in str(raised.value.__cause__)
