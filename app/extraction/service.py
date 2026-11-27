@@ -30,7 +30,7 @@ from app.extraction.extractor import (
 from app.extraction.models import Extraction, ExtractionLineItem
 from app.extraction.pages import UnusableFileError, document_to_images
 from app.extraction.queue import UploadedObject
-from app.extraction.schemas import expense_warnings
+from app.extraction.schemas import validate_expense_warnings
 
 logger = logging.getLogger(__name__)
 
@@ -168,11 +168,12 @@ async def _store_extraction(
     )
     if existing is None:
         expense = result.expense
+        warnings = validate_expense_warnings(expense, today)
         session.add(
             Extraction(
                 document_id=document.id,
                 **expense.model_dump(exclude={"line_items"}),
-                warnings=[warning.model_dump() for warning in expense_warnings(expense, today)],
+                warnings=[warning.model_dump() for warning in warnings],
                 ai_model=result.model,
                 line_items=[
                     ExtractionLineItem(position=position, **item.model_dump())

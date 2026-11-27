@@ -1,8 +1,8 @@
 import uuid
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Self
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 from app.claims.files import MAX_FILE_BYTES, ContentType
 from app.claims.status import ClaimStatus
@@ -70,6 +70,22 @@ class UploadForm(BaseModel):
 class ClaimCreated(BaseModel):
     claim: ClaimRead
     upload: UploadForm
+
+
+class ClaimListQuery(BaseModel):
+    status: list[ClaimStatus] = []
+    submitted_after: AwareDatetime | None = Field(default=None, description="Inclusive")
+    submitted_before: AwareDatetime | None = Field(default=None, description="Exclusive")
+    employee_sub: Annotated[str, StringConstraints(min_length=1, max_length=128)] | None = None
+    limit: Annotated[int, Field(ge=1, le=100)] = 20
+    offset: Annotated[int, Field(ge=0)] = 0
+
+    @model_validator(mode="after")
+    def _range_is_not_reversed(self) -> Self:
+        after, before = self.submitted_after, self.submitted_before
+        if after is not None and before is not None and after > before:
+            raise ValueError("submitted_after must not be later than submitted_before")
+        return self
 
 
 class ClaimPage(BaseModel):

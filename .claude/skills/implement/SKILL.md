@@ -14,8 +14,9 @@ never stage, commit, push or create branches.
 ## 1. Start
 - This should run in a fresh session, with only the spec as context. If this conversation already
   holds other work, tell the developer to start a new session and stop.
-- Read `CLAUDE.md` and the spec. If the spec has an unanswered question, an empty "How" or "Tested
-  by", or contradicts the code, stop and say what is missing (`/spec TNN` fixes it).
+- Read `CLAUDE.md` and the spec. If the spec has an unanswered question, an empty "How", "Tested
+  by" or "Browser", an `E2E n` with no scenario n under `## E2E scenarios`, or contradicts the
+  code, stop and say what is missing (`/spec TNN` fixes it).
 - `git status` and `git branch --show-current`: the branch should be `feature/TNN-<slug>` and the
   tree clean. If not, tell the developer and stop; don't create the branch.
 
@@ -51,12 +52,17 @@ behave as assumed, a criterion that can't be tested as written):
 - Stop and explain the problem with the evidence. Propose the spec change; don't decide it alone.
 - Once agreed, update the spec (decisions, criteria table, Known gaps), then re-plan the unticked
   slices. Ticked slices stay as they are; fixes to them go in a new slice.
+- If the build turns up a risk the E2E scenarios miss (a state the UI could mishandle, a request
+  that shouldn't happen), add its scenario to `## E2E scenarios` and its `E2E n` to the criterion's
+  "Browser" cell, and tell the developer.
 
 ## 5. Finish
 - Every slice ticked, every acceptance-criteria row has passing tests, `make check` green.
 - Fill the spec's Testing → Manual line with the end-to-end check the developer should run, and
   ask them for the result if it belongs in the spec's Results.
-- Tell the developer the next steps: `/code-review` on the branch, fix its findings in a final
-  slice, then `/pr`.
+- Tell the developer the next steps: `/e2e TNN` if the spec has E2E scenarios (its FAILs are fixed
+  in a new slice here, each with the test that catches it, then `/e2e TNN` again), `/code-review`
+  on the branch, fix its findings in a final slice (re-run `/e2e TNN` if the fixes touch a page),
+  then `/pr`.
 
 Never stage, commit or push.

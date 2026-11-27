@@ -37,6 +37,27 @@ describe("ProposalPanel", () => {
     );
   });
 
+  it("says which corrected fields the proposal did not see", async () => {
+    mockReview([makeRound()]);
+
+    renderWithClient(<ProposalPanel claim={makeClaim()} correctedSinceProposal={["Category", "Total"]} />);
+
+    expect(
+      await screen.findByText(
+        "This proposal was made on the values before your corrections (Category, Total) — check its reasons.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("shows no notice without corrections since the proposal", async () => {
+    mockReview([makeRound()]);
+
+    renderWithClient(<ProposalPanel claim={makeClaim()} correctedSinceProposal={[]} />);
+
+    expect(await screen.findByText("Clause 3.1")).toBeInTheDocument();
+    expect(screen.queryByText(/before your corrections/)).not.toBeInTheDocument();
+  });
+
   it("renders model-written quotes and explanations as text, never as HTML", async () => {
     mockReview([
       makeRound({

@@ -76,7 +76,7 @@ def items_include_tax(expense: ExtractedExpense) -> bool:
     return abs(gross - expense.total) <= SUM_TOLERANCE
 
 
-def expense_warnings(expense: ExtractedExpense, today: date) -> list[ExpenseWarning]:
+def validate_expense_warnings(expense: ExtractedExpense, today: date) -> list[ExpenseWarning]:
     warnings: list[ExpenseWarning] = []
     # A card slip has no items
     if expense.line_items and not items_include_tax(expense):

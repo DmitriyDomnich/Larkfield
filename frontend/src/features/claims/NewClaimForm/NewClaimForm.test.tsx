@@ -31,12 +31,25 @@ function mockCreateClaim() {
   return bodies;
 }
 
+// The bucket's CORS rule: the XHR upload reads the response and, with a progress listener,
+// sends a preflight first
+const S3_CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST",
+  "Access-Control-Allow-Headers": "*",
+};
+
+function allowS3Preflight() {
+  server.use(s3Http.options(UPLOAD_URL, () => new HttpResponse(null, { headers: S3_CORS })));
+}
+
 function mockS3(status = 204) {
   const fieldOrder: string[][] = [];
+  allowS3Preflight();
   server.use(
     s3Http.post(UPLOAD_URL, async ({ request }) => {
       fieldOrder.push([...(await request.formData()).keys()]);
-      return new HttpResponse(null, { status });
+      return new HttpResponse(null, { status, headers: S3_CORS });
     }),
   );
   return fieldOrder;
@@ -74,17 +87,52 @@ describe("NewClaimForm", () => {
     expect(bodies).toEqual([]);
   });
 
-  it("refuses a file over 10 MB", async () => {
-    const user = userEvent.setup();
+  it.each([
+    ["an unsupported type", new File(["GIF89a"], "photo.gif", { type: "image/gif" }), "Upload a PDF, JPEG or PNG file."],
+    [
+      "a file over 10 MB",
+      new File([new Uint8Array(10 * 1024 * 1024 + 1)], "scan.pdf", { type: "application/pdf" }),
+      "The file must be 10 MB or smaller.",
+    ],
+    ["an empty file", new File([], "empty.pdf", { type: "application/pdf" }), "The file is empty."],
+  ])("refuses %s before any request", async (_, file, message) => {
+    const bodies = mockCreateClaim();
+    const fieldOrder = mockS3();
     renderWithClient(<NewClaimForm />);
-    const large = new File([new Uint8Array(10 * 1024 * 1024 + 1)], "scan.pdf", {
-      type: "application/pdf",
-    });
 
-    await user.upload(screen.getByLabelText(/Receipt or invoice/), large);
+    const user = await fillValidForm(userEvent.setup({ applyAccept: false }));
+    await user.upload(screen.getByLabelText(/Receipt or invoice/), file);
     await user.click(screen.getByRole("button", { name: "Submit claim" }));
 
-    expect(screen.getByText("The file must be 10 MB or smaller.")).toBeInTheDocument();
+    expect(screen.getByText(message)).toBeInTheDocument();
+    expect(bodies).toEqual([]);
+    expect(fieldOrder).toEqual([]);
+  });
+
+  it("shows the upload progress under the button while the file uploads", async () => {
+    mockCreateClaim();
+    let finishUpload: () => void = () => {};
+    allowS3Preflight();
+    server.use(
+      s3Http.post(UPLOAD_URL, async () => {
+        await new Promise<void>((resolve) => (finishUpload = resolve));
+        return new HttpResponse(null, { status: 204, headers: S3_CORS });
+      }),
+    );
+    renderWithClient(<NewClaimForm />);
+
+    const user = await fillValidForm();
+    await user.click(screen.getByRole("button", { name: "Submit claim" }));
+
+    const bar = await screen.findByRole("progressbar", { name: "Upload progress" });
+    expect(screen.getByText("Uploading the file… 0%")).toBeInTheDocument();
+    expect(bar).toHaveAttribute("aria-valuenow", "0");
+    expect(bar).not.toHaveAttribute("data-state", "indeterminate");
+    expect(bar.compareDocumentPosition(screen.getByRole("button", { name: "Submitting…" }))).toBe(
+      Node.DOCUMENT_POSITION_PRECEDING,
+    );
+    finishUpload();
+    await waitFor(() => expect(navigation.push).toHaveBeenCalledWith(`/claims/view?id=${CLAIM_ID}`));
   });
 
   it("creates the claim, posts the S3 form with the file last, then opens the claim", async () => {

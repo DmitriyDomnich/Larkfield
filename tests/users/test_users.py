@@ -1,7 +1,9 @@
+from collections.abc import Iterable
+
 import pytest
 from fastapi.testclient import TestClient
 
-from app.auth.cognito import UserNotFoundError
+from app.auth.cognito import DirectoryUser, UserNotFoundError
 from app.auth.dependencies import get_token_verifier, get_user_directory
 from app.auth.roles import Role
 from app.auth.tokens import InvalidTokenError
@@ -13,6 +15,7 @@ class FakeUserDirectory:
     def __init__(self) -> None:
         self.roles: dict[str, Role] = {"admin-1": Role.ADMIN, "user-1": Role.EMPLOYEE}
         self.revoked = False
+        self.listed_roles: list[Role] = []
 
     async def get_email(self, access_token: str) -> str:
         if self.revoked:
@@ -23,6 +26,14 @@ class FakeUserDirectory:
         if sub not in self.roles:
             raise UserNotFoundError(sub)
         self.roles[sub] = role
+
+    async def list_users_in_roles(self, roles: Iterable[Role]) -> list[DirectoryUser]:
+        self.listed_roles = list(roles)
+        return [
+            DirectoryUser("sub-z", "zoe@example.com"),
+            DirectoryUser("sub-a", "Adam@example.com"),
+            DirectoryUser("sub-m", "mia@example.com"),
+        ]
 
 
 @pytest.fixture
@@ -125,3 +136,26 @@ def test_role_change_refused(
 
     assert response.status_code == status
     assert directory.roles == before
+
+
+def test_reviewer_lists_claim_submitters_sorted_by_email(
+    client: TestClient, directory: FakeUserDirectory, settings: Settings
+) -> None:
+    response = client.get("/users", headers=bearer(settings, groups=["reviewer"]))
+
+    assert response.status_code == 200
+    assert response.json() == [
+        {"sub": "sub-a", "email": "Adam@example.com"},
+        {"sub": "sub-m", "email": "mia@example.com"},
+        {"sub": "sub-z", "email": "zoe@example.com"},
+    ]
+    assert directory.listed_roles == [Role.EMPLOYEE, Role.REVIEWER]
+
+
+@pytest.mark.parametrize("groups", [["employee"], ["admin"]], ids=["employee", "admin"])
+def test_only_reviewers_list_users(
+    client: TestClient, directory: FakeUserDirectory, settings: Settings, groups: list[str]
+) -> None:
+    assert client.get("/users", headers=bearer(settings, groups=groups)).status_code == 403
+    assert client.get("/users").status_code == 401
+    assert directory.listed_roles == []

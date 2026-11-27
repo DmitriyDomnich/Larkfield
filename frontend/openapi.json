@@ -63,6 +63,37 @@
         ]
       }
     },
+    "/users": {
+      "get": {
+        "tags": [
+          "users"
+        ],
+        "summary": "List the users who can submit claims",
+        "description": "Reviewers only. Employees and reviewers, sorted by email.",
+        "operationId": "list_users_users_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/UserRead"
+                  },
+                  "type": "array",
+                  "title": "Response List Users Users Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/users/{sub}/role": {
       "put": {
         "tags": [
@@ -191,7 +222,7 @@
           "claims"
         ],
         "summary": "List claims",
-        "description": "Employees see their own claims, reviewers all claims; newest first",
+        "description": "Employees see their own claims, reviewers all claims; newest first. `submitted_after` (inclusive) and `submitted_before` (exclusive) need a time zone.",
         "operationId": "list_claims_claims_get",
         "security": [
           {
@@ -204,18 +235,68 @@
             "in": "query",
             "required": false,
             "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/ClaimStatus"
+              },
+              "default": [],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "submitted_after",
+            "in": "query",
+            "required": false,
+            "schema": {
               "anyOf": [
                 {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ClaimStatus"
-                  }
+                  "type": "string",
+                  "format": "date-time"
                 },
                 {
                   "type": "null"
                 }
               ],
-              "title": "Status"
+              "description": "Inclusive",
+              "title": "Submitted After"
+            },
+            "description": "Inclusive"
+          },
+          {
+            "name": "submitted_before",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Exclusive",
+              "title": "Submitted Before"
+            },
+            "description": "Exclusive"
+          },
+          {
+            "name": "employee_sub",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Employee Sub"
             }
           },
           {
@@ -609,7 +690,7 @@
             }
           },
           "422": {
-            "description": "Invalid request, or a comment is missing where one is required",
+            "description": "Invalid request, a comment is missing where one is required, or the corrections do not make a valid expense",
             "content": {
               "application/json": {
                 "schema": {
@@ -708,7 +789,7 @@
             }
           },
           "422": {
-            "description": "Invalid request, or a comment is missing where one is required",
+            "description": "Invalid request, a comment is missing where one is required, or the corrections do not make a valid expense",
             "content": {
               "application/json": {
                 "schema": {
@@ -2056,6 +2137,24 @@
         ],
         "title": "UploadForm",
         "description": "POST to `url` as multipart/form-data: every entry of `fields`, then `file` last."
+      },
+      "UserRead": {
+        "properties": {
+          "sub": {
+            "type": "string",
+            "title": "Sub"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sub",
+          "email"
+        ],
+        "title": "UserRead"
       },
       "ValidationError": {
         "properties": {

@@ -90,31 +90,36 @@ export function makeRound(changes: Partial<ReviewRound> = {}): ReviewRound {
   return { proposal_id: proposal?.id ?? "77777777-7777-4777-8777-777777777777", proposal, decision: null, answer: null, ...changes };
 }
 
-export function mockExtraction() {
+type ExtractionRead = components["schemas"]["ExtractionRead"];
+
+export function makeExtraction(changes: Partial<ExtractionRead> = {}): ExtractionRead {
+  return {
+    document_type: "receipt",
+    vendor_name: "Trattoria Roma",
+    vendor_tax_id: null,
+    document_number: "R-2041",
+    document_date: "2026-11-09",
+    document_time: "20:15:00",
+    currency: "EUR",
+    line_items: [
+      { description: "Menu del giorno", quantity: "2", unit_price: "45.0000", amount: "90.00" },
+    ],
+    subtotal: "90.00",
+    tax_amount: "9.00",
+    tip_amount: null,
+    total: "120.00",
+    category: "client_entertainment",
+    warnings: [
+      { code: "sum_mismatch", message: "Items, tax and tip add up to 99.00, the total is 120.00" },
+    ],
+    ai_model: "eu.anthropic.test-model",
+    created_at: "2026-11-10T09:02:00Z",
+    ...changes,
+  };
+}
+
+export function mockExtraction(extraction: ExtractionRead = makeExtraction()) {
   server.use(
-    http.get("/claims/{claim_id}/extraction", ({ response }) =>
-      response(200).json({
-        document_type: "receipt",
-        vendor_name: "Trattoria Roma",
-        vendor_tax_id: null,
-        document_number: "R-2041",
-        document_date: "2026-11-09",
-        document_time: "20:15:00",
-        currency: "EUR",
-        line_items: [
-          { description: "Menu del giorno", quantity: "2", unit_price: "45.0000", amount: "90.00" },
-        ],
-        subtotal: "90.00",
-        tax_amount: "9.00",
-        tip_amount: null,
-        total: "120.00",
-        category: "client_entertainment",
-        warnings: [
-          { code: "sum_mismatch", message: "Items, tax and tip add up to 99.00, the total is 120.00" },
-        ],
-        ai_model: "eu.anthropic.test-model",
-        created_at: "2026-11-10T09:02:00Z",
-      }),
-    ),
+    http.get("/claims/{claim_id}/extraction", ({ response }) => response(200).json(extraction)),
   );
 }

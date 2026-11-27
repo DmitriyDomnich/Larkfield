@@ -26,6 +26,7 @@ beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
 afterEach(() => {
   server.resetHandlers();
   cleanup();
+  sessionStorage.clear();
   vi.resetAllMocks();
 });
 afterAll(() => server.close());

@@ -4,7 +4,7 @@ import { api } from "@/api/client";
 import { unwrap } from "@/api/errors";
 import type { Attendee, FileContentType } from "@/api/types";
 
-import { uploadToS3 } from "../uploadToS3";
+import { uploadToS3, type UploadProgressListener } from "../uploadToS3";
 
 export type NewClaim = {
   purpose: string;
@@ -14,7 +14,7 @@ export type NewClaim = {
   contentType: FileContentType;
 };
 
-export function useSubmitClaim() {
+export function useSubmitClaim(onUploadProgress?: UploadProgressListener) {
   return useMutation({
     mutationFn: async ({ file, contentType, ...details }: NewClaim) => {
       const createdClaim = await unwrap(
@@ -25,7 +25,7 @@ export function useSubmitClaim() {
           },
         }),
       );
-      await uploadToS3(createdClaim.upload, file);
+      await uploadToS3(createdClaim.upload, file, onUploadProgress);
       return createdClaim.claim.id;
     },
   });

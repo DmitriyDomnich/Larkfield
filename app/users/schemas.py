@@ -16,3 +16,8 @@ class RoleUpdate(BaseModel):
 class RoleResponse(BaseModel):
     sub: str
     role: Role
+
+
+class UserRead(BaseModel):
+    sub: str
+    email: str

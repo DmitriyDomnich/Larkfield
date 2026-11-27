@@ -5,7 +5,7 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from app.extraction.schemas import ExtractedExpense, expense_warnings
+from app.extraction.schemas import ExtractedExpense, validate_expense_warnings
 
 TODAY = date(2026, 10, 30)
 
@@ -87,7 +87,7 @@ def test_card_slip_may_have_no_items() -> None:
     expense = ExtractedExpense.model_validate(slip)
 
     assert expense.line_items == []
-    assert expense_warnings(expense, TODAY) == []
+    assert validate_expense_warnings(expense, TODAY) == []
 
 
 @pytest.mark.parametrize(
@@ -101,7 +101,7 @@ def test_card_slip_may_have_no_items() -> None:
     ],
 )
 def test_amounts_that_add_up_give_no_warning(data: dict[str, Any]) -> None:
-    assert expense_warnings(ExtractedExpense.model_validate(data), TODAY) == []
+    assert validate_expense_warnings(ExtractedExpense.model_validate(data), TODAY) == []
 
 
 @pytest.mark.parametrize(
@@ -113,7 +113,7 @@ def test_amounts_that_add_up_give_no_warning(data: dict[str, Any]) -> None:
     ],
 )
 def test_amounts_that_do_not_add_up_warn(data: dict[str, Any]) -> None:
-    warnings = expense_warnings(ExtractedExpense.model_validate(data), TODAY)
+    warnings = validate_expense_warnings(ExtractedExpense.model_validate(data), TODAY)
 
     assert [w.code for w in warnings] == ["sum_mismatch"]
 
@@ -121,11 +121,11 @@ def test_amounts_that_do_not_add_up_warn(data: dict[str, Any]) -> None:
 def test_future_document_date_warns() -> None:
     expense = ExtractedExpense.model_validate(receipt(document_date="2026-10-31"))
 
-    assert [w.code for w in expense_warnings(expense, TODAY)] == ["future_date"]
-    assert expense_warnings(expense, date(2026, 10, 31)) == []
+    assert [w.code for w in validate_expense_warnings(expense, TODAY)] == ["future_date"]
+    assert validate_expense_warnings(expense, date(2026, 10, 31)) == []
 
 
 def test_unknown_currency_warns_but_is_valid() -> None:
     expense = ExtractedExpense.model_validate(receipt(currency="XYZ"))
 
-    assert [w.code for w in expense_warnings(expense, TODAY)] == ["unknown_currency"]
+    assert [w.code for w in validate_expense_warnings(expense, TODAY)] == ["unknown_currency"]

@@ -11,6 +11,7 @@ class Role(StrEnum):
 
 
 ASSIGNABLE_ROLES = frozenset({Role.EMPLOYEE, Role.REVIEWER})
+CLAIM_SUBMITTER_ROLES = (Role.EMPLOYEE, Role.REVIEWER)
 
 
 def role_from_groups(groups: Iterable[str]) -> Role | None:

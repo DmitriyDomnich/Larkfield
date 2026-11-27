@@ -1,11 +1,13 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { HttpResponse } from "msw";
+import { delay, HttpResponse } from "msw";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { GENERIC_ERROR } from "@/api/errors";
 import {
   makeClaim,
+  makeExtraction,
+  makeProposal,
   makeRound,
   mockClaim,
   mockExtraction,
@@ -13,18 +15,57 @@ import {
   mockMe,
   mockReview,
 } from "@/test/fixtures";
+import { useMe } from "@/features/auth/hooks/useMe";
 import { renderWithClient } from "@/test/render";
 import { http, server } from "@/test/server";
 
+import { rememberQueuePath } from "../queueReturnPath";
 import { ReviewClaim } from "./ReviewClaim";
 
-const navigation = vi.hoisted(() => ({ id: "11111111-1111-4111-8111-111111111111" }));
+const navigation = vi.hoisted(() => ({ id: "11111111-1111-4111-8111-111111111111", push: vi.fn() }));
 vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams({ id: navigation.id }),
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: navigation.push }),
 }));
 
 const FILE_URL = "https://documents.test/claims/receipt.pdf?signature=abc";
+
+function mockDecisions() {
+  const bodies: unknown[] = [];
+  server.use(
+    http.post("/claims/{claim_id}/decision", async ({ request, response }) => {
+      bodies.push(await request.json());
+      return response(201).json({
+        id: "44444444-4444-4444-8444-444444444444",
+        proposal_id: "66666666-6666-4666-8666-666666666666",
+        reviewer_sub: "reviewer-1",
+        decision: "approve",
+        comment: null,
+        corrected_fields: null,
+        created_at: "2026-11-11T10:00:00Z",
+      });
+    }),
+  );
+  return bodies;
+}
+
+function fieldRow(label: string) {
+  return screen.getByText(label, { selector: "dt, label" }).closest("div")!;
+}
+
+const EARLIER_ROUND = makeRound({
+  proposal_id: "55555555-5555-4555-8555-555555555555",
+  proposal: makeProposal({ id: "55555555-5555-4555-8555-555555555555", decision: "needs_info" }),
+  decision: {
+    id: "33333333-3333-4333-8333-333333333333",
+    proposal_id: "55555555-5555-4555-8555-555555555555",
+    reviewer_sub: "reviewer-1",
+    decision: "needs_info",
+    comment: "Who attended?",
+    corrected_fields: { total: "82.50" },
+    created_at: "2026-11-10T10:00:00Z",
+  },
+});
 
 function mockAllPanels() {
   mockMe("reviewer");
@@ -77,13 +118,176 @@ describe("ReviewClaim", () => {
     expect(screen.getByText("120.00 EUR")).toBeInTheDocument();
     expect(screen.getByText("Menu del giorno")).toBeInTheDocument();
     expect(screen.getByText("Client entertainment")).toBeInTheDocument();
-    expect(screen.getByText("Receipt R-2041")).toBeInTheDocument();
+    expect(screen.getByText("Receipt")).toBeInTheDocument();
+    expect(screen.getByText("R-2041")).toBeInTheDocument();
     expect(screen.getByText(/add up to 99.00, the total is 120.00/)).toBeInTheDocument();
     expect(
       await screen.findByText("Client meals are reimbursable up to EUR 80 per person."),
     ).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: "Save decision" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "← Review queue" })).toHaveAttribute("href", "/review");
+  });
+
+  it("links back to the queue with the filters it was left with", async () => {
+    mockAllPanels();
+    rememberQueuePath("status=all&employee=employee-2");
+
+    renderWithClient(<ReviewClaim />);
+
+    expect(await screen.findByRole("link", { name: "← Review queue" })).toHaveAttribute(
+      "href",
+      "/review?status=all&employee=employee-2",
+    );
+  });
+
+  it("returns to the filtered queue after saving, though the reloaded claim replaces the form", async () => {
+    mockAllPanels();
+    mockClaim(makeClaim(), makeClaim({ status: "approved" }));
+    mockDecisions();
+    // the reloaded extraction lands after the reloaded claim, as over a real network
+    let extractionCalls = 0;
+    server.use(
+      http.get("/claims/{claim_id}/extraction", async ({ response }) => {
+        extractionCalls += 1;
+        if (extractionCalls > 1) await delay(200);
+        return response(200).json(makeExtraction());
+      }),
+    );
+    rememberQueuePath("employee=employee-2");
+    const user = userEvent.setup();
+    renderWithClient(<ReviewClaim />);
+
+    await user.click(await screen.findByRole("button", { name: "Save decision" }));
+
+    expect(await screen.findByText(/This claim has already been decided/)).toBeInTheDocument();
+    await waitFor(() => expect(navigation.push).toHaveBeenCalledWith("/review?employee=employee-2"));
+  });
+
+  it("asks for the user and the review history once", async () => {
+    mockAllPanels();
+    const requests: string[] = [];
+    server.events.on("request:start", ({ request }) => {
+      requests.push(new URL(request.url).pathname);
+    });
+    // the app shell asks for the user before the page renders
+    function Shell() {
+      useMe();
+      return <ReviewClaim />;
+    }
+
+    renderWithClient(<Shell />);
+
+    expect(await screen.findByRole("button", { name: "Save decision" })).toBeInTheDocument();
+    await screen.findByText("Clause 3.1");
+    server.events.removeAllListeners("request:start");
+    expect(requests.filter((path) => path === "/me")).toHaveLength(1);
+    expect(requests.filter((path) => path.endsWith("/review"))).toHaveLength(1);
+  });
+
+  it("corrects fields, names them on the proposal and sends only them with the decision", async () => {
+    mockAllPanels();
+    const bodies = mockDecisions();
+    const user = userEvent.setup();
+    renderWithClient(<ReviewClaim />);
+
+    await user.click(await screen.findByRole("button", { name: "Edit fields" }));
+    await user.clear(screen.getByLabelText("Total"));
+    await user.type(screen.getByLabelText("Total"), "99.99");
+    await user.selectOptions(screen.getByLabelText("Category"), "Other");
+
+    expect(within(fieldRow("Total")).getByText("Corrected")).toBeInTheDocument();
+    expect(
+      screen.getByText(/made on the values before your corrections \(Category, Total\)/),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Save decision" }));
+
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies).toEqual([
+      { decision: "approve", comment: null, corrected_fields: { total: "99.99", category: "other" } },
+    ]);
+  });
+
+  it("sends nothing while a corrected field is invalid", async () => {
+    mockAllPanels();
+    const bodies = mockDecisions();
+    const user = userEvent.setup();
+    renderWithClient(<ReviewClaim />);
+
+    await user.click(await screen.findByRole("button", { name: "Edit fields" }));
+    await user.clear(screen.getByLabelText("Total"));
+    await user.type(screen.getByLabelText("Total"), "0");
+    await user.click(screen.getByRole("button", { name: "Save decision" }));
+
+    expect(within(fieldRow("Total")).getByText("The total must be more than 0.")).toBeInTheDocument();
+    expect(screen.getByText("Fix the corrected fields above before saving.")).toBeInTheDocument();
+    expect(bodies).toEqual([]);
+  });
+
+  it("starts a second round from the previous corrections and sends them again", async () => {
+    mockAllPanels();
+    mockReview([makeRound(), EARLIER_ROUND]);
+    const bodies = mockDecisions();
+    const user = userEvent.setup();
+    renderWithClient(<ReviewClaim />);
+
+    const total = await screen.findByText("82.50 EUR");
+    expect(within(fieldRow("Total")).getByText("Corrected")).toBeInTheDocument();
+    expect(within(fieldRow("Total")).getByText("120.00 EUR").tagName).toBe("S");
+    expect(total).toBeInTheDocument();
+    expect(screen.queryByText(/before your corrections/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Edit fields" }));
+    expect(screen.getByLabelText("Total")).toHaveValue("82.50");
+    await user.click(screen.getByRole("button", { name: "Save decision" }));
+
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies).toEqual([{ decision: "approve", comment: null, corrected_fields: { total: "82.50" } }]);
+  });
+
+  it("shows a decided claim's corrections without a form", async () => {
+    mockAllPanels();
+    mockClaim(makeClaim({ status: "approved" }));
+    mockExtraction(makeExtraction());
+    mockReview([
+      makeRound({
+        decision: { ...EARLIER_ROUND.decision!, decision: "approve", corrected_fields: { total: "99.99", category: "other" } },
+      }),
+    ]);
+
+    renderWithClient(<ReviewClaim />);
+
+    expect(await screen.findByText("99.99 EUR")).toBeInTheDocument();
+    expect(within(fieldRow("Category")).getByText("Corrected")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit fields" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    expect(screen.queryByText(/made on the values before your corrections/)).not.toBeInTheDocument();
+  });
+
+  it("reopens the fields with their errors when saving after Done editing left one invalid", async () => {
+    mockAllPanels();
+    const bodies = mockDecisions();
+    const user = userEvent.setup();
+    renderWithClient(<ReviewClaim />);
+
+    await user.click(await screen.findByRole("button", { name: "Edit fields" }));
+    await user.clear(screen.getByLabelText("Total"));
+    await user.type(screen.getByLabelText("Total"), "0");
+    await user.click(screen.getByRole("button", { name: "Done editing" }));
+    await user.click(screen.getByRole("button", { name: "Save decision" }));
+
+    expect(screen.getByLabelText("Total")).toHaveValue("0");
+    expect(within(fieldRow("Total")).getByText("The total must be more than 0.")).toBeInTheDocument();
+    expect(bodies).toEqual([]);
+  });
+
+  it("offers no editing on the reviewer's own claim", async () => {
+    mockAllPanels();
+    mockClaim(makeClaim({ employee_sub: "reviewer-1" }));
+
+    renderWithClient(<ReviewClaim />);
+
+    expect(await screen.findByText(/This is your own claim/)).toBeInTheDocument();
+    expect(await screen.findByText("Trattoria Roma")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit fields" })).not.toBeInTheDocument();
   });
 
   it("shows an image document as an image", async () => {
