@@ -34,7 +34,7 @@ resource "aws_iam_policy" "worker" {
       {
         Sid      = "ReceiveReviewRequests"
         Effect   = "Allow"
-        Action   = ["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:ChangeMessageVisibility"]
+        Action   = ["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:ChangeMessageVisibility", "sqs:SendMessage"]
         Resource = aws_sqs_queue.review.arn
       },
       {

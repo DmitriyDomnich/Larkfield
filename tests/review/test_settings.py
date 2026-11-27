@@ -21,3 +21,5 @@ def test_review_worker_limits_default() -> None:
     assert settings.review_max_receives == 3
     assert settings.review_max_turns == 12
     assert settings.review_max_proposal_attempts == 3
+    assert settings.review_resend_interval_seconds == 300
+    assert settings.review_resend_after_seconds == 900

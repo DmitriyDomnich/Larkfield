@@ -10,6 +10,8 @@ class ReviewWorkerSettings(Settings):
     review_max_receives: int = 3
     review_max_turns: int = 12
     review_max_proposal_attempts: int = 3
+    review_resend_interval_seconds: int = 300
+    review_resend_after_seconds: int = 900
 
 
 class ReviewToolsSettings(Settings):

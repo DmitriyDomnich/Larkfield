@@ -34,7 +34,7 @@ class ReviewRequests(Protocol):
     async def request_review(self, claim_id: uuid.UUID) -> None: ...
 
 
-class ReviewQueue(Protocol):
+class ReviewQueue(ReviewRequests, Protocol):
     async def receive_messages(self) -> list[ReviewMessage]:
         """Wait up to RECEIVE_WAIT_SECONDS for a message"""
         ...

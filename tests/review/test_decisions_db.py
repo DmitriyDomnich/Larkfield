@@ -1,6 +1,7 @@
 """Reviewer decisions, needs_info answers and the review history against a real PostgreSQL.
 SQS (notification_service, review requests) is faked."""
 
+import asyncio
 import logging
 import uuid
 from collections.abc import AsyncIterator, Sequence
@@ -541,6 +542,133 @@ async def test_the_agent_reviews_the_answered_claim_and_the_reviewer_decides_aga
     assert response.status_code == 201, response.text
     assert (await load_claim(db_session, claim_id)).status is S.APPROVED
     assert [sent.status for sent in notification_service.sent] == [S.NEEDS_INFO, S.APPROVED]
+
+
+# --- lost re-review requests ------------------------------------------------------------------
+
+
+def make_resending_worker(
+    db_session: AsyncSession, queue: FakeReviewQueue, *, resend_after_seconds: int
+) -> ReviewWorker:
+    @asynccontextmanager
+    async def sessions() -> AsyncIterator[AsyncSession]:
+        yield db_session
+
+    settings = ReviewWorkerSettings(review_resend_after_seconds=resend_after_seconds)
+    return ReviewWorker(settings, queue, sessions, FakeAgent(), FakeNotificationService())
+
+
+async def answer_with_a_lost_review_request(
+    db_session: AsyncSession,
+    api: AsyncClient,
+    reviewer: dict[str, str],
+    as_: Any,
+    review_requests: FakeReviewQueue,
+) -> uuid.UUID:
+    claim_id = await create_needs_info_claim(db_session, api, reviewer)
+    review_requests.request_error = RuntimeError("SQS unavailable")
+    response = await api.post(
+        f"/claims/{claim_id}/answer", json={"message": "Attendees added."}, headers=as_()
+    )
+    assert response.status_code == 201, response.text
+    review_requests.request_error = None
+    return claim_id
+
+
+async def test_the_worker_resends_a_lost_re_review_request_when_it_starts(
+    api: AsyncClient,
+    db_session: AsyncSession,
+    reviewer: dict[str, str],
+    as_: Any,
+    review_requests: FakeReviewQueue,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("app.review.queue.REVIEW_REQUEST_BACKOFF_SECONDS", 0)
+    claim_id = await answer_with_a_lost_review_request(
+        db_session, api, reviewer, as_, review_requests
+    )
+    first_review_pending = await extracted_claim(db_session, "D01")
+    queue = FakeReviewQueue()
+    worker = make_resending_worker(db_session, queue, resend_after_seconds=0)
+    stop = asyncio.Event()
+
+    async def receive_once() -> list[ReviewMessage]:
+        stop.set()
+        return []
+
+    queue.receive_messages = receive_once  # type: ignore[method-assign]
+
+    await worker.run(stop)
+
+    assert queue.requested == [claim_id]
+    assert first_review_pending not in queue.requested
+
+
+async def test_a_recent_answer_is_left_to_the_queue(
+    api: AsyncClient,
+    db_session: AsyncSession,
+    reviewer: dict[str, str],
+    as_: Any,
+    review_requests: FakeReviewQueue,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("app.review.queue.REVIEW_REQUEST_BACKOFF_SECONDS", 0)
+    await answer_with_a_lost_review_request(db_session, api, reviewer, as_, review_requests)
+    queue = FakeReviewQueue()
+    worker = make_resending_worker(db_session, queue, resend_after_seconds=900)
+
+    await worker.resend_lost_review_requests()
+
+    assert queue.requested == []
+
+
+async def test_a_re_reviewed_claim_is_not_resent(
+    api: AsyncClient,
+    db_session: AsyncSession,
+    reviewer: dict[str, str],
+    as_: Any,
+    review_requests: FakeReviewQueue,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("app.review.queue.REVIEW_REQUEST_BACKOFF_SECONDS", 0)
+    claim_id = await answer_with_a_lost_review_request(
+        db_session, api, reviewer, as_, review_requests
+    )
+    await add_proposal(db_session, claim_id, "approve")
+    await transition(db_session, claim_id, S.IN_REVIEW)
+    await db_session.commit()
+    queue = FakeReviewQueue()
+    worker = make_resending_worker(db_session, queue, resend_after_seconds=0)
+
+    await worker.resend_lost_review_requests()
+
+    assert queue.requested == []
+
+
+async def test_a_failed_resend_is_logged_and_retried_on_the_next_sweep(
+    api: AsyncClient,
+    db_session: AsyncSession,
+    reviewer: dict[str, str],
+    as_: Any,
+    review_requests: FakeReviewQueue,
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("app.review.queue.REVIEW_REQUEST_BACKOFF_SECONDS", 0)
+    claim_id = await answer_with_a_lost_review_request(
+        db_session, api, reviewer, as_, review_requests
+    )
+    queue = FakeReviewQueue()
+    queue.request_error = RuntimeError("SQS unavailable")
+    worker = make_resending_worker(db_session, queue, resend_after_seconds=0)
+
+    with caplog.at_level(logging.ERROR, logger="app.review.worker"):
+        await worker.resend_lost_review_requests()
+    queue.request_error = None
+    await worker.resend_lost_review_requests()
+
+    assert "resending lost review requests failed" in caplog.messages
+    assert queue.requested == [claim_id]
 
 
 # --- review history ---------------------------------------------------------------------------

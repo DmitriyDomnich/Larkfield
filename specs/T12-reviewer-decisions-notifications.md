@@ -21,6 +21,7 @@ reviewer  POST /decision: lock claim; own → 403; not in_review → 409; commen
 employee  POST /answer: lock own claim (else 404); not needs_info → 409
           store answer, update fields, claim → extracted; commit → 201 → review request to SQS
 workers   claim → failed (commit) → notification to SQS
+          review worker, every 5 min: extracted claims answered > 15 min ago → review request again
 Lambda    batches of 2, at most 2 at once (sandbox 1 email/s): AdminGetUser(sub) → email → SES
           failure → redelivered, after 5 receives → DLQ (14 days)
 ```
@@ -40,6 +41,12 @@ Lambda    batches of 2, at most 2 at once (sandbox 1 email/s): AdminGetUser(sub)
   anything else goes in `message`. The extraction stays valid, matching `needs_info → extracted`.
 - **`claim_answers` table**, one row per needs_info decision: `message` plus `changed_fields` (the
   values the answer replaced). *Rejected:* a column on the reviewer's decision, appending to `purpose`.
+- **A lost re-review request is resent by the review worker:** unlike the extraction path, no
+  incoming message is redelivered and nothing reaches the DLQ. Every 5 minutes the worker finds
+  `extracted` claims with an answer (only an answer brings back a claim that had a proposal) whose
+  newest answer is over 15 minutes old, past the queue's own retries (3 deliveries × 300 s), and
+  sends the request again; a duplicate is harmless, as the review only finishes an `extracted`
+  claim. *Rejected:* the outbox (above), which would also cover the email.
 - **Re-review:** `answered_requests` (asked, reviewer comment, employee answer) in `<claim_data>` as
   untrusted data, with a note. First reviews and the eval set see the prompt unchanged.
 - **History:** `GET /claims/{id}/review` lists rounds newest first; the claim's owner gets
@@ -57,17 +64,18 @@ Lambda    batches of 2, at most 2 at once (sandbox 1 email/s): AdminGetUser(sub)
 ## Configuration
 
 `NOTIFICATION_QUEUE_URL`, `REVIEW_QUEUE_URL` on the shared `Settings` (API, workers, MCP server,
-Alembic). Lambda: `USER_POOL_ID`, `SENDER_EMAIL`. Terraform `modules/notifications`: queue + DLQ,
+Alembic). Review worker: `REVIEW_RESEND_INTERVAL_SECONDS` (300), `REVIEW_RESEND_AFTER_SECONDS`
+(900). Lambda: `USER_POOL_ID`, `SENDER_EMAIL`. Terraform `modules/notifications`: queue + DLQ,
 Lambda + trigger, SES identities (`ses_sender_email`, `ses_recipient_emails`), Lambda role
 (`ses:SendEmail`, `cognito-idp:AdminGetUser`, SQS). Attach `notification_sender_policy_arn` (API,
-workers) and `api_review_policy_arn` (API).
+workers) and `api_review_policy_arn` (API). The review worker's policy allows `sqs:SendMessage` on
+its own queue, for the resend.
 
 ## Known gaps
 
 - A crash or SQS failure between the commit and the send loses that email; the status stays right.
-  The re-review request is sent 3 times before giving up, but if it's lost the claim stays
-  `extracted` with no review. Recovery: find such claims (`extracted` with an answer newer than the
-  last proposal) and send `{"claim_id": "<id>"}` to the review queue. An outbox closes both.
+  An outbox would close it, sent from the review worker's loop.
+- A lost re-review request delays the review by 15–20 minutes.
 - At-least-once: a Lambda timing out after SES accepted the email sends it twice.
 - No DLQ alarm yet.
 
@@ -75,5 +83,6 @@ workers) and `api_review_policy_arn` (API).
 
 - **Unit:** endpoint roles and validation, the SQS message, the Lambda (subjects, escaping, partial
   batch failures), the re-review prompt.
-- **Integration:** decision and answer rules, a failing email or review request, needs_info → answer
-  → agent re-run → second decision, history per role, workers emailing `failed`.
+- **Integration:** decision and answer rules, a failing email or review request, a lost re-review
+  request resent by the worker (not a recent answer, a first review or a re-reviewed claim),
+  needs_info → answer → agent re-run → second decision, history per role, workers emailing `failed`.

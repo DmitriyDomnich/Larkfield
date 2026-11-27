@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import signal
+from datetime import timedelta
 
 from botocore.config import Config
 from strands.models.bedrock import BedrockModel
@@ -16,7 +17,7 @@ from app.review.agent import ReviewAgent, StrandsReviewAgent
 from app.review.claims_history import DatabaseClaimsHistory
 from app.review.policy import BedrockPolicyRetriever
 from app.review.queue import ReviewMessage, ReviewQueue, SqsReviewQueue
-from app.review.service import review_claim
+from app.review.service import find_answered_claims_awaiting_review, review_claim
 from app.review.settings import ReviewWorkerSettings
 
 logger = logging.getLogger(__name__)
@@ -41,7 +42,12 @@ class ReviewWorker:
 
     async def run(self, stop: asyncio.Event) -> None:
         logger.info("review worker started")
+        loop = asyncio.get_running_loop()
+        next_resend_at = loop.time()
         while not stop.is_set():
+            if loop.time() >= next_resend_at:
+                await self.resend_lost_review_requests()
+                next_resend_at = loop.time() + self._settings.review_resend_interval_seconds
             try:
                 messages = await self._queue.receive_messages()
             except Exception:
@@ -51,6 +57,17 @@ class ReviewWorker:
             for message in messages:
                 await self.handle_message(message)
         logger.info("review worker stopped")
+
+    async def resend_lost_review_requests(self) -> None:
+        answered_for = timedelta(seconds=self._settings.review_resend_after_seconds)
+        try:
+            async with self._sessions() as session:
+                claim_ids = await find_answered_claims_awaiting_review(session, answered_for)
+            for claim_id in claim_ids:
+                await self._queue.request_review(claim_id)
+                logger.warning("resent the lost review request for claim %s", claim_id)
+        except Exception:
+            logger.exception("resending lost review requests failed")
 
     async def handle_message(self, message: ReviewMessage) -> None:
         if message.claim_id is not None:

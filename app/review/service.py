@@ -1,7 +1,9 @@
 import logging
 import uuid
+from datetime import timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.claims.models import Claim
 from app.claims.service import ConcurrentTransitionError, InvalidTransitionError, transition
@@ -9,7 +11,7 @@ from app.claims.status import ClaimStatus
 from app.core.db import SessionFactory
 from app.review.agent import NoValidProposal, ReviewAgent, ValidProposal
 from app.review.claim_data import load_extracted_claim
-from app.review.models import Proposal
+from app.review.models import ClaimAnswer, Proposal, ReviewerDecision
 
 logger = logging.getLogger(__name__)
 
@@ -99,3 +101,18 @@ async def _finish_claim(
     else:
         logger.info("claim %s: failed: %s", claim_id, failure_reason)
     return target_claim_status
+
+
+async def find_answered_claims_awaiting_review(
+    session: AsyncSession, answered_for: timedelta
+) -> list[uuid.UUID]:
+    rows = await session.scalars(
+        select(Claim.id)
+        .join(Proposal, Proposal.claim_id == Claim.id)
+        .join(ReviewerDecision, ReviewerDecision.proposal_id == Proposal.id)
+        .join(ClaimAnswer, ClaimAnswer.reviewer_decision_id == ReviewerDecision.id)
+        .where(Claim.status == ClaimStatus.EXTRACTED)
+        .group_by(Claim.id)
+        .having(func.max(ClaimAnswer.created_at) < func.clock_timestamp() - answered_for)
+    )
+    return list(rows)
