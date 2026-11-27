@@ -210,6 +210,18 @@ def test_latest_results_is_the_newest_run_of_the_set(tmp_path: Path) -> None:
     assert latest_results("dev", tmp_path) == tmp_path / "review-baseline.json"
 
 
+def test_latest_results_skips_agentcore_runs(tmp_path: Path) -> None:
+    in_process = mixed_run()
+    a_day_later = in_process.started_at + timedelta(days=1)
+    agentcore = in_process.model_copy(
+        update={"started_at": a_day_later, "agent_placement": "agentcore"}
+    )
+    save_results(in_process, tmp_path / "review-2026-11-13-1000.json")
+    save_results(agentcore, tmp_path / "review-agentcore-2026-11-14-0900.json")
+
+    assert latest_results("dev", tmp_path) == tmp_path / "review-2026-11-13-1000.json"
+
+
 def test_results_without_a_case_set_are_dev() -> None:
     data = mixed_run().model_dump(mode="json")
     del data["case_set"]
