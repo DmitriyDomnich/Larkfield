@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     aws_region: str
     documents_bucket: str
 
+    review_queue_url: str = Field(min_length=1)
+    notification_queue_url: str = Field(min_length=1)
+
     upload_url_ttl_seconds: int = 600
     file_url_ttl_seconds: int = 300
 

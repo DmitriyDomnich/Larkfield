@@ -18,6 +18,7 @@ from app.review.queue import ReviewMessage
 from app.review.service import NO_VALID_PROPOSAL_REASON, TECHNICAL_FAILURE_REASON
 from app.review.settings import ReviewWorkerSettings
 from app.review.worker import ReviewWorker
+from tests.notifications.fakes import FakeNotificationService
 from tests.review.db import extracted_claim
 from tests.review.fakes import FakeAgent, FakeReviewQueue, proposal_input
 
@@ -36,13 +37,15 @@ def make_worker(
     settings: ReviewWorkerSettings,
     queue: FakeReviewQueue,
     *outcomes: ReviewOutcome | Exception,
+    notification_service: FakeNotificationService | None = None,
 ) -> tuple[ReviewWorker, FakeAgent]:
     @asynccontextmanager
     async def sessions() -> AsyncIterator[AsyncSession]:
         yield db_session  # the test's session, rolled back after the test
 
     agent = FakeAgent(*outcomes)
-    return ReviewWorker(settings, queue, sessions, agent), agent
+    notification_service = notification_service or FakeNotificationService()
+    return ReviewWorker(settings, queue, sessions, agent, notification_service), agent
 
 
 def valid(
@@ -218,7 +221,9 @@ async def test_a_second_delivery_that_finishes_later_stores_nothing(
     async def sessions() -> AsyncIterator[AsyncSession]:
         yield db_session
 
-    slow = ReviewWorker(review_settings, queue, sessions, SlowAgent(valid()))
+    slow = ReviewWorker(
+        review_settings, queue, sessions, SlowAgent(valid()), FakeNotificationService()
+    )
     fast, _ = make_worker(db_session, review_settings, queue, valid(decision="reject"))
 
     # the slow delivery loads the claim while it is still extracted, then waits in the agent
@@ -275,3 +280,61 @@ async def test_the_outcome_of_each_review_is_logged(
         caplog.messages
     )
     assert f"claim {failed}: failed: {NO_VALID_PROPOSAL_REASON}" in caplog.messages
+
+
+async def test_a_claim_the_review_fails_emails_the_employee(
+    db_session: AsyncSession, review_settings: ReviewWorkerSettings
+) -> None:
+    claim_id = await extracted_claim(db_session, "D01")
+    notification_service = FakeNotificationService()
+    worker, _ = make_worker(
+        db_session,
+        review_settings,
+        FakeReviewQueue(),
+        NoValidProposal("limit_turns"),
+        notification_service=notification_service,
+    )
+
+    await worker.handle_message(request(claim_id))
+
+    [sent] = notification_service.sent
+    assert sent.claim_id == claim_id
+    assert sent.status is S.FAILED
+    assert sent.failure_reason == NO_VALID_PROPOSAL_REASON
+
+
+async def test_a_claim_going_in_review_sends_no_email(
+    db_session: AsyncSession, review_settings: ReviewWorkerSettings
+) -> None:
+    claim_id = await extracted_claim(db_session, "D01")
+    notification_service = FakeNotificationService()
+    worker, _ = make_worker(
+        db_session,
+        review_settings,
+        FakeReviewQueue(),
+        valid(),
+        notification_service=notification_service,
+    )
+
+    await worker.handle_message(request(claim_id))
+
+    assert notification_service.sent == []
+
+
+async def test_a_failed_email_send_still_deletes_the_request(
+    db_session: AsyncSession, review_settings: ReviewWorkerSettings
+) -> None:
+    claim_id = await extracted_claim(db_session, "D01")
+    queue = FakeReviewQueue()
+    worker, _ = make_worker(
+        db_session,
+        review_settings,
+        queue,
+        NoValidProposal("limit_turns"),
+        notification_service=FakeNotificationService(error=RuntimeError("SQS down")),
+    )
+
+    await worker.handle_message(request(claim_id))
+
+    assert (await claim_row(db_session, claim_id)).status is S.FAILED
+    assert queue.deleted == ["handle-1"]

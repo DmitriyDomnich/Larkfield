@@ -32,6 +32,7 @@ from app.extraction.settings import WorkerSettings
 from app.extraction.worker import ExtractionWorker
 from tests.claims.fakes import EXE, FakeStorage
 from tests.extraction.fakes import FakeExtractor, FakeQueue, document_bytes, expense
+from tests.notifications.fakes import FakeNotificationService
 from tests.review.fakes import FakeReviewQueue
 
 pytestmark = pytest.mark.integration
@@ -61,6 +62,7 @@ def make_worker(
     storage: FakeStorage,
     *outcomes: ExtractionOutcome | Exception,
     reviews: FakeReviewQueue | None = None,
+    notification_service: FakeNotificationService | None = None,
 ) -> tuple[ExtractionWorker, FakeExtractor]:
     @asynccontextmanager
     async def sessions() -> AsyncIterator[AsyncSession]:
@@ -68,7 +70,11 @@ def make_worker(
 
     extractor = FakeExtractor(*outcomes)
     reviews = reviews or FakeReviewQueue()
-    return ExtractionWorker(settings, queue, sessions, storage, extractor, reviews), extractor
+    notification_service = notification_service or FakeNotificationService()
+    worker = ExtractionWorker(
+        settings, queue, sessions, storage, extractor, reviews, notification_service
+    )
+    return worker, extractor
 
 
 @dataclass(frozen=True)
@@ -611,3 +617,92 @@ async def test_a_duplicate_upload_event_requests_no_second_review(
 
     assert reviews.requested == [document.claim_id]
     assert queue.deleted == ["first", "duplicate"]
+
+
+async def test_a_failed_claim_emails_the_employee(
+    db_session: AsyncSession,
+    storage: FakeStorage,
+    queue: FakeQueue,
+    worker_settings: WorkerSettings,
+) -> None:
+    document = await uploaded_file(db_session, storage, document_bytes("E10.jpg"), "image/jpeg")
+    notification_service = FakeNotificationService()
+    worker, _ = make_worker(
+        db_session,
+        worker_settings,
+        queue,
+        storage,
+        UnreadableDocument("the total is cut off"),
+        notification_service=notification_service,
+    )
+
+    await worker.handle_message(event(document))
+
+    [sent] = notification_service.sent
+    assert sent.claim_id == document.claim_id
+    assert sent.status is ClaimStatus.FAILED
+    assert sent.employee_sub == "user-1"
+    assert sent.failure_reason == (await claim_of(db_session, document)).failure_reason
+
+
+async def test_a_rejected_file_emails_the_employee(
+    db_session: AsyncSession,
+    storage: FakeStorage,
+    queue: FakeQueue,
+    worker_settings: WorkerSettings,
+) -> None:
+    document = await uploaded_file(db_session, storage, EXE)
+    notification_service = FakeNotificationService()
+    worker, _ = make_worker(
+        db_session, worker_settings, queue, storage, notification_service=notification_service
+    )
+
+    await worker.handle_message(event(document))
+
+    [sent] = notification_service.sent
+    assert sent.status is ClaimStatus.FAILED
+    assert sent.failure_reason == "The file is not a valid PDF"
+
+
+async def test_an_extracted_claim_sends_no_email(
+    db_session: AsyncSession,
+    storage: FakeStorage,
+    queue: FakeQueue,
+    worker_settings: WorkerSettings,
+) -> None:
+    document = await uploaded_file(db_session, storage, document_bytes("D01.pdf"))
+    notification_service = FakeNotificationService()
+    worker, _ = make_worker(
+        db_session,
+        worker_settings,
+        queue,
+        storage,
+        ValidExtraction(expense("D01"), MODEL),
+        notification_service=notification_service,
+    )
+
+    await worker.handle_message(event(document))
+
+    assert notification_service.sent == []
+
+
+async def test_a_failed_email_send_still_finishes_the_message(
+    db_session: AsyncSession,
+    storage: FakeStorage,
+    queue: FakeQueue,
+    worker_settings: WorkerSettings,
+) -> None:
+    document = await uploaded_file(db_session, storage, document_bytes("E10.jpg"), "image/jpeg")
+    worker, _ = make_worker(
+        db_session,
+        worker_settings,
+        queue,
+        storage,
+        UnreadableDocument("the total is cut off"),
+        notification_service=FakeNotificationService(error=RuntimeError("SQS down")),
+    )
+
+    await worker.handle_message(event(document))
+
+    assert (await claim_of(db_session, document)).status is ClaimStatus.FAILED
+    assert queue.deleted == ["handle-1"]

@@ -45,3 +45,19 @@ output "review_queue_url" {
 output "review_worker_policy_arn" {
   value = module.review.worker_policy_arn
 }
+
+output "api_review_policy_arn" {
+  value = module.review.api_policy_arn
+}
+
+output "notification_queue_url" {
+  value = module.notifications.queue_url
+}
+
+output "notification_dlq_url" {
+  value = module.notifications.dlq_url
+}
+
+output "notification_sender_policy_arn" {
+  value = module.notifications.sender_policy_arn
+}

@@ -1,16 +1,23 @@
 import asyncio
 import logging
 import signal
+from datetime import timedelta
 
 from botocore.config import Config
 from strands.models.bedrock import BedrockModel
 
+from app.claims.status import ClaimStatus
 from app.core.db import SessionFactory, build_engine, build_session_factory
+from app.notifications.queue import (
+    NotificationService,
+    SqsNotificationService,
+    notify_claim_failed,
+)
 from app.review.agent import ReviewAgent, StrandsReviewAgent
 from app.review.claims_history import DatabaseClaimsHistory
 from app.review.policy import BedrockPolicyRetriever
 from app.review.queue import ReviewMessage, ReviewQueue, SqsReviewQueue
-from app.review.service import review_claim
+from app.review.service import find_answered_claims_awaiting_review, review_claim
 from app.review.settings import ReviewWorkerSettings
 
 logger = logging.getLogger(__name__)
@@ -25,15 +32,22 @@ class ReviewWorker:
         queue: ReviewQueue,
         sessions: SessionFactory,
         agent: ReviewAgent,
+        notification_service: NotificationService,
     ) -> None:
         self._settings = settings
         self._queue = queue
         self._sessions = sessions
         self._agent = agent
+        self._notification_service = notification_service
 
     async def run(self, stop: asyncio.Event) -> None:
         logger.info("review worker started")
+        loop = asyncio.get_running_loop()
+        next_resend_at = loop.time()
         while not stop.is_set():
+            if loop.time() >= next_resend_at:
+                await self.resend_lost_review_requests()
+                next_resend_at = loop.time() + self._settings.review_resend_interval_seconds
             try:
                 messages = await self._queue.receive_messages()
             except Exception:
@@ -44,10 +58,21 @@ class ReviewWorker:
                 await self.handle_message(message)
         logger.info("review worker stopped")
 
+    async def resend_lost_review_requests(self) -> None:
+        answered_for = timedelta(seconds=self._settings.review_resend_after_seconds)
+        try:
+            async with self._sessions() as session:
+                claim_ids = await find_answered_claims_awaiting_review(session, answered_for)
+            for claim_id in claim_ids:
+                await self._queue.request_review(claim_id)
+                logger.warning("resent the lost review request for claim %s", claim_id)
+        except Exception:
+            logger.exception("resending lost review requests failed")
+
     async def handle_message(self, message: ReviewMessage) -> None:
         if message.claim_id is not None:
             try:
-                await review_claim(
+                finished_claim_status = await review_claim(
                     self._sessions,
                     self._agent,
                     message.claim_id,
@@ -62,6 +87,10 @@ class ReviewWorker:
                     self._settings.review_max_receives,
                 )
                 return
+            if finished_claim_status is ClaimStatus.FAILED:
+                await notify_claim_failed(
+                    self._sessions, self._notification_service, message.claim_id
+                )
         await self._queue.delete_message(message.receipt_handle)
 
 
@@ -90,6 +119,7 @@ async def run_worker() -> None:
             SqsReviewQueue(settings),
             sessions,
             agent,
+            SqsNotificationService(settings),
         )
         stop = asyncio.Event()
         loop = asyncio.get_running_loop()

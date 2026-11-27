@@ -9,3 +9,7 @@ output "queue_url" {
 output "worker_policy_arn" {
   value = aws_iam_policy.worker.arn
 }
+
+output "api_policy_arn" {
+  value = aws_iam_policy.api.arn
+}

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
 
 import boto3
+from fastapi import Request
 
 if TYPE_CHECKING:
     from mypy_boto3_sqs import SQSClient
@@ -13,6 +14,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 RECEIVE_WAIT_SECONDS = 20
+REVIEW_REQUEST_ATTEMPTS = 3
+REVIEW_REQUEST_BACKOFF_SECONDS = 1.0
 
 
 @dataclass(frozen=True)
@@ -31,7 +34,7 @@ class ReviewRequests(Protocol):
     async def request_review(self, claim_id: uuid.UUID) -> None: ...
 
 
-class ReviewQueue(Protocol):
+class ReviewQueue(ReviewRequests, Protocol):
     async def receive_messages(self) -> list[ReviewMessage]:
         """Wait up to RECEIVE_WAIT_SECONDS for a message"""
         ...
@@ -80,3 +83,20 @@ def requested_claim(body: str) -> uuid.UUID | None:
     except (ValueError, KeyError, TypeError, AttributeError):
         logger.warning("ignoring a message that is not a review request")
         return None
+
+
+async def send_review_request(review_requests: ReviewRequests, claim_id: uuid.UUID) -> None:
+    for attempt in range(1, REVIEW_REQUEST_ATTEMPTS + 1):
+        try:
+            await review_requests.request_review(claim_id)
+            return
+        except Exception:
+            if attempt == REVIEW_REQUEST_ATTEMPTS:
+                logger.exception("the review request for claim %s could not be queued", claim_id)
+                return
+            await asyncio.sleep(REVIEW_REQUEST_BACKOFF_SECONDS * attempt)
+
+
+def get_review_requests(request: Request) -> ReviewRequests:
+    review_requests: ReviewRequests = request.app.state.review_requests
+    return review_requests

@@ -3,12 +3,18 @@ import logging
 import signal
 from datetime import UTC, datetime
 
+from app.claims.status import ClaimStatus
 from app.claims.storage import ObjectStorage, S3ObjectStorage
 from app.core.db import SessionFactory, build_engine, build_session_factory
 from app.extraction.extractor import BedrockExtractor, ExpenseExtractor
 from app.extraction.queue import SqsUploadQueue, UploadMessage, UploadQueue
 from app.extraction.service import process_upload
 from app.extraction.settings import WorkerSettings
+from app.notifications.queue import (
+    NotificationService,
+    SqsNotificationService,
+    notify_claim_failed,
+)
 from app.review.queue import ReviewRequests, SqsReviewQueue
 
 logger = logging.getLogger(__name__)
@@ -23,6 +29,7 @@ class ExtractionWorker:
         storage: ObjectStorage,
         extractor: ExpenseExtractor,
         reviews: ReviewRequests,
+        notification_service: NotificationService,
     ) -> None:
         self._settings = settings
         self._queue = queue
@@ -30,6 +37,7 @@ class ExtractionWorker:
         self._storage = storage
         self._extractor = extractor
         self._reviews = reviews
+        self._notification_service = notification_service
 
     async def run(self, stop: asyncio.Event) -> None:
         logger.info("extraction worker started")
@@ -48,7 +56,7 @@ class ExtractionWorker:
         try:
             for uploaded in message.objects:
                 async with self._sessions() as session:
-                    extracted_claim = await process_upload(
+                    finished_claim = await process_upload(
                         session,
                         self._storage,
                         self._extractor,
@@ -58,9 +66,15 @@ class ExtractionWorker:
                         max_receives=self._settings.extraction_max_receives,
                         max_pages=self._settings.extraction_max_pages,
                     )
-                # if this fails -> the redelivery requests it again
-                if extracted_claim is not None:
-                    await self._reviews.request_review(extracted_claim)
+                if finished_claim is None:
+                    continue
+                if finished_claim.status is ClaimStatus.EXTRACTED:
+                    # if this fails -> the redelivery requests it again
+                    await self._reviews.request_review(finished_claim.claim_id)
+                else:
+                    await notify_claim_failed(
+                        self._sessions, self._notification_service, finished_claim.claim_id
+                    )
         except Exception:
             logger.exception(
                 "processing an upload failed (delivery %d of %d)",
@@ -82,6 +96,7 @@ async def run_worker() -> None:
         S3ObjectStorage(settings),
         BedrockExtractor(settings),
         SqsReviewQueue(settings),
+        SqsNotificationService(settings),
     )
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
